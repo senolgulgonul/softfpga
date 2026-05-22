@@ -1,0 +1,848 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Softice — iCE40 FPGA Emulator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Syne:wght@400;500;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:       #0a0c0f;
+  --bg2:      #111318;
+  --bg3:      #181b22;
+  --border:   #232730;
+  --border2:  #2e3340;
+  --text:     #e2e4ea;
+  --muted:    #6b7280;
+  --dim:      #3d4350;
+  --green:    #22d45e;
+  --green-dim:#0d4a24;
+  --amber:    #f5a623;
+  --amber-dim:#4a3000;
+  --red:      #f04040;
+  --red-dim:  #4a0f0f;
+  --blue:     #4f9eff;
+  --blue-dim: #0d2a52;
+  --purple:   #a78bfa;
+  --mono:     'JetBrains Mono', monospace;
+  --display:  'Syne', sans-serif;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 14px; }
+body { background: var(--bg); color: var(--text); font-family: var(--mono); min-height: 100vh; overflow-x: hidden; }
+body::before { content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 9999; background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,.07) 2px, rgba(0,0,0,.07) 4px); }
+
+/* header */
+header { display: flex; align-items: center; justify-content: space-between; padding: 12px 20px; border-bottom: 1px solid var(--border); background: var(--bg2); position: sticky; top: 0; z-index: 100; }
+.logo { font-family: var(--display); font-size: 18px; font-weight: 800; letter-spacing: -.02em; }
+.logo span { color: var(--green); }
+.header-right { display: flex; align-items: center; gap: 14px; font-size: 11px; color: var(--muted); }
+.chip-badge { background: var(--green-dim); color: var(--green); border: 1px solid #1a5c35; border-radius: 4px; padding: 2px 8px; font-size: 10px; font-weight: 700; letter-spacing: .06em; }
+.status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); display: inline-block; margin-right: 5px; transition: background .3s, box-shadow .3s; }
+.status-dot.running { background: var(--green); box-shadow: 0 0 6px var(--green); animation: blink 1s ease-in-out infinite; }
+.status-dot.compiling { background: var(--amber); box-shadow: 0 0 6px var(--amber); animation: blink .4s ease-in-out infinite; }
+.status-dot.error { background: var(--red); }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+/* mode tabs */
+.mode-tabs { display: flex; border-bottom: 1px solid var(--border); background: var(--bg2); }
+.mode-tab { padding: 8px 18px; font-size: 11px; font-family: var(--mono); font-weight: 500; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); cursor: pointer; border: none; background: none; border-bottom: 2px solid transparent; transition: all .15s; }
+.mode-tab:hover { color: var(--text); }
+.mode-tab.active { color: var(--green); border-bottom-color: var(--green); }
+
+/* layout */
+.app { display: grid; grid-template-columns: 380px 1fr 260px; height: calc(100vh - 91px); overflow: hidden; }
+@media (max-width: 1100px) { .app { grid-template-columns: 320px 1fr; } .right-col { display: none; } }
+@media (max-width: 720px) { .app { grid-template-columns: 1fr; } .left-col { display: none; } }
+
+/* columns */
+.left-col { border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; }
+.mid-col  { display: flex; flex-direction: column; overflow: hidden; }
+.right-col { border-left: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; }
+
+/* panel headers */
+.phead { padding: 9px 14px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+.plabel { font-family: var(--display); font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.pbody { flex: 1; overflow: auto; padding: 14px; }
+
+/* editor */
+.editor-wrap { flex: 1; display: flex; overflow: hidden; position: relative; }
+.line-nums { width: 36px; background: var(--bg); border-right: 1px solid var(--border); padding: 14px 0; overflow: hidden; flex-shrink: 0; }
+.line-num { font-size: 10px; color: var(--dim); text-align: right; padding-right: 8px; line-height: 1.65; height: 1.65em; }
+.editor-scroll { flex: 1; overflow: auto; }
+textarea#editor { width: 100%; min-height: 100%; background: transparent; border: none; outline: none; color: var(--text); font-family: var(--mono); font-size: 12px; line-height: 1.65; resize: none; padding: 14px; caret-color: var(--green); }
+
+/* toolbar */
+.toolbar { padding: 9px 12px; border-top: 1px solid var(--border); display: flex; gap: 6px; flex-wrap: wrap; flex-shrink: 0; background: var(--bg); align-items: center; }
+button { font-family: var(--mono); font-size: 11px; font-weight: 500; border: 1px solid var(--border2); background: var(--bg3); color: var(--text); border-radius: 4px; padding: 5px 12px; cursor: pointer; transition: all .12s; white-space: nowrap; }
+button:hover { background: var(--border); }
+button.primary { background: var(--green); color: var(--bg); border-color: var(--green); font-weight: 700; }
+button.primary:hover { filter: brightness(1.1); }
+button.primary:disabled { background: var(--green-dim); color: #1a5c35; border-color: #1a5c35; cursor: not-allowed; filter: none; }
+button.run-btn.active { background: var(--blue-dim); color: var(--blue); border-color: var(--blue); }
+select { font-family: var(--mono); font-size: 11px; background: var(--bg3); border: 1px solid var(--border2); color: var(--text); border-radius: 4px; padding: 5px 8px; outline: none; }
+
+/* compile progress */
+.compile-bar { height: 2px; background: var(--border); flex-shrink: 0; position: relative; overflow: hidden; }
+.compile-bar-fill { position: absolute; left: -60%; top: 0; height: 100%; width: 60%; background: var(--amber); transition: left 0s; }
+.compile-bar-fill.active { animation: sweep 1.2s ease-in-out infinite; }
+@keyframes sweep { 0%{left:-60%} 100%{left:100%} }
+.compile-bar-fill.done { left: 0; width: 100%; background: var(--green); transition: width .3s; animation: none; }
+.compile-bar-fill.error { left: 0; width: 100%; background: var(--red); transition: none; animation: none; }
+
+/* io panel */
+.io-section { margin-bottom: 18px; }
+.io-sec-title { font-size: 10px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; padding-bottom: 5px; border-bottom: 1px solid var(--border); }
+.led-grid { display: flex; flex-wrap: wrap; gap: 10px; }
+.led-unit { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.led { width: 22px; height: 22px; border-radius: 50%; border: 1px solid var(--border2); background: #0b0e12; transition: background .06s, box-shadow .06s; }
+.led.on.green { background: var(--green); box-shadow: 0 0 10px var(--green), 0 0 20px #22d45e44; }
+.led.on.amber { background: var(--amber); box-shadow: 0 0 10px var(--amber), 0 0 20px #f5a62344; }
+.led.on.red   { background: var(--red);   box-shadow: 0 0 10px var(--red),   0 0 20px #f0404044; }
+.led.on.blue  { background: var(--blue);  box-shadow: 0 0 10px var(--blue),  0 0 20px #4f9eff44; }
+.led-lbl { font-size: 9px; color: var(--muted); }
+
+/* 7-seg */
+.seg-wrap { background: #04080a; border: 1px solid var(--border); border-radius: 6px; padding: 10px 14px; display: inline-flex; gap: 8px; }
+.seg-digit { position: relative; width: 20px; height: 36px; }
+.seg { position: absolute; background: #1a0a0a; border-radius: 1px; transition: background .06s, box-shadow .06s; }
+.seg.on { background: var(--red); box-shadow: 0 0 5px var(--red); }
+.seg-a{top:0;left:3px;width:14px;height:3px} .seg-b{top:3px;right:0;width:3px;height:13px}
+.seg-c{bottom:3px;right:0;width:3px;height:13px} .seg-d{bottom:0;left:3px;width:14px;height:3px}
+.seg-e{bottom:3px;left:0;width:3px;height:13px} .seg-f{top:3px;left:0;width:3px;height:13px}
+.seg-g{top:50%;left:3px;width:14px;height:3px;transform:translateY(-50%)}
+
+/* switches */
+.sw-grid { display: flex; flex-wrap: wrap; gap: 10px; }
+.sw-unit { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.sw-btn { width: 34px; height: 18px; border-radius: 9px; background: var(--bg3); border: 1px solid var(--border2); cursor: pointer; position: relative; padding: 0; transition: background .2s, border-color .2s; }
+.sw-btn::after { content:''; position: absolute; top:2px; left:2px; width:12px; height:12px; border-radius:50%; background: var(--dim); transition: transform .2s, background .2s; }
+.sw-btn.on { background: var(--green-dim); border-color: var(--green); }
+.sw-btn.on::after { transform: translateX(16px); background: var(--green); }
+.sw-lbl { font-size: 9px; color: var(--muted); }
+
+/* net table */
+.net-tbl { width: 100%; font-size: 11px; border-collapse: collapse; }
+.net-tbl tr { border-bottom: 1px solid var(--border); }
+.net-tbl tr:last-child { border-bottom: none; }
+.net-tbl td { padding: 4px 0; }
+.nv { color: var(--green); font-weight: 700; width: 20px; text-align: right; padding-right: 10px; }
+.nv.z { color: var(--dim); }
+.nn { color: var(--muted); font-size: 10px; }
+.nbar { height: 3px; border-radius: 2px; background: var(--green-dim); margin-top: 3px; }
+.nbar.on { background: var(--green); }
+
+/* stats */
+.stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px; }
+.stat { background: var(--bg3); border: 1px solid var(--border); border-radius: 6px; padding: 10px 12px; }
+.stat-v { font-family: var(--display); font-size: 20px; font-weight: 800; line-height: 1; }
+.stat-v.g { color: var(--green); }
+.stat-l { font-size: 9px; color: var(--muted); letter-spacing: .07em; text-transform: uppercase; margin-top: 4px; }
+
+/* lut inspector */
+.lut-sel { display: flex; flex-wrap: wrap; gap: 3px; margin-bottom: 10px; }
+.lut-sel button { font-size: 10px; padding: 3px 7px; }
+.lut-sel button.active { background: var(--purple); border-color: var(--purple); color: var(--bg); }
+.lut-grid16 { display: grid; grid-template-columns: repeat(4,1fr); gap: 3px; }
+.lc { background: var(--bg3); border: 1px solid var(--border); border-radius: 3px; text-align: center; padding: 4px 2px; font-size: 10px; color: var(--dim); cursor: default; }
+.lc.one { color: var(--text); }
+.lc.cur { background: var(--green-dim); border-color: var(--green); color: var(--green); font-weight: 700; }
+.lut-info { font-size: 10px; color: var(--muted); margin-top: 7px; line-height: 1.7; }
+.lut-info span { color: var(--blue); }
+
+/* log */
+.log-out { flex: 1; overflow-y: auto; padding: 10px 14px; font-size: 11px; line-height: 1.75; background: var(--bg); }
+.log-out .ok   { color: var(--green); }
+.log-out .err  { color: var(--red); }
+.log-out .inf  { color: var(--blue); }
+.log-out .warn { color: var(--amber); }
+.log-out .dim  { color: var(--dim); }
+
+/* statusbar */
+.statusbar { display: flex; align-items: center; gap: 16px; padding: 0 16px; height: 24px; font-size: 10px; color: var(--muted); border-top: 1px solid var(--border); background: var(--bg); flex-shrink: 0; position: relative; z-index: 50; }
+.statusbar b { color: var(--text); font-weight: 500; }
+.statusbar .sep { color: var(--border2); }
+
+/* example tabs */
+.ex-tabs { display: flex; gap: 4px; }
+.ex-tabs button { font-size: 10px; padding: 3px 8px; }
+.ex-tabs button.active { background: var(--bg); border-color: var(--green); color: var(--green); }
+
+/* util bar */
+.util-bar-wrap { margin: 8px 0 14px; }
+.util-label { display: flex; justify-content: space-between; font-size: 10px; color: var(--muted); margin-bottom: 4px; }
+.util-track { height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
+.util-fill { height: 100%; background: var(--green); border-radius: 2px; transition: width .4s; }
+.util-fill.warn { background: var(--amber); }
+.util-fill.danger { background: var(--red); }
+
+/* verilog mode notice */
+.v-notice { background: var(--blue-dim); border: 1px solid var(--blue); border-radius: 6px; padding: 10px 12px; font-size: 11px; color: var(--blue); margin-bottom: 12px; line-height: 1.6; }
+
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">soft<span>ice</span></div>
+  <div class="header-right">
+    <span><span class="status-dot" id="sdot"></span><span id="stxt">idle</span></span>
+    <span class="chip-badge">iCE40UP5K</span>
+    <span>5280 LUTs · 5280 FFs</span>
+    <span id="hcycle">cycle 0</span>
+  </div>
+</header>
+
+<div class="mode-tabs">
+  <button class="mode-tab active" id="tab-verilog" onclick="setMode('verilog')">⚡ Verilog</button>
+  <button class="mode-tab" id="tab-json" onclick="setMode('json')">{ } Netlist JSON</button>
+</div>
+
+<div class="app">
+
+  <!-- LEFT: Editor -->
+  <div class="left-col">
+    <div class="phead">
+      <span class="plabel" id="editor-label">Verilog source</span>
+      <div class="ex-tabs" id="ex-tabs"></div>
+    </div>
+    <div class="editor-wrap">
+      <div class="line-nums" id="lnums"></div>
+      <div class="editor-scroll">
+        <textarea id="editor" spellcheck="false" autocomplete="off" oninput="onEdit()"></textarea>
+      </div>
+    </div>
+    <div class="compile-bar"><div class="compile-bar-fill" id="cbar"></div></div>
+    <div class="toolbar">
+      <button class="primary" id="compile-btn" onclick="doCompile()">⚡ Compile</button>
+      <button onclick="resetSim()">↺ Reset</button>
+      <button id="run-btn" class="run-btn" onclick="toggleRun()">▶ Run</button>
+      <button onclick="stepSim()">⏭ Step</button>
+      <select id="clk-sel" onchange="updateClock()">
+        <option value="1000">1 Hz</option>
+        <option value="500">2 Hz</option>
+        <option value="200" selected>5 Hz</option>
+        <option value="100">10 Hz</option>
+        <option value="50">20 Hz</option>
+        <option value="16">60 Hz</option>
+        <option value="4">250 Hz</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- MIDDLE: IO -->
+  <div class="mid-col">
+    <div class="phead"><span class="plabel">Virtual IO</span><span id="io-count" style="font-size:10px;color:var(--muted)">–</span></div>
+    <div class="pbody" style="flex:1;overflow:auto">
+
+      <div id="v-notice" class="v-notice" style="display:none">
+        <b>Yosys WASM</b> — loading from jsDelivr CDN (~8 MB, first load only). Compiles real Verilog to iCE40 netlist in your browser. No server, no install.
+      </div>
+
+      <div class="io-section">
+        <div class="io-sec-title">LEDs</div>
+        <div class="led-grid" id="leds-display"><span style="font-size:11px;color:var(--muted)">compile a design first</span></div>
+      </div>
+      <div class="io-section">
+        <div class="io-sec-title">7-segment hex</div>
+        <div class="seg-wrap" id="seg-wrap">
+          <div class="seg-digit" id="sd0"><div class="seg seg-a"></div><div class="seg seg-b"></div><div class="seg seg-c"></div><div class="seg seg-d"></div><div class="seg seg-e"></div><div class="seg seg-f"></div><div class="seg seg-g"></div></div>
+          <div class="seg-digit" id="sd1"><div class="seg seg-a"></div><div class="seg seg-b"></div><div class="seg seg-c"></div><div class="seg seg-d"></div><div class="seg seg-e"></div><div class="seg seg-f"></div><div class="seg seg-g"></div></div>
+        </div>
+      </div>
+      <div class="io-section">
+        <div class="io-sec-title">Input switches</div>
+        <div class="sw-grid" id="sw-grid"><span style="font-size:11px;color:var(--muted)">no sw* inputs found</span></div>
+      </div>
+    </div>
+
+    <div style="height:170px;border-top:1px solid var(--border);display:flex;flex-direction:column">
+      <div class="phead" style="flex-shrink:0"><span class="plabel">Console</span><button onclick="clearLog()" style="font-size:10px;padding:2px 8px">clear</button></div>
+      <div class="log-out" id="log-out">
+        <div class="inf">// Softice — iCE40UP5K FPGA Emulator</div>
+        <div class="inf">// Verilog mode: uses YoWASP Yosys WASM via jsDelivr</div>
+        <div class="inf">// JSON mode: direct LUT/FF netlist, no external deps</div>
+        <div class="dim">// Select a mode above and press ⚡ Compile</div>
+      </div>
+    </div>
+
+    <div class="statusbar">
+      <span><b id="sb-luts">0</b> LUTs</span><span class="sep">|</span>
+      <span><b id="sb-ffs">0</b> FFs</span><span class="sep">|</span>
+      <span id="sb-util">0%</span> util<span class="sep">|</span>
+      <span id="sb-st">idle</span>
+    </div>
+  </div>
+
+  <!-- RIGHT: Inspector -->
+  <div class="right-col">
+    <div class="phead"><span class="plabel">Inspector</span></div>
+    <div style="flex:1;overflow:auto;padding:14px;border-bottom:1px solid var(--border)">
+      <div class="stats-grid">
+        <div class="stat"><div class="stat-v g" id="st-cycle">0</div><div class="stat-l">Cycles</div></div>
+        <div class="stat"><div class="stat-v" id="st-luts">0</div><div class="stat-l">LUTs</div></div>
+        <div class="stat"><div class="stat-v" id="st-ffs">0</div><div class="stat-l">FFs</div></div>
+        <div class="stat"><div class="stat-v" id="st-util">0%</div><div class="stat-l">Util</div></div>
+      </div>
+      <div class="util-bar-wrap">
+        <div class="util-label"><span>LUT utilisation</span><span id="util-pct">0 / 5280</span></div>
+        <div class="util-track"><div class="util-fill" id="util-fill" style="width:0%"></div></div>
+      </div>
+      <div style="font-size:10px;color:var(--muted);letter-spacing:.07em;text-transform:uppercase;margin-bottom:8px">Net state</div>
+      <table class="net-tbl" id="net-tbl"><tr><td class="nn">–</td></tr></table>
+    </div>
+    <div style="padding:14px;overflow:auto;height:260px">
+      <div style="font-size:10px;color:var(--muted);letter-spacing:.07em;text-transform:uppercase;margin-bottom:8px">LUT inspector</div>
+      <div class="lut-sel" id="lut-sel"></div>
+      <div class="lut-grid16" id="lut-g16"></div>
+      <div class="lut-info" id="lut-info"></div>
+    </div>
+  </div>
+
+</div>
+
+<script type="module">
+// ══════════════════════════════════════════════════════════════
+//  iCE40 FABRIC EMULATOR CORE
+//  LUT4 = 16-bit truth table. D-FF. Up to 5280 LUTs (UP5K).
+// ══════════════════════════════════════════════════════════════
+class ICE40Emu {
+  constructor(nl) {
+    if ((nl.luts||[]).length > 5280) throw new Error(`LUT count ${nl.luts.length} > 5280 (iCE40UP5K)`);
+    this.luts  = nl.luts  || [];
+    this.ffs   = nl.ffs   || [];
+    this.ios   = nl.ios   || [];
+    this.nets  = { const0:0, const1:1 };
+    this.cycle = 0;
+    for (const ff of this.ffs) this.nets[ff.id+'_q'] = ff.init || 0;
+  }
+  evalLUT(lut) {
+    let a = 0;
+    for (let i = 0; i < 4; i++) a |= ((this.nets[lut.inputs[i]||'const0']||0)&1)<<i;
+    return (lut.truth_table >> a) & 1;
+  }
+  tick() {
+    const lo = {};
+    for (const l of this.luts) lo[l.id] = this.evalLUT(l);
+    for (const ff of this.ffs) this.nets[ff.id+'_q'] = lo[ff.d] ?? 0;
+    this.nets.const0 = 0; this.nets.const1 = 1;
+    this.cycle++;
+    return lo;
+  }
+  getIO()       { return this.ios.map(io => ({ ...io, value: this.nets[io.net]||0 })); }
+  setNet(k,v)   { this.nets[k] = v?1:0; }
+  reset()       { this.cycle=0; this.nets={const0:0,const1:1}; for(const ff of this.ffs) this.nets[ff.id+'_q']=ff.init||0; }
+  util()        { return (this.luts.length/5280*100).toFixed(1); }
+}
+
+// ══════════════════════════════════════════════════════════════
+//  YOSYS NETLIST → EMULATOR NETLIST CONVERTER
+//  Parses Yosys JSON (write_json) output for iCE40.
+//  Handles: SB_LUT4 → lut, SB_DFF* → ff, top-level ports → ios
+// ══════════════════════════════════════════════════════════════
+function yosysJsonToNetlist(yj, ioAnnotations) {
+  const mods  = Object.values(yj.modules);
+  if (!mods.length) throw new Error('No modules in Yosys output');
+  const mod   = mods[0];
+  const cells = mod.cells || {};
+  const ports = mod.ports || {};
+  const netnames = mod.netnames || {};
+
+  // net bit → signal name lookup
+  const bitName = {};
+  // first pass: named nets from netnames
+  for (const [nm, nd] of Object.entries(netnames)) {
+    for (const bit of (nd.bits||[])) {
+      if (typeof bit === 'number') bitName[bit] = nm;
+    }
+  }
+  // named ports override
+  for (const [pname, pd] of Object.entries(ports)) {
+    for (let i=0;i<(pd.bits||[]).length;i++) {
+      const b = pd.bits[i];
+      if (typeof b === 'number') bitName[b] = pd.bits.length===1 ? pname : `${pname}[${i}]`;
+    }
+  }
+  function bname(bit) {
+    if (bit === '0') return 'const0';
+    if (bit === '1') return 'const1';
+    if (typeof bit === 'number') return bitName[bit] || `net_${bit}`;
+    return `net_${bit}`;
+  }
+
+  const luts = [], ffs = [];
+  const ffDrivers = new Set(); // nets driven by FF outputs
+
+  // First pass: collect FFs so we know which nets are FF outputs
+  for (const [cname, cell] of Object.entries(cells)) {
+    if (!cell.type.startsWith('SB_DFF')) continue;
+    const qBit = (cell.connections.Q||[])[0];
+    if (qBit != null) ffDrivers.add(bname(qBit));
+  }
+
+  // Second pass: LUTs
+  for (const [cname, cell] of Object.entries(cells)) {
+    if (cell.type !== 'SB_LUT4') continue;
+    const lut_init = cell.parameters?.LUT_INIT || cell.parameters?.lut_init || '0';
+    const tt = parseInt(lut_init, 2) || parseInt(lut_init, 16) || 0;
+    const ins = ['I0','I1','I2','I3'].map(p => {
+      const b = (cell.connections[p]||[])[0];
+      return b != null ? bname(b) : 'const0';
+    });
+    const out = (cell.connections.O||[])[0];
+    luts.push({ id: cname, inputs: ins, truth_table: tt, out: bname(out) });
+  }
+
+  // Build a reverse map: net name → lut id that drives it
+  const lutDriverOf = {};
+  for (const l of luts) lutDriverOf[l.out] = l.id;
+
+  // Third pass: FFs
+  for (const [cname, cell] of Object.entries(cells)) {
+    if (!cell.type.startsWith('SB_DFF')) continue;
+    const dBit = (cell.connections.D||[])[0];
+    const qBit = (cell.connections.Q||[])[0];
+    const dNet = bname(dBit);
+    const dLut = lutDriverOf[dNet] || dNet;
+    ffs.push({ id: cname, d: dLut, q_net: bname(qBit) });
+  }
+
+  // Build FF Q net → ff.id+'_q' map
+  const ffQMap = {};
+  for (const ff of ffs) ffQMap[ff.q_net] = ff.id+'_q';
+
+  // Remap all lut input nets: if a net is a FF Q, point to ff_q
+  for (const l of luts) {
+    l.inputs = l.inputs.map(n => ffQMap[n] || n);
+  }
+  for (const ff of ffs) {
+    if (ffQMap[ff.d]) ff.d = ffQMap[ff.d]; // unlikely but safe
+  }
+
+  // IO: detect output ports as LEDs, input ports as switches
+  const ios = [];
+  const usedColors = ['green','green','amber','amber','red','red','blue','blue'];
+  let colorIdx = 0;
+  for (const [pname, pd] of Object.entries(ports)) {
+    if (pd.direction === 'output') {
+      for (let i=0;i<(pd.bits||[]).length;i++) {
+        const b = pd.bits[i];
+        const net = bname(b);
+        const ffQ = ffQMap[net] || net;
+        const ann = (ioAnnotations[pname] || ioAnnotations[pname.toLowerCase()]);
+        ios.push({
+          name: pd.bits.length===1 ? pname : `${pname}[${i}]`,
+          net: ffQ,
+          color: ann?.color || usedColors[colorIdx++ % usedColors.length]
+        });
+      }
+    }
+  }
+
+  // If no IOs detected, use FF outputs as LEDs
+  if (!ios.length) {
+    ffs.slice(0,8).forEach((ff,i) => {
+      ios.push({ name:`FF${i}`, net:ff.id+'_q', color: usedColors[i%usedColors.length] });
+    });
+  }
+
+  // Expose input ports as sw* nets
+  for (const [pname, pd] of Object.entries(ports)) {
+    if (pd.direction === 'input' && pname !== 'clk' && pname !== 'CLK' && pname !== 'rst' && pname !== 'RST') {
+      for (let i=0;i<(pd.bits||[]).length;i++) {
+        const b = pd.bits[i];
+        const net = bname(b);
+        const swName = pd.bits.length===1 ? `sw_${pname}` : `sw_${pname}_${i}`;
+        // remap lut inputs referencing this port net → swName
+        for (const l of luts) l.inputs = l.inputs.map(n=>n===net?swName:n);
+      }
+    }
+  }
+
+  return { luts, ffs, ios };
+}
+
+// ══════════════════════════════════════════════════════════════
+//  YOSYS WASM RUNNER (YoWASP via jsDelivr)
+// ══════════════════════════════════════════════════════════════
+let yosysModule = null;
+async function loadYosys() {
+  if (yosysModule) return yosysModule;
+  log('Loading Yosys WASM from jsDelivr (~8 MB)...', 'inf');
+  setStatus('compiling');
+  const { runYosys } = await import('https://cdn.jsdelivr.net/npm/@yowasp/yosys/gen/bundle.js');
+  yosysModule = runYosys;
+  log('Yosys WASM loaded ✓', 'ok');
+  return yosysModule;
+}
+
+async function compileVerilog(src) {
+  const run = await loadYosys();
+  const files = { 'top.v': new TextEncoder().encode(src) };
+  let stdout = '', stderr = '';
+  const outFiles = {};
+  await run(['-p', 'synth_ice40 -flatten -json /dev/stdout', 'top.v'], {
+    stdin: () => null,
+    stdout: (b) => { stdout += String.fromCharCode(b); },
+    stderr: (b) => { stderr += String.fromCharCode(b); },
+    readFile: (p) => { const f=files[p]; if(!f) throw new Error('file not found: '+p); return f; },
+    writeFile: (p,d) => { outFiles[p]=d; },
+    getenv: ()=>null,
+  });
+
+  // Echo Yosys warnings/errors
+  for (const line of stderr.split('\n')) {
+    if (line.includes('Warning')) log(line, 'warn');
+    else if (line.includes('Error') || line.includes('ERROR')) log(line, 'err');
+    else if (line.trim()) log(line, 'dim');
+  }
+
+  if (!stdout.trim().startsWith('{')) throw new Error('Yosys produced no JSON. Check your Verilog for syntax errors.');
+  return JSON.parse(stdout);
+}
+
+// ══════════════════════════════════════════════════════════════
+//  EXAMPLE DESIGNS
+// ══════════════════════════════════════════════════════════════
+const VERILOG_EXAMPLES = {
+  counter: `// 8-bit binary counter
+// LEDs show the count value
+module top (
+  input  clk,
+  output [7:0] led
+);
+  reg [7:0] count = 0;
+  always @(posedge clk)
+    count <= count + 1;
+  assign led = count;
+endmodule`,
+
+  blink: `// LED blink — one LED toggles every clock
+module top (
+  input  clk,
+  output led
+);
+  reg state = 0;
+  always @(posedge clk)
+    state <= ~state;
+  assign led = state;
+endmodule`,
+
+  shift: `// 4-bit shift register
+// sw_in feeds the serial input
+// LEDs show the shift register state
+module top (
+  input  clk,
+  input  sw_in,
+  output [3:0] led
+);
+  reg [3:0] sr = 0;
+  always @(posedge clk)
+    sr <= {sr[2:0], sw_in};
+  assign led = sr;
+endmodule`,
+
+  pwm: `// PWM generator — sw_duty controls duty cycle
+// led_pwm is the PWM output
+module top (
+  input  clk,
+  input  sw_duty,   // 0 = 25%, 1 = 75%
+  output led_pwm
+);
+  reg [3:0] cnt = 0;
+  wire [3:0] thresh = sw_duty ? 4'd12 : 4'd4;
+  always @(posedge clk)
+    cnt <= cnt + 1;
+  assign led_pwm = (cnt < thresh);
+endmodule`,
+};
+
+const JSON_EXAMPLES = {
+  counter: {"luts":[{"id":"lut_b0","inputs":["ff0_q","const0","const0","const0"],"truth_table":21845,"comment":"NOT(ff0)"},{"id":"lut_b1","inputs":["ff0_q","ff1_q","const0","const0"],"truth_table":6,"comment":"XOR"},{"id":"lut_b2","inputs":["ff0_q","ff1_q","ff2_q","const0"],"truth_table":20},{"id":"lut_b3","inputs":["ff0_q","ff1_q","ff2_q","ff3_q"],"truth_table":27030}],"ffs":[{"id":"ff0","d":"lut_b0"},{"id":"ff1","d":"lut_b1"},{"id":"ff2","d":"lut_b2"},{"id":"ff3","d":"lut_b3"}],"ios":[{"name":"LED0","net":"ff0_q","color":"green"},{"name":"LED1","net":"ff1_q","color":"green"},{"name":"LED2","net":"ff2_q","color":"green"},{"name":"LED3","net":"ff3_q","color":"amber"}]},
+  blink:   {"luts":[{"id":"lut_not","inputs":["ff0_q","const0","const0","const0"],"truth_table":21845}],"ffs":[{"id":"ff0","d":"lut_not"}],"ios":[{"name":"LED0","net":"ff0_q","color":"red"}]},
+  shift:   {"luts":[{"id":"lut_p0","inputs":["sw0","const0","const0","const0"],"truth_table":43690},{"id":"lut_p1","inputs":["ff0_q","const0","const0","const0"],"truth_table":43690},{"id":"lut_p2","inputs":["ff1_q","const0","const0","const0"],"truth_table":43690},{"id":"lut_p3","inputs":["ff2_q","const0","const0","const0"],"truth_table":43690}],"ffs":[{"id":"ff0","d":"lut_p0"},{"id":"ff1","d":"lut_p1"},{"id":"ff2","d":"lut_p2"},{"id":"ff3","d":"lut_p3"}],"ios":[{"name":"LED0","net":"ff0_q","color":"green"},{"name":"LED1","net":"ff1_q","color":"green"},{"name":"LED2","net":"ff2_q","color":"green"},{"name":"LED3","net":"ff3_q","color":"amber"}]},
+  pwm:     {"luts":[{"id":"lut_c0","inputs":["ff0_q","const0","const0","const0"],"truth_table":21845},{"id":"lut_c1","inputs":["ff0_q","ff1_q","const0","const0"],"truth_table":6},{"id":"lut_c2","inputs":["ff0_q","ff1_q","ff2_q","const0"],"truth_table":20},{"id":"lut_c3","inputs":["ff0_q","ff1_q","ff2_q","ff3_q"],"truth_table":27030},{"id":"lut_pwm","inputs":["ff3_q","ff2_q","sw0","const0"],"truth_table":12}],"ffs":[{"id":"ff0","d":"lut_c0"},{"id":"ff1","d":"lut_c1"},{"id":"ff2","d":"lut_c2"},{"id":"ff3","d":"lut_c3"},{"id":"ff_pwm","d":"lut_pwm"}],"ios":[{"name":"LED0","net":"ff0_q","color":"green"},{"name":"LED1","net":"ff1_q","color":"green"},{"name":"LED2","net":"ff2_q","color":"green"},{"name":"LED3","net":"ff3_q","color":"green"},{"name":"PWM","net":"ff_pwm_q","color":"amber"}]},
+};
+
+const SEG_MAP = {0:[1,1,1,1,1,1,0],1:[0,1,1,0,0,0,0],2:[1,1,0,1,1,0,1],3:[1,1,1,1,0,0,1],4:[0,1,1,0,0,1,1],5:[1,0,1,1,0,1,1],6:[1,0,1,1,1,1,1],7:[1,1,1,0,0,0,0],8:[1,1,1,1,1,1,1],9:[1,1,1,1,0,1,1],10:[1,1,1,0,1,1,1],11:[0,0,1,1,1,1,1],12:[1,0,0,1,1,1,0],13:[0,1,1,1,1,0,1],14:[1,0,0,1,1,1,1],15:[1,0,0,0,1,1,1]};
+
+// ══════════════════════════════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════════════════════════════
+let emu = null, running = false, timer = null;
+let swState = {}, inspLUT = 0, mode = 'verilog';
+
+// ══════════════════════════════════════════════════════════════
+//  LOG
+// ══════════════════════════════════════════════════════════════
+window.log = function(msg, cls='') {
+  const el = document.getElementById('log-out');
+  const d = document.createElement('div');
+  if (cls) d.className = cls;
+  d.textContent = msg;
+  el.appendChild(d);
+  el.scrollTop = el.scrollHeight;
+}
+window.clearLog = function() { document.getElementById('log-out').innerHTML = ''; }
+
+// ══════════════════════════════════════════════════════════════
+//  STATUS
+// ══════════════════════════════════════════════════════════════
+function setStatus(s, msg) {
+  const dot = document.getElementById('sdot');
+  const txt = document.getElementById('stxt');
+  const bar = document.getElementById('cbar');
+  dot.className = 'status-dot ' + (s==='running'?'running':s==='compiling'?'compiling':s==='error'?'error':'');
+  txt.textContent = msg || s;
+  bar.className = 'compile-bar-fill ' + (s==='compiling'?'active':s==='done'?'done':s==='error'?'error':'');
+  document.getElementById('sb-st').textContent = msg || s;
+}
+
+// ══════════════════════════════════════════════════════════════
+//  MODE
+// ══════════════════════════════════════════════════════════════
+window.setMode = function(m) {
+  mode = m;
+  document.getElementById('tab-verilog').classList.toggle('active', m==='verilog');
+  document.getElementById('tab-json').classList.toggle('active', m==='json');
+  document.getElementById('editor-label').textContent = m==='verilog' ? 'Verilog source' : 'Netlist JSON';
+  document.getElementById('v-notice').style.display = m==='verilog' ? 'block' : 'none';
+  buildExTabs();
+  loadExample(Object.keys(m==='verilog'?VERILOG_EXAMPLES:JSON_EXAMPLES)[0], true);
+}
+
+// ══════════════════════════════════════════════════════════════
+//  COMPILE
+// ══════════════════════════════════════════════════════════════
+window.doCompile = async function() {
+  const src = document.getElementById('editor').value.trim();
+  if (!src) return;
+  stopRun();
+  setStatus('compiling');
+  document.getElementById('compile-btn').disabled = true;
+
+  try {
+    let netlist;
+    if (mode === 'verilog') {
+      log('── Compiling Verilog with Yosys ──', 'inf');
+      const yj = await compileVerilog(src);
+      log(`Synthesis complete. Modules: ${Object.keys(yj.modules).join(', ')}`, 'ok');
+      netlist = yosysJsonToNetlist(yj, {});
+      log(`Mapped: ${netlist.luts.length} LUTs · ${netlist.ffs.length} FFs · ${netlist.ios.length} IOs`, 'ok');
+    } else {
+      let jsrc = src.replace(/:\s*0x([0-9a-fA-F]+)/g, (_,h)=>': '+parseInt(h,16));
+      netlist = JSON.parse(jsrc);
+      log(`Loaded JSON: ${netlist.luts.length} LUTs · ${netlist.ffs.length} FFs · ${netlist.ios.length} IOs`, 'ok');
+    }
+    emu = new ICE40Emu(netlist);
+    swState = {};
+    setStatus('done', 'compiled');
+    setTimeout(()=>setStatus('','idle'), 1500);
+    updateStats(); renderSwitches(netlist); renderLEDs(); renderNets();
+    renderLUTSel(); inspectLUT(0);
+    log(`Utilisation: ${emu.util()}% of iCE40UP5K (${emu.luts.length}/5280 LUTs)`, 'inf');
+  } catch(e) {
+    log('✗ ' + e.message, 'err');
+    setStatus('error', 'error');
+  }
+  document.getElementById('compile-btn').disabled = false;
+}
+
+// ══════════════════════════════════════════════════════════════
+//  SIM CONTROL
+// ══════════════════════════════════════════════════════════════
+window.stepSim = function() {
+  if (!emu) { log('Compile first', 'warn'); return; }
+  emu.tick();
+  const c = emu.cycle;
+  document.getElementById('st-cycle').textContent = c;
+  document.getElementById('hcycle').textContent = 'cycle '+c;
+  renderLEDs(); renderNets(); inspectLUT(inspLUT);
+  if (c<=5||c%16===0) log(`cy${String(c).padStart(5)} │ Q[${emu.ffs.map(f=>emu.nets[f.id+'_q']).join('')}]`);
+}
+
+function stopRun() {
+  if (!running) return;
+  running = false; clearInterval(timer);
+  document.getElementById('run-btn').textContent = '▶ Run';
+  document.getElementById('run-btn').classList.remove('active');
+  document.getElementById('sdot').classList.remove('running');
+  document.getElementById('stxt').textContent = 'paused';
+}
+
+window.toggleRun = function() {
+  if (!emu) { doCompile(); return; }
+  running = !running;
+  const btn = document.getElementById('run-btn');
+  btn.textContent = running ? '⏸ Pause' : '▶ Run';
+  btn.classList.toggle('active', running);
+  document.getElementById('sdot').classList.toggle('running', running);
+  document.getElementById('stxt').textContent = running ? 'running' : 'paused';
+  if (running) { const spd=parseInt(document.getElementById('clk-sel').value); timer=setInterval(stepSim,spd); }
+  else clearInterval(timer);
+}
+
+window.resetSim = function() {
+  if (!emu) return; stopRun();
+  emu.reset();
+  for (const [k,v] of Object.entries(swState)) emu.nets[k]=v;
+  document.getElementById('st-cycle').textContent='0';
+  document.getElementById('hcycle').textContent='cycle 0';
+  renderLEDs(); renderNets(); inspectLUT(inspLUT);
+  log('— reset —', 'dim');
+}
+
+window.updateClock = function() {
+  if (running) { clearInterval(timer); const spd=parseInt(document.getElementById('clk-sel').value); timer=setInterval(stepSim,spd); }
+}
+
+// ══════════════════════════════════════════════════════════════
+//  RENDER
+// ══════════════════════════════════════════════════════════════
+function renderLEDs() {
+  if (!emu) return;
+  const ios = emu.getIO(), el = document.getElementById('leds-display');
+  if (el.children.length!==ios.length) {
+    el.innerHTML='';
+    for (const io of ios) {
+      const w=document.createElement('div'); w.className='led-unit';
+      const l=document.createElement('div'); l.className=`led ${io.color||'green'}`; l.id='led_'+io.name.replace(/[\[\]]/g,'_');
+      const lb=document.createElement('div'); lb.className='led-lbl'; lb.textContent=io.name;
+      w.appendChild(l); w.appendChild(lb); el.appendChild(w);
+    }
+    document.getElementById('io-count').textContent=ios.length+' ios';
+  }
+  for (const io of ios) {
+    const l=document.getElementById('led_'+io.name.replace(/[\[\]]/g,'_'));
+    if(l) l.className=`led ${io.color||'green'}${io.value?' on':''}`;
+  }
+  // 7-seg from low 8 FF bits
+  const v=emu.ffs.slice(0,8).reduce((a,ff,i)=>a|((emu.nets[ff.id+'_q']||0)<<i),0);
+  renderSeg(0,v&0xF); renderSeg(1,(v>>4)&0xF);
+}
+
+function renderSeg(idx,val) {
+  const segs=SEG_MAP[val]||[0,0,0,0,0,0,0];
+  const names=['seg-a','seg-b','seg-c','seg-d','seg-e','seg-f','seg-g'];
+  const d=document.getElementById('sd'+idx); if(!d) return;
+  segs.forEach((on,i)=>{ const s=d.querySelector('.'+names[i]); if(s)s.classList.toggle('on',!!on); });
+}
+
+function renderSwitches(nl) {
+  const el=document.getElementById('sw-grid'); el.innerHTML='';
+  const sw_nets=new Set();
+  for (const l of (nl.luts||[])) for (const inp of (l.inputs||[])) if(inp&&inp.startsWith('sw')) sw_nets.add(inp);
+  if (!sw_nets.size) { el.innerHTML='<span style="font-size:11px;color:var(--muted)">no sw* inputs</span>'; return; }
+  for (const sw of [...sw_nets].sort()) {
+    swState[sw]=0;
+    const w=document.createElement('div'); w.className='sw-unit';
+    const b=document.createElement('button'); b.className='sw-btn'; b.title=sw;
+    const lb=document.createElement('div'); lb.className='sw-lbl'; lb.textContent=sw;
+    b.addEventListener('click',()=>{ swState[sw]^=1; b.classList.toggle('on',!!swState[sw]); if(emu){emu.setNet(sw,swState[sw]);renderNets();} });
+    w.appendChild(b); w.appendChild(lb); el.appendChild(w);
+  }
+}
+
+function renderNets() {
+  if (!emu) return;
+  const el=document.getElementById('net-tbl'); el.innerHTML='';
+  const nets=[...emu.ffs.map(f=>f.id+'_q'),...Object.keys(swState).sort()];
+  for (const net of nets.slice(0,20)) {
+    const v=emu.nets[net]||0;
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td class="nv${v?'':' z'}">${v}</td><td class="nn">${net}</td><td style="width:60px"><div class="nbar${v?' on':''}" style="width:${v?'100%':'4px'}"></div></td>`;
+    el.appendChild(tr);
+  }
+}
+
+function updateStats() {
+  if (!emu) return;
+  document.getElementById('st-luts').textContent=emu.luts.length;
+  document.getElementById('st-ffs').textContent=emu.ffs.length;
+  const u=parseFloat(emu.util());
+  document.getElementById('st-util').textContent=u+'%';
+  document.getElementById('sb-luts').textContent=emu.luts.length;
+  document.getElementById('sb-ffs').textContent=emu.ffs.length;
+  document.getElementById('sb-util').textContent=u+'%';
+  document.getElementById('util-pct').textContent=`${emu.luts.length} / 5280`;
+  const fill=document.getElementById('util-fill');
+  fill.style.width=u+'%';
+  fill.className='util-fill'+(u>80?' danger':u>50?' warn':'');
+}
+
+function renderLUTSel() {
+  if (!emu) return;
+  const el=document.getElementById('lut-sel'); el.innerHTML='';
+  emu.luts.slice(0,12).forEach((l,i)=>{
+    const b=document.createElement('button');
+    b.textContent=l.id.replace(/lut_/,'').slice(0,10);
+    b.className=i===inspLUT?'active':'';
+    b.onclick=()=>{ inspLUT=i; renderLUTSel(); inspectLUT(i); };
+    el.appendChild(b);
+  });
+  if (emu.luts.length>12) { const s=document.createElement('span'); s.textContent=`+${emu.luts.length-12} more`; s.style.cssText='font-size:10px;color:var(--muted);padding:3px 4px'; el.appendChild(s); }
+}
+
+function inspectLUT(idx) {
+  if (!emu||!emu.luts[idx]) return;
+  inspLUT=idx;
+  const lut=emu.luts[idx];
+  let addr=0;
+  for(let i=0;i<4;i++) addr|=((emu.nets[lut.inputs[i]||'const0']||0)&1)<<i;
+  const g=document.getElementById('lut-g16'); g.innerHTML='';
+  for(let i=0;i<16;i++){
+    const b=(lut.truth_table>>i)&1;
+    const c=document.createElement('div');
+    c.className=`lc${i===addr?' cur':''}${b?' one':''}`;
+    c.title=`IN[3:0]=${i.toString(2).padStart(4,'0')} → ${b}`;
+    c.textContent=i.toString(16).toUpperCase()+':'+b;
+    g.appendChild(c);
+  }
+  const inf=document.getElementById('lut-info');
+  inf.innerHTML=lut.inputs.map((n,i)=>`IN${i}: <span>${n||'const0'}</span>`).join('  ')
+    +(lut.comment?`<br><span style="color:var(--muted)">// ${lut.comment}</span>`:'');
+}
+
+// ══════════════════════════════════════════════════════════════
+//  EXAMPLES + LINE NUMS
+// ══════════════════════════════════════════════════════════════
+function buildExTabs() {
+  const el=document.getElementById('ex-tabs'); el.innerHTML='';
+  const examples = mode==='verilog' ? VERILOG_EXAMPLES : JSON_EXAMPLES;
+  Object.keys(examples).forEach((k,i)=>{
+    const b=document.createElement('button');
+    b.textContent=k; b.className='ex-tab'+(i===0?' active':'');
+    b.onclick=(e)=>{ document.querySelectorAll('.ex-tab').forEach(x=>x.classList.remove('active')); e.target.classList.add('active'); loadExample(k,true); };
+    el.appendChild(b);
+  });
+}
+
+function loadExample(name, noCompile) {
+  const examples = mode==='verilog' ? VERILOG_EXAMPLES : JSON_EXAMPLES;
+  const src = examples[name];
+  if (!src) return;
+  const txt = typeof src==='string' ? src : JSON.stringify(src, null, 2);
+  document.getElementById('editor').value=txt;
+  updateLineNums();
+  if (!noCompile) doCompile();
+}
+
+window.onEdit = function() { updateLineNums(); }
+
+function updateLineNums() {
+  const lines=document.getElementById('editor').value.split('\n').length;
+  const el=document.getElementById('lnums'); el.innerHTML='';
+  for(let i=1;i<=lines;i++){ const d=document.createElement('div'); d.className='line-num'; d.textContent=i; el.appendChild(d); }
+}
+
+// ══════════════════════════════════════════════════════════════
+//  BOOT
+// ══════════════════════════════════════════════════════════════
+setMode('verilog');
+</script>
+</body>
+</html>
