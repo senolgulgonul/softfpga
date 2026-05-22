@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Softice — iCE40 FPGA Emulator</title>
+<title>softfpga — iCE40 FPGA Emulator</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Syne:wght@400;500;700;800&display=swap" rel="stylesheet">
 <style>
@@ -188,7 +188,7 @@ select { font-family: var(--mono); font-size: 11px; background: var(--bg3); bord
 <body>
 
 <header>
-  <div class="logo">soft<span>ice</span></div>
+  <div class="logo">soft<span>fpga</span></div>
   <div class="header-right">
     <span><span class="status-dot" id="sdot"></span><span id="stxt">idle</span></span>
     <span class="chip-badge">iCE40UP5K</span>
@@ -263,7 +263,7 @@ select { font-family: var(--mono); font-size: 11px; background: var(--bg3); bord
     <div style="height:170px;border-top:1px solid var(--border);display:flex;flex-direction:column">
       <div class="phead" style="flex-shrink:0"><span class="plabel">Console</span><button onclick="clearLog()" style="font-size:10px;padding:2px 8px">clear</button></div>
       <div class="log-out" id="log-out">
-        <div class="inf">// Softice — iCE40UP5K FPGA Emulator</div>
+        <div class="inf">// softfpga — iCE40UP5K FPGA Emulator</div>
         <div class="inf">// Verilog mode: uses YoWASP Yosys WASM via jsDelivr</div>
         <div class="inf">// JSON mode: direct LUT/FF netlist, no external deps</div>
         <div class="dim">// Select a mode above and press ⚡ Compile</div>
@@ -482,27 +482,43 @@ async function loadYosys() {
 
 async function compileVerilog(src) {
   const run = await loadYosys();
-  const files = { 'top.v': new TextEncoder().encode(src) };
-  let stdout = '', stderr = '';
+  let stderr = '';
+
+  // YoWASP uses a virtual filesystem — write output to a named file, not /dev/stdout
+  const files = {
+    'top.v': new TextEncoder().encode(src)
+  };
+
   const outFiles = {};
-  await run(['-p', 'synth_ice40 -flatten -json /dev/stdout', 'top.v'], {
-    stdin: () => null,
-    stdout: (b) => { stdout += String.fromCharCode(b); },
-    stderr: (b) => { stderr += String.fromCharCode(b); },
-    readFile: (p) => { const f=files[p]; if(!f) throw new Error('file not found: '+p); return f; },
-    writeFile: (p,d) => { outFiles[p]=d; },
-    getenv: ()=>null,
+
+  await run(['-p', 'synth_ice40 -flatten -json top.json', 'top.v'], {
+    stdin:     () => null,
+    stdout:    (b) => {},   // Yosys progress goes to stderr in this build
+    stderr:    (b) => { stderr += String.fromCharCode(b); },
+    readFile:  (p) => {
+      if (files[p]) return files[p];
+      throw new Error('file not found: ' + p);
+    },
+    writeFile: (p, d) => { outFiles[p] = d; },
+    getenv:    () => null,
   });
 
-  // Echo Yosys warnings/errors
+  // Show Yosys output in console
   for (const line of stderr.split('\n')) {
+    if (!line.trim()) continue;
     if (line.includes('Warning')) log(line, 'warn');
-    else if (line.includes('Error') || line.includes('ERROR')) log(line, 'err');
-    else if (line.trim()) log(line, 'dim');
+    else if (line.includes('Error') || line.includes('error:')) log(line, 'err');
+    else log(line, 'dim');
   }
 
-  if (!stdout.trim().startsWith('{')) throw new Error('Yosys produced no JSON. Check your Verilog for syntax errors.');
-  return JSON.parse(stdout);
+  // Read the output JSON file from virtual FS
+  const jsonBytes = outFiles['top.json'];
+  if (!jsonBytes) throw new Error('Synthesis failed — Yosys did not produce top.json. Check console for errors.');
+
+  const jsonStr = new TextDecoder().decode(jsonBytes);
+  if (!jsonStr.trim().startsWith('{')) throw new Error('Invalid JSON from Yosys. Check your Verilog syntax.');
+
+  return JSON.parse(jsonStr);
 }
 
 // ══════════════════════════════════════════════════════════════
