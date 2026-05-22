@@ -191,7 +191,7 @@ select { font-family: var(--mono); font-size: 11px; background: var(--bg3); bord
 <header>
   <div style="display:flex;align-items:center;gap:10px;min-width:0;overflow:visible">
     <div class="logo">soft<span>fpga</span></div>
-    <span class="ver">v1.11</span>
+    <span class="ver">v1.12</span>
   </div>
   <div class="header-right">
     <span><span class="status-dot" id="sdot"></span><span id="stxt">idle</span></span>
@@ -336,6 +336,8 @@ class ICE40Emu {
   }
 
   evalLUT(lut) {
+    // SB_LUT4 address: I0 is the LSB, I3 the MSB.
+    // address = I3<<3 | I2<<2 | I1<<1 | I0
     let a = 0;
     for (let i = 0; i < 4; i++) a |= this.rd(lut.inputs[i] || 'const0') << i;
     return (lut.truth_table >> a) & 1;
@@ -398,13 +400,25 @@ function yosysJsonToNetlist(yj, ioAnnotations) {
 
   log(`Using module: ${modName} (${Object.keys(cells).length} cells)`, 'inf');
 
-  // Build bit-number → net name map
+  // Build bit-number → net name map.
+  // CRITICAL: a bit number is electrically unique. A netname that spans
+  // multiple bits is a BUS — its name must NOT be used as a label for any
+  // single bit, or distinct nets get shorted together. Only single-bit
+  // netnames are safe as direct labels; bus bits get `name[i]`.
   const bitName = {};
   for (const [nm, nd] of Object.entries(netnames)) {
-    for (const bit of (nd.bits || [])) {
-      if (typeof bit === 'number' && !bitName[bit]) bitName[bit] = nm;
+    const bits = nd.bits || [];
+    if (bits.length === 1) {
+      const b = bits[0];
+      if (typeof b === 'number' && !bitName[b]) bitName[b] = nm;
+    } else {
+      for (let i = 0; i < bits.length; i++) {
+        const b = bits[i];
+        if (typeof b === 'number' && !bitName[b]) bitName[b] = `${nm}[${i}]`;
+      }
     }
   }
+  // Ports take priority — they are the user-visible names.
   for (const [pname, pd] of Object.entries(ports)) {
     for (let i = 0; i < (pd.bits||[]).length; i++) {
       const b = pd.bits[i];
@@ -417,16 +431,16 @@ function yosysJsonToNetlist(yj, ioAnnotations) {
   function bname(bit) {
     if (bit === '0' || bit === 0) return 'const0';
     if (bit === '1' || bit === 1) return 'const1';
+    // Fallback name is per-bit unique — never collapses distinct nets.
     if (typeof bit === 'number') return bitName[bit] || `net_${bit}`;
     return `net_${bit}`;
   }
 
-  // Parse LUT_INIT: Yosys stores it as a binary string like "16'0110..."
-  // or a decimal number or a hex string
+  // Parse LUT_INIT. Yosys JSON stores it as a binary string, MSB-first
+  // (leftmost char = highest truth-table index). Parse as-is, no reversal.
   function parseLutInit(raw) {
     if (raw === undefined || raw === null) return 0;
     const s = String(raw);
-    // Format: "16'hXXXX" or "16'bBBBB..." or "16'dDDD" or plain number
     const tickMatch = s.match(/\d+'([bBoOdDhH]?)([0-9a-fA-F_x]+)/);
     if (tickMatch) {
       const base = tickMatch[1].toLowerCase();
@@ -436,12 +450,10 @@ function yosysJsonToNetlist(yj, ioAnnotations) {
       if (base === 'o') return parseInt(val, 8)  || 0;
       return parseInt(val, 10) || 0;
     }
-    // Plain binary string (16 chars of 0/1) — Yosys default
+    // Plain binary string, MSB-first — parse directly.
     if (/^[01]+$/.test(s) && s.length >= 4) {
-      // Yosys stores LSB first in the string, so reverse before parsing
-      return parseInt(s.split('').reverse().join(''), 2) || 0;
+      return parseInt(s, 2) || 0;
     }
-    // Hex string
     if (/^[0-9a-fA-F]+$/.test(s)) return parseInt(s, 16) || 0;
     return parseInt(s, 10) || 0;
   }
