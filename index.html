@@ -188,7 +188,7 @@ select { font-family: var(--mono); font-size: 11px; background: var(--bg3); bord
 <body>
 
 <header>
-  <div class="logo">soft<span>fpga</span> <span style="font-size:11px;font-weight:400;color:var(--muted);letter-spacing:0">v1.4</span></div>
+  <div class="logo">soft<span>fpga</span> <span style="font-size:11px;font-weight:400;color:var(--muted);letter-spacing:0">v1.5</span></div>
   <div class="header-right">
     <span><span class="status-dot" id="sdot"></span><span id="stxt">idle</span></span>
     <span class="chip-badge">iCE40UP5K</span>
@@ -483,11 +483,8 @@ async function loadYosys() {
 async function compileVerilog(src) {
   const run = await loadYosys();
 
-  // Correct YoWASP JS API:
-  //   filesOut = await runYosys(args, filesIn, { stdout, stderr })
-  //   filesIn  = { filename: Uint8Array }
-  //   filesOut = { filename: Uint8Array }  (returned value)
   const filesIn = { 'top.v': new TextEncoder().encode(src) };
+  const dec = new TextDecoder();
   let filesOut = {};
 
   try {
@@ -495,9 +492,13 @@ async function compileVerilog(src) {
       ['top.v', '-p', 'synth_ice40 -flatten -json top.json'],
       filesIn,
       {
-        stdout: (line) => { if (line.trim()) log(line, 'dim'); },
-        stderr: (line) => {
-          if (!line.trim()) return;
+        stdout: (bytes) => {
+          const line = dec.decode(bytes).trim();
+          if (line) log(line, 'dim');
+        },
+        stderr: (bytes) => {
+          const line = dec.decode(bytes).trim();
+          if (!line) return;
           if (line.includes('Warning') || line.includes('warning')) log(line, 'warn');
           else if (line.includes('ERROR') || line.includes('error:') || line.includes('Error:')) log(line, 'err');
           else log(line, 'dim');
@@ -505,7 +506,7 @@ async function compileVerilog(src) {
       }
     );
   } catch(e) {
-    log('Yosys exit: ' + e.message, 'err');
+    log('Yosys: ' + e.message, 'err');
   }
 
   if (filesOut && filesOut['top.json']) {
