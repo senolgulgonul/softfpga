@@ -710,9 +710,18 @@ window.doCompile = async function() {
     if (mode === 'verilog') {
       log('── Compiling Verilog with Yosys ──', 'inf');
       const yj = await compileVerilog(src);
-      log(`Synthesis complete. Modules: ${Object.keys(yj.modules).join(', ')}`, 'ok');
+      log(`Synthesis complete: ${Object.keys(yj.modules).length} modules`, 'ok');
       netlist = yosysJsonToNetlist(yj, {});
       log(`Mapped: ${netlist.luts.length} LUTs · ${netlist.ffs.length} FFs · ${netlist.ios.length} IOs`, 'ok');
+
+      // Debug: show what nets the IOs resolved to
+      for (const io of netlist.ios) {
+        const v = 'net: ' + io.net;
+        log(`  IO ${io.name} → ${v}`, 'dim');
+      }
+      // Debug: show available FF Q nets
+      log('  FF Q nets: ' + netlist.ffs.map(f=>f.id+'_q').join(', '), 'dim');
+
     } else {
       let jsrc = src.replace(/:\s*0x([0-9a-fA-F]+)/g, (_,h)=>': '+parseInt(h,16));
       netlist = JSON.parse(jsrc);
