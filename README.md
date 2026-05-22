@@ -71,6 +71,21 @@ trade-off for learning and experimenting with digital logic.
 
 The typical loop is just **Compile → Run**. Edit, Compile again, Run again.
 
+### Opening and saving files
+
+A small toolbar above the editor lets you work with files on your own disk:
+
+- **📂 Open** — load a Verilog (`.v`, `.sv`, `.vh`) or netlist (`.json`) file
+  from disk into the editor. The mode switches automatically to match the
+  file type.
+- **💾 Save** — write the editor contents back to a file. Edit the filename in
+  the toolbar field first to choose the name. On Chromium browsers (Chrome,
+  Edge) served over `https`/`localhost`, this opens a native *Save As* dialog;
+  elsewhere it downloads the file to your browser's download folder.
+
+Everything is fully client-side — no upload, no server. The Save extension is
+corrected automatically to `.v` or `.json` to match the current mode.
+
 ### Writing your own design
 
 ```verilog
@@ -203,6 +218,7 @@ input with no logic) are not currently supported.
 - [x] Reserved-name IO model (no constraint file needed)
 - [x] LUT inspector and utilisation meter
 - [x] Netlist dump for debugging
+- [x] Open / save .v files from local disk
 - [ ] Clock prescaler for visually slowing fast designs
 - [ ] Block RAM emulation
 - [ ] UART terminal peripheral
@@ -229,7 +245,7 @@ please cite it. Update the year and URL as appropriate.
   title   = {softfpga: A browser-based iCE40 FPGA emulator},
   year    = {2026},
   url     = {https://github.com/senolgulgonul/softfpga},
-  version = {1.19}
+  version = {1.21}
 }
 ```
 

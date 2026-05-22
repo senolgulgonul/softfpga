@@ -64,6 +64,10 @@ header { display: flex; align-items: center; justify-content: space-between; pad
 
 /* panel headers */
 .phead { padding: 9px 14px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+.file-bar { padding: 6px 12px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 6px; flex-shrink: 0; background: var(--bg); }
+.file-btn { font-size: 10px; padding: 3px 9px; }
+.file-name-input { font-family: var(--mono); font-size: 10px; color: var(--fg); background: var(--bg2); border: 1px solid var(--border); border-radius: 3px; padding: 3px 7px; margin-left: 4px; width: 140px; }
+.file-name-input:focus { outline: none; border-color: var(--green); }
 .plabel { font-family: var(--display); font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
 .pbody { flex: 1; overflow: auto; padding: 14px; }
 
@@ -191,7 +195,7 @@ select { font-family: var(--mono); font-size: 11px; background: var(--bg3); bord
 <header>
   <div style="display:flex;align-items:center;gap:10px;min-width:0;overflow:visible">
     <div class="logo">soft<span>fpga</span></div>
-    <span class="ver">v1.19</span>
+    <span class="ver">v1.21</span>
   </div>
   <div class="header-right">
     <span><span class="status-dot" id="sdot"></span><span id="stxt">idle</span></span>
@@ -213,6 +217,12 @@ select { font-family: var(--mono); font-size: 11px; background: var(--bg3); bord
     <div class="phead">
       <span class="plabel" id="editor-label">Verilog source</span>
       <div class="ex-tabs" id="ex-tabs"></div>
+    </div>
+    <div class="file-bar">
+      <button class="file-btn" onclick="openFile()">📂 Open</button>
+      <button class="file-btn" onclick="saveFile()">💾 Save</button>
+      <input type="text" class="file-name-input" id="file-name" value="untitled.v" spellcheck="false" autocomplete="off">
+      <input type="file" id="file-input" accept=".v,.sv,.vh,.txt,.json" style="display:none">
     </div>
     <div class="editor-wrap">
       <div class="line-nums" id="lnums"></div>
@@ -1073,6 +1083,8 @@ function loadExample(name, noCompile) {
   if (!src) return;
   const txt = typeof src==='string' ? src : JSON.stringify(src, null, 2);
   document.getElementById('editor').value=txt;
+  const fn = document.getElementById('file-name');
+  if (fn) fn.value = name + (mode==='json' ? '.json' : '.v');
   updateLineNums();
   if (!noCompile) doCompile();
 }
@@ -1083,6 +1095,70 @@ function updateLineNums() {
   const lines=document.getElementById('editor').value.split('\n').length;
   const el=document.getElementById('lnums'); el.innerHTML='';
   for(let i=1;i<=lines;i++){ const d=document.createElement('div'); d.className='line-num'; d.textContent=i; el.appendChild(d); }
+}
+
+// ══════════════════════════════════════════════════════════════
+//  FILE OPEN / SAVE  (local disk, fully client-side)
+// ══════════════════════════════════════════════════════════════
+window.openFile = function() {
+  const inp = document.getElementById('file-input');
+  inp.value = '';                         // allow re-opening the same file
+  inp.onchange = () => {
+    const f = inp.files && inp.files[0];
+    if (!f) return;
+    const r = new FileReader();
+    r.onload = () => {
+      document.getElementById('editor').value = r.result;
+      document.getElementById('file-name').value = f.name;
+      updateLineNums();
+      // Switch mode to match the file extension.
+      if (/\.json$/i.test(f.name) && mode !== 'json') setMode('json');
+      else if (/\.s?vh?$/i.test(f.name) && mode !== 'verilog') setMode('verilog');
+      log(`Opened ${f.name} (${f.size} bytes)`, 'ok');
+    };
+    r.onerror = () => log(`Could not read ${f.name}`, 'err');
+    r.readAsText(f);
+  };
+  inp.click();
+}
+
+window.saveFile = async function() {
+  const text = document.getElementById('editor').value;
+  const fnEl = document.getElementById('file-name');
+  let name = (fnEl.value || '').trim() || 'untitled';
+  // Ensure the extension matches the current mode.
+  const wantExt = mode === 'json' ? '.json' : '.v';
+  if (!new RegExp(wantExt.replace('.','\\.')+'$','i').test(name)) {
+    name = name.replace(/\.[^.]*$/, '') + wantExt;
+  }
+  fnEl.value = name;
+
+  // Preferred: native Save-As dialog (Chromium browsers, https/localhost).
+  if (window.showSaveFilePicker) {
+    try {
+      const handle = await window.showSaveFilePicker({
+        suggestedName: name,
+        types: [{ description: 'Source file', accept: { 'text/plain': [wantExt] } }]
+      });
+      const w = await handle.createWritable();
+      await w.write(text);
+      await w.close();
+      fnEl.value = handle.name || name;
+      log(`Saved ${fnEl.value}`, 'ok');
+      return;
+    } catch (e) {
+      if (e && e.name === 'AbortError') return;   // user cancelled — do nothing
+      // any other error falls through to the download path
+    }
+  }
+  // Fallback: download with the chosen name.
+  const blob = new Blob([text], { type: 'text/plain' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  log(`Saved ${name}`, 'ok');
 }
 
 // ══════════════════════════════════════════════════════════════
