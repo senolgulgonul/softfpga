@@ -191,7 +191,7 @@ select { font-family: var(--mono); font-size: 11px; background: var(--bg3); bord
 <header>
   <div style="display:flex;align-items:center;gap:10px;min-width:0;overflow:visible">
     <div class="logo">soft<span>fpga</span></div>
-    <span class="ver">v1.10</span>
+    <span class="ver">v1.11</span>
   </div>
   <div class="header-right">
     <span><span class="status-dot" id="sdot"></span><span id="stxt">idle</span></span>
@@ -226,6 +226,7 @@ select { font-family: var(--mono); font-size: 11px; background: var(--bg3); bord
       <button onclick="resetSim()">↺ Reset</button>
       <button id="run-btn" class="run-btn" onclick="toggleRun()">▶ Run</button>
       <button onclick="stepSim()">⏭ Step</button>
+      <button onclick="dumpNetlist()">⬇ Dump Netlist</button>
       <select id="clk-sel" onchange="updateClock()">
         <option value="1000">1 Hz</option>
         <option value="500">2 Hz</option>
@@ -607,7 +608,7 @@ async function compileVerilog(src) {
         try { jsonStr = String.fromCharCode(...Object.values(raw)); } catch(_) {}
       }
     }
-    if (jsonStr.trim().startsWith('{')) return JSON.parse(jsonStr);
+    if (jsonStr.trim().startsWith('{')) { window.__lastYosysJSON = jsonStr; return JSON.parse(jsonStr); }
   }
 
   throw new Error('Synthesis failed — no JSON produced. Check console for errors.');
@@ -772,6 +773,7 @@ window.doCompile = async function() {
       log(`Loaded JSON: ${netlist.luts.length} LUTs · ${netlist.ffs.length} FFs · ${netlist.ios.length} IOs`, 'ok');
     }
     emu = new ICE40Emu(netlist);
+    window.__lastNetlist = netlist;
     swState = {};
     setStatus('done', 'compiled');
     setTimeout(()=>setStatus('','idle'), 1500);
@@ -788,6 +790,29 @@ window.doCompile = async function() {
 // ══════════════════════════════════════════════════════════════
 //  SIM CONTROL
 // ══════════════════════════════════════════════════════════════
+window.dumpNetlist = function() {
+  function save(name, text) {
+    const blob = new Blob([text], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  }
+  let any = false;
+  if (window.__lastYosysJSON) {
+    save('yosys-raw.json', window.__lastYosysJSON);
+    log('Dumped yosys-raw.json', 'ok');
+    any = true;
+  }
+  if (window.__lastNetlist) {
+    save('netlist-converted.json', JSON.stringify(window.__lastNetlist, null, 1));
+    log('Dumped netlist-converted.json', 'ok');
+    any = true;
+  }
+  if (!any) log('Nothing to dump — compile a design first', 'warn');
+}
+
 window.stepSim = function() {
   if (!emu) { log('Compile first', 'warn'); return; }
   emu.tick();
