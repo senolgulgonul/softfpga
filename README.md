@@ -1,8 +1,8 @@
-# Softice — iCE40 FPGA Emulator
+# Softfpga — iCE40 FPGA Emulator
 
-> A Wokwi-style browser emulator for iCE40 FPGAs. Write Verilog, simulate instantly. No install. No server.
+> A browser emulator for iCE40 FPGAs. Write Verilog, simulate instantly. No install. No server.
 
-**Live demo:** `https://yourusername.github.io/fpga-emulator`
+**Live demo:** `(https://senolgulgonul.github.io/softfpga/)`
 
 ---
 
@@ -28,40 +28,8 @@ softice/
 └── vercel.json     ← Vercel headers
 ```
 
----
-
-## Deploy to GitHub Pages (5 min)
-
-```bash
-git clone https://github.com/YOURNAME/softice
-cd softice
-# copy files here
-git add . && git commit -m "init" && git push
-# Settings → Pages → Source: main / root → Save
-```
-
-**GitHub Pages works for:**
-- JSON netlist mode (fully offline, zero CDN)
-- Yosys Verilog mode (loads @yowasp/yosys from jsDelivr, ~8 MB, cached after first load)
-
----
-
-## Deploy to Cloudflare Pages (recommended)
-
-Cloudflare Pages supports the `_headers` file already included, which sets
-the `Cross-Origin-Opener-Policy` and `Cross-Origin-Embedder-Policy` headers
-needed for optimal Yosys WASM threading.
-
-1. Push repo to GitHub
-2. Cloudflare Dashboard → Pages → Connect Git → pick repo
-3. Build settings: output directory `.`, no build command
-4. Deploy — done
-
----
-
 ## How it works
 
-```
 Verilog
   │
   ▼  Yosys WASM (@yowasp/yosys via jsDelivr, runs in browser)
@@ -119,13 +87,6 @@ always @(posedge clk) count <= count + 1;
 
 ---
 
-## Name
-
-**Softice** = soft (software emulation) + iCE (iCE40 FPGA family).
-Also a nod to SoftICE, the legendary 90s Windows kernel debugger — fitting for
-a tool that lets you see inside digital logic at the cycle level.
-
----
 
 ## License
 
