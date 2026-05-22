@@ -35,8 +35,8 @@ body::before { content: ''; position: fixed; inset: 0; pointer-events: none; z-i
 
 /* header */
 header { display: flex; align-items: center; justify-content: space-between; padding: 12px 20px; border-bottom: 1px solid var(--border); background: var(--bg2); position: sticky; top: 0; z-index: 100; min-height: 49px; overflow: visible; }
-.logo { font-family: var(--display); font-size: 18px; font-weight: 800; letter-spacing: -.02em; white-space: nowrap; display: flex; align-items: baseline; gap: 6px; overflow: visible; }
-.ver { font-family: var(--mono); font-size: 10px; font-weight: 400; color: var(--muted); letter-spacing: 0; padding-left: 2px; }
+.logo { font-family: var(--display); font-size: 18px; font-weight: 800; letter-spacing: -.02em; white-space: nowrap; flex-shrink: 0; }
+.ver { font-family: var(--mono); font-size: 10px; font-weight: 400; color: var(--muted); white-space: nowrap; flex-shrink: 0; }
 .logo span { color: var(--green); }
 .header-right { display: flex; align-items: center; gap: 14px; font-size: 11px; color: var(--muted); }
 .chip-badge { background: var(--green-dim); color: var(--green); border: 1px solid #1a5c35; border-radius: 4px; padding: 2px 8px; font-size: 10px; font-weight: 700; letter-spacing: .06em; }
@@ -189,7 +189,10 @@ select { font-family: var(--mono); font-size: 11px; background: var(--bg3); bord
 <body>
 
 <header>
-  <div class="logo">soft<span>fpga</span><span class="ver">v1.7</span></div>
+  <div style="display:flex;align-items:center;gap:10px;min-width:0;overflow:visible">
+    <div class="logo">soft<span>fpga</span></div>
+    <span class="ver">v1.8</span>
+  </div>
   <div class="header-right">
     <span><span class="status-dot" id="sdot"></span><span id="stxt">idle</span></span>
     <span class="chip-badge">iCE40UP5K</span>
@@ -346,124 +349,156 @@ class ICE40Emu {
 //  Handles: SB_LUT4 → lut, SB_DFF* → ff, top-level ports → ios
 // ══════════════════════════════════════════════════════════════
 function yosysJsonToNetlist(yj, ioAnnotations) {
-  const mods  = Object.values(yj.modules);
-  if (!mods.length) throw new Error('No modules in Yosys output');
-  const mod   = mods[0];
-  const cells = mod.cells || {};
-  const ports = mod.ports || {};
+  // Find the user's top module — it has ports, not a library cell
+  // Prefer module named 'top', else pick the one with the most cells
+  const allMods = Object.entries(yj.modules || {});
+  let topEntry = allMods.find(([n]) => n === 'top') ||
+                 allMods.find(([n]) => n === '\\top') ||
+                 allMods.reduce((best, cur) =>
+                   Object.keys(cur[1].cells||{}).length > Object.keys(best[1].cells||{}).length ? cur : best
+                 , allMods[0]);
+
+  if (!topEntry) throw new Error('No module found in Yosys JSON');
+  const [modName, mod] = topEntry;
+  const cells    = mod.cells    || {};
+  const ports    = mod.ports    || {};
   const netnames = mod.netnames || {};
 
-  // net bit → signal name lookup
+  log(`Using module: ${modName} (${Object.keys(cells).length} cells)`, 'inf');
+
+  // Build bit-number → net name map
   const bitName = {};
-  // first pass: named nets from netnames
   for (const [nm, nd] of Object.entries(netnames)) {
-    for (const bit of (nd.bits||[])) {
-      if (typeof bit === 'number') bitName[bit] = nm;
+    for (const bit of (nd.bits || [])) {
+      if (typeof bit === 'number' && !bitName[bit]) bitName[bit] = nm;
     }
   }
-  // named ports override
   for (const [pname, pd] of Object.entries(ports)) {
-    for (let i=0;i<(pd.bits||[]).length;i++) {
+    for (let i = 0; i < (pd.bits||[]).length; i++) {
       const b = pd.bits[i];
-      if (typeof b === 'number') bitName[b] = pd.bits.length===1 ? pname : `${pname}[${i}]`;
+      if (typeof b === 'number') {
+        bitName[b] = pd.bits.length === 1 ? pname : `${pname}[${i}]`;
+      }
     }
   }
+
   function bname(bit) {
-    if (bit === '0') return 'const0';
-    if (bit === '1') return 'const1';
+    if (bit === '0' || bit === 0) return 'const0';
+    if (bit === '1' || bit === 1) return 'const1';
     if (typeof bit === 'number') return bitName[bit] || `net_${bit}`;
     return `net_${bit}`;
   }
 
-  const luts = [], ffs = [];
-  const ffDrivers = new Set(); // nets driven by FF outputs
-
-  // First pass: collect FFs so we know which nets are FF outputs
-  for (const [cname, cell] of Object.entries(cells)) {
-    if (!cell.type.startsWith('SB_DFF')) continue;
-    const qBit = (cell.connections.Q||[])[0];
-    if (qBit != null) ffDrivers.add(bname(qBit));
+  // Parse LUT_INIT: Yosys stores it as a binary string like "16'0110..."
+  // or a decimal number or a hex string
+  function parseLutInit(raw) {
+    if (raw === undefined || raw === null) return 0;
+    const s = String(raw);
+    // Format: "16'hXXXX" or "16'bBBBB..." or "16'dDDD" or plain number
+    const tickMatch = s.match(/\d+'([bBoOdDhH]?)([0-9a-fA-F_x]+)/);
+    if (tickMatch) {
+      const base = tickMatch[1].toLowerCase();
+      const val  = tickMatch[2].replace(/_/g,'').replace(/x/g,'0');
+      if (base === 'h') return parseInt(val, 16) || 0;
+      if (base === 'b') return parseInt(val, 2)  || 0;
+      if (base === 'o') return parseInt(val, 8)  || 0;
+      return parseInt(val, 10) || 0;
+    }
+    // Plain binary string (16 chars of 0/1) — Yosys default
+    if (/^[01]+$/.test(s) && s.length >= 4) {
+      // Yosys stores LSB first in the string, so reverse before parsing
+      return parseInt(s.split('').reverse().join(''), 2) || 0;
+    }
+    // Hex string
+    if (/^[0-9a-fA-F]+$/.test(s)) return parseInt(s, 16) || 0;
+    return parseInt(s, 10) || 0;
   }
 
-  // Second pass: LUTs
+  const luts = [], ffs = [];
+
+  // Collect FFs first (to know which nets are FF Q outputs)
+  const ffQNets = new Map(); // net_name → ff_id+'_q'
+  for (const [cname, cell] of Object.entries(cells)) {
+    if (!cell.type.startsWith('SB_DFF')) continue;
+    const qBit = (cell.connections.Q || [])[0];
+    if (qBit != null) {
+      const qNet = bname(qBit);
+      ffQNets.set(qNet, cname + '_q');
+    }
+  }
+
+  // Collect LUTs
+  const lutOutMap = {}; // output net → lut id
   for (const [cname, cell] of Object.entries(cells)) {
     if (cell.type !== 'SB_LUT4') continue;
-    const lut_init = cell.parameters?.LUT_INIT || cell.parameters?.lut_init || '0';
-    const tt = parseInt(lut_init, 2) || parseInt(lut_init, 16) || 0;
+    const raw = cell.parameters?.LUT_INIT ?? cell.parameters?.lut_init ?? '0';
+    const tt  = parseLutInit(raw);
     const ins = ['I0','I1','I2','I3'].map(p => {
-      const b = (cell.connections[p]||[])[0];
-      return b != null ? bname(b) : 'const0';
+      const b = (cell.connections[p] || [])[0];
+      if (b == null) return 'const0';
+      const n = bname(b);
+      return ffQNets.get(n) || n;
     });
-    const out = (cell.connections.O||[])[0];
-    luts.push({ id: cname, inputs: ins, truth_table: tt, out: bname(out) });
+    const outBit = (cell.connections.O || [])[0];
+    const outNet = outBit != null ? bname(outBit) : `lut_out_${cname}`;
+    lutOutMap[outNet] = cname;
+    luts.push({ id: cname, inputs: ins, truth_table: tt, out: outNet });
   }
 
-  // Build a reverse map: net name → lut id that drives it
-  const lutDriverOf = {};
-  for (const l of luts) lutDriverOf[l.out] = l.id;
-
-  // Third pass: FFs
+  // Collect FFs, linking D input to driving LUT or net
   for (const [cname, cell] of Object.entries(cells)) {
     if (!cell.type.startsWith('SB_DFF')) continue;
-    const dBit = (cell.connections.D||[])[0];
-    const qBit = (cell.connections.Q||[])[0];
-    const dNet = bname(dBit);
-    const dLut = lutDriverOf[dNet] || dNet;
-    ffs.push({ id: cname, d: dLut, q_net: bname(qBit) });
+    const dBit = (cell.connections.D || [])[0];
+    const qBit = (cell.connections.Q || [])[0];
+    const dNet = dBit != null ? bname(dBit) : 'const0';
+    const qNet = qBit != null ? bname(qBit) : `ff_q_${cname}`;
+    // D input: prefer LUT id, else net name, else FF Q alias
+    const dSrc = lutOutMap[dNet] || ffQNets.get(dNet) || dNet;
+    ffs.push({ id: cname, d: dSrc, q_net: qNet });
   }
 
-  // Build FF Q net → ff.id+'_q' map
-  const ffQMap = {};
-  for (const ff of ffs) ffQMap[ff.q_net] = ff.id+'_q';
-
-  // Remap all lut input nets: if a net is a FF Q, point to ff_q
-  for (const l of luts) {
-    l.inputs = l.inputs.map(n => ffQMap[n] || n);
-  }
-  for (const ff of ffs) {
-    if (ffQMap[ff.d]) ff.d = ffQMap[ff.d]; // unlikely but safe
-  }
-
-  // IO: detect output ports as LEDs, input ports as switches
+  // Build IOs from output ports
   const ios = [];
-  const usedColors = ['green','green','amber','amber','red','red','blue','blue'];
-  let colorIdx = 0;
+  const colors = ['green','green','amber','amber','red','red','blue','blue'];
+  let ci = 0;
   for (const [pname, pd] of Object.entries(ports)) {
     if (pd.direction === 'output') {
-      for (let i=0;i<(pd.bits||[]).length;i++) {
-        const b = pd.bits[i];
-        const net = bname(b);
-        const ffQ = ffQMap[net] || net;
-        const ann = (ioAnnotations[pname] || ioAnnotations[pname.toLowerCase()]);
+      for (let i = 0; i < (pd.bits||[]).length; i++) {
+        const b    = pd.bits[i];
+        const net  = bname(b);
+        const qNet = ffQNets.get(net) || lutOutMap[net] ? net : (ffQNets.get(net) || net);
+        // Try to resolve to FF Q or LUT output
+        const resolved = ffQNets.get(net) || net;
         ios.push({
-          name: pd.bits.length===1 ? pname : `${pname}[${i}]`,
-          net: ffQ,
-          color: ann?.color || usedColors[colorIdx++ % usedColors.length]
+          name:  pd.bits.length === 1 ? pname : `${pname}[${i}]`,
+          net:   resolved,
+          color: colors[ci++ % colors.length]
         });
       }
     }
   }
 
-  // If no IOs detected, use FF outputs as LEDs
+  // Fallback: use FF outputs if no IOs found
   if (!ios.length) {
-    ffs.slice(0,8).forEach((ff,i) => {
-      ios.push({ name:`FF${i}`, net:ff.id+'_q', color: usedColors[i%usedColors.length] });
-    });
+    ffs.slice(0, 8).forEach((ff, i) =>
+      ios.push({ name:`FF${i}`, net: ff.id+'_q', color: colors[i%colors.length] })
+    );
   }
 
-  // Expose input ports as sw* nets
+  // Expose non-clk input ports as sw_* nets
   for (const [pname, pd] of Object.entries(ports)) {
-    if (pd.direction === 'input' && pname !== 'clk' && pname !== 'CLK' && pname !== 'rst' && pname !== 'RST') {
-      for (let i=0;i<(pd.bits||[]).length;i++) {
-        const b = pd.bits[i];
-        const net = bname(b);
-        const swName = pd.bits.length===1 ? `sw_${pname}` : `sw_${pname}_${i}`;
-        // remap lut inputs referencing this port net → swName
-        for (const l of luts) l.inputs = l.inputs.map(n=>n===net?swName:n);
+    const skip = ['clk','CLK','clk_i','rst','RST','reset'];
+    if (pd.direction === 'input' && !skip.includes(pname)) {
+      for (let i = 0; i < (pd.bits||[]).length; i++) {
+        const b     = pd.bits[i];
+        const net   = bname(b);
+        const swName = pd.bits.length === 1 ? `sw_${pname}` : `sw_${pname}[${i}]`;
+        for (const l of luts) l.inputs = l.inputs.map(n => n===net ? swName : n);
       }
     }
   }
 
+  log(`Converted: ${luts.length} LUTs · ${ffs.length} FFs · ${ios.length} IOs`, 'ok');
   return { luts, ffs, ios };
 }
 
