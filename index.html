@@ -34,8 +34,8 @@ body { background: var(--bg); color: var(--text); font-family: var(--mono); min-
 body::before { content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 9999; background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,.07) 2px, rgba(0,0,0,.07) 4px); }
 
 /* header */
-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 20px; border-bottom: 1px solid var(--border); background: var(--bg2); position: sticky; top: 0; z-index: 100; min-height: 49px; overflow: visible; }
-.logo { font-family: var(--display); font-size: 18px; font-weight: 800; letter-spacing: -.02em; white-space: nowrap; flex-shrink: 0; }
+header { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; border-bottom: 1px solid var(--border); background: var(--bg2); position: sticky; top: 0; z-index: 100; min-height: 58px; overflow: visible; }
+.logo { font-family: var(--display); font-size: 18px; font-weight: 800; letter-spacing: -.02em; white-space: nowrap; flex-shrink: 0; line-height: 1.6; padding-bottom: 5px; }
 .ver { font-family: var(--mono); font-size: 10px; font-weight: 400; color: var(--muted); white-space: nowrap; flex-shrink: 0; }
 .logo span { color: var(--green); }
 .header-right { display: flex; align-items: center; gap: 14px; font-size: 11px; color: var(--muted); }
@@ -191,7 +191,7 @@ select { font-family: var(--mono); font-size: 11px; background: var(--bg3); bord
 <header>
   <div style="display:flex;align-items:center;gap:10px;min-width:0;overflow:visible">
     <div class="logo">soft<span>fpga</span></div>
-    <span class="ver">v1.12</span>
+    <span class="ver">v1.19</span>
   </div>
   <div class="header-right">
     <span><span class="status-dot" id="sdot"></span><span id="stxt">idle</span></span>
@@ -497,18 +497,26 @@ function yosysJsonToNetlist(yj, ioAnnotations) {
     ffs.push({ id: cname, d_net: dNet, q_net: qNet, init: 0 });
   }
 
-  // Build IOs from output ports. Every output port bit is already a real net
-  // (driven by a LUT, a carry cell, or an FF Q), so bind directly to it.
+  // Build IOs from output ports. Reserved-name board model:
+  //   led[7:0]  → the 8 LEDs
+  //   hex[7:0]  → the 2-digit hex display
+  // Each IO carries a `kind` so the UI knows where to route it.
   const ios = [];
   const colors = ['green','green','amber','amber','red','red','blue','blue'];
   let ci = 0;
   for (const [pname, pd] of Object.entries(ports)) {
     if (pd.direction === 'output') {
+      const lname = pname.toLowerCase();
+      const kind  = lname.startsWith('hex') ? 'hex'
+                  : lname.startsWith('led') ? 'led'
+                  : 'led';   // unrecognized outputs default to LEDs
       for (let i = 0; i < (pd.bits||[]).length; i++) {
         const net = bname(pd.bits[i]);
         ios.push({
           name:  pd.bits.length === 1 ? pname : `${pname}[${i}]`,
           net:   net,
+          kind:  kind,
+          bit:   pd.bits.length === 1 ? 0 : i,
           color: colors[ci++ % colors.length]
         });
       }
@@ -518,23 +526,29 @@ function yosysJsonToNetlist(yj, ioAnnotations) {
   // Fallback: use FF Q nets if no output ports were found.
   if (!ios.length) {
     ffs.slice(0, 8).forEach((ff, i) =>
-      ios.push({ name:`FF${i}`, net: ff.q_net, color: colors[i%colors.length] })
+      ios.push({ name:`FF${i}`, net: ff.q_net, kind:'led', bit:i, color: colors[i%colors.length] })
     );
   }
 
-  // Expose non-clk input ports as sw_* nets (rewires LUT + carry inputs).
+  // Expose non-clk input ports as sw_* nets.
+  // Must rewire EVERY consumer: LUT inputs, carry inputs, AND FF D inputs.
+  // (A shift register feeds its serial input straight into a FF, with no
+  // LUT in between — missing the FF rewire leaves it permanently at 0.)
   for (const [pname, pd] of Object.entries(ports)) {
     const skip = ['clk','CLK','clk_i','rst','RST','reset'];
     if (pd.direction === 'input' && !skip.includes(pname)) {
       for (let i = 0; i < (pd.bits||[]).length; i++) {
         const net    = bname(pd.bits[i]);
-        const swName = pd.bits.length === 1 ? `sw_${pname}` : `sw_${pname}[${i}]`;
+        // Don't double the prefix if the port is already named sw* (e.g. sw_in).
+        const base   = /^sw/i.test(pname) ? pname : `sw_${pname}`;
+        const swName = pd.bits.length === 1 ? base : `${base}[${i}]`;
         for (const l of luts) l.inputs = l.inputs.map(n => n===net ? swName : n);
         for (const c of carries) {
           if (c.i0===net) c.i0=swName;
           if (c.i1===net) c.i1=swName;
           if (c.ci===net) c.ci=swName;
         }
+        for (const ff of ffs) if (ff.d_net===net) ff.d_net=swName;
       }
     }
   }
@@ -631,54 +645,73 @@ async function compileVerilog(src) {
 // ══════════════════════════════════════════════════════════════
 const VERILOG_EXAMPLES = {
   counter: `// 8-bit binary counter
-// LEDs show the count value
+// led shows the count; hex shows it as hex digits
 module top (
   input  clk,
-  output [7:0] led
+  output [7:0] led,
+  output [7:0] hex
 );
   reg [7:0] count = 0;
   always @(posedge clk)
     count <= count + 1;
   assign led = count;
+  assign hex = count;
 endmodule`,
 
   blink: `// LED blink — one LED toggles every clock
 module top (
   input  clk,
-  output led
+  output [7:0] led,
+  output [7:0] hex
 );
   reg state = 0;
   always @(posedge clk)
     state <= ~state;
-  assign led = state;
+  assign led = {7'b0, state};
+  assign hex = {7'b0, state};
 endmodule`,
 
-  shift: `// 4-bit shift register
-// sw_in feeds the serial input
-// LEDs show the shift register state
+  shift: `// 8-bit shift register
+// sw[0] feeds the serial input; led shows the state
 module top (
   input  clk,
-  input  sw_in,
-  output [3:0] led
+  input  [7:0] sw,
+  output [7:0] led,
+  output [7:0] hex
 );
-  reg [3:0] sr = 0;
+  reg [7:0] sr = 0;
   always @(posedge clk)
-    sr <= {sr[2:0], sw_in};
+    sr <= {sr[6:0], sw[0]};
   assign led = sr;
+  assign hex = sr;
 endmodule`,
 
-  pwm: `// PWM generator — sw_duty controls duty cycle
-// led_pwm is the PWM output
+  pwm: `// PWM generator — sw[0] selects duty cycle
+// led[0] is the PWM output; hex shows the counter
 module top (
   input  clk,
-  input  sw_duty,   // 0 = 25%, 1 = 75%
-  output led_pwm
+  input  [7:0] sw,
+  output [7:0] led,
+  output [7:0] hex
 );
   reg [3:0] cnt = 0;
-  wire [3:0] thresh = sw_duty ? 4'd12 : 4'd4;
+  wire [3:0] thresh = sw[0] ? 4'd12 : 4'd4;
   always @(posedge clk)
     cnt <= cnt + 1;
-  assign led_pwm = (cnt < thresh);
+  assign led = {7'b0, (cnt < thresh)};
+  assign hex = {4'b0, cnt};
+endmodule`,
+
+  adder: `// 4-bit adder — sw[3:0] + sw[7:4], result on led and hex
+module top (
+  input  clk,
+  input  [7:0] sw,
+  output [7:0] led,
+  output [7:0] hex
+);
+  wire [4:0] sum = sw[3:0] + sw[7:4];
+  assign led = {3'b0, sum};
+  assign hex = {3'b0, sum};
 endmodule`,
 };
 
@@ -782,6 +815,17 @@ window.doCompile = async function() {
         }
       }
       netlist.carries = netlist.carries || [];
+      // Tag IOs with kind/bit so the board renderer treats them consistently.
+      for (const io of (netlist.ios||[])) {
+        if (!io.kind) {
+          const ln = (io.name||'').toLowerCase();
+          io.kind = ln.startsWith('hex') ? 'hex' : 'led';
+        }
+        if (io.bit == null) {
+          const m = (io.name||'').match(/\[(\d+)\]$/) || (io.name||'').match(/(\d+)$/);
+          io.bit = m ? +m[1] : 0;
+        }
+      }
       log(`Loaded JSON: ${netlist.luts.length} LUTs · ${netlist.ffs.length} FFs · ${netlist.ios.length} IOs`, 'ok');
     }
     emu = new ICE40Emu(netlist);
@@ -832,7 +876,23 @@ window.stepSim = function() {
   document.getElementById('st-cycle').textContent = c;
   document.getElementById('hcycle').textContent = 'cycle '+c;
   renderLEDs(); renderNets(); inspectLUT(inspLUT);
-  if (c<=5||c%16===0) log(`cy${String(c).padStart(5)} │ Q[${emu.ffs.map(f=>emu.rd(f.q_net||f.id+'_q')).join('')}]`);
+  if (c<=5||c%16===0) {
+    // Print Q with bit 7 leftmost, indexed by IO bit position.
+    const ioByBit = {};
+    for (const io of emu.getIO()) {
+      const m = io.name.match(/\[(\d+)\]$/);
+      if (m) ioByBit[+m[1]] = io.value;
+    }
+    let bits;
+    if (Object.keys(ioByBit).length) {
+      bits = [];
+      for (let i = 7; i >= 0; i--) bits.push(ioByBit[i] ? 1 : 0);
+      bits = bits.join('');
+    } else {
+      bits = emu.ffs.map(f=>emu.rd(f.q_net||f.id+'_q')).join('');
+    }
+    log(`cy${String(c).padStart(5)} │ Q[${bits}]`);
+  }
 }
 
 function stopRun() {
@@ -875,28 +935,40 @@ window.updateClock = function() {
 // ══════════════════════════════════════════════════════════════
 function renderLEDs() {
   if (!emu) return;
-  const ios = emu.getIO(), el = document.getElementById('leds-display');
-  if (el.children.length!==ios.length) {
+  const el = document.getElementById('leds-display');
+  const allIos = emu.getIO();
+  // LED row shows only led-kind IOs. MSB-left, LSB-right.
+  const ledIos = allIos.filter(io => (io.kind||'led') === 'led');
+  const dispIos = ledIos.slice().sort((a,b) => (b.bit||0) - (a.bit||0));
+  if (el.children.length!==dispIos.length) {
     el.innerHTML='';
-    for (const io of ios) {
+    for (const io of dispIos) {
       const w=document.createElement('div'); w.className='led-unit';
       const l=document.createElement('div'); l.className=`led ${io.color||'green'}`; l.id='led_'+io.name.replace(/[\[\]]/g,'_');
       const lb=document.createElement('div'); lb.className='led-lbl'; lb.textContent=io.name;
       w.appendChild(l); w.appendChild(lb); el.appendChild(w);
     }
-    document.getElementById('io-count').textContent=ios.length+' ios';
+    document.getElementById('io-count').textContent=dispIos.length+' ios';
   }
-  for (const io of ios) {
+  for (const io of dispIos) {
     const l=document.getElementById('led_'+io.name.replace(/[\[\]]/g,'_'));
     if(l) l.className=`led ${io.color||'green'}${io.value?' on':''}`;
   }
-  // 7-seg from low 8 FF bits
-  const v=emu.ffs.slice(0,8).reduce((a,ff,i)=>a|(emu.rd(ff.q_net||ff.id+'_q')<<i),0);
-  renderSeg(0,v&0xF); renderSeg(1,(v>>4)&0xF);
+  // 7-seg: driven ONLY by the dedicated `hex` port. No fallback —
+  // a design with no hex output leaves the display blank.
+  const hexIos = allIos.filter(io => io.kind === 'hex');
+  if (hexIos.length) {
+    let v = 0;
+    for (const io of hexIos) if (io.value) v |= 1 << (io.bit||0);
+    renderSeg(0,(v>>4)&0xF,true); renderSeg(1,v&0xF,true);
+  } else {
+    renderSeg(0,0,false); renderSeg(1,0,false);
+  }
 }
 
-function renderSeg(idx,val) {
-  const segs=SEG_MAP[val]||[0,0,0,0,0,0,0];
+function renderSeg(idx,val,lit){
+  if (lit === undefined) lit = true;
+  const segs = lit ? (SEG_MAP[val]||[0,0,0,0,0,0,0]) : [0,0,0,0,0,0,0];
   const names=['seg-a','seg-b','seg-c','seg-d','seg-e','seg-f','seg-g'];
   const d=document.getElementById('sd'+idx); if(!d) return;
   segs.forEach((on,i)=>{ const s=d.querySelector('.'+names[i]); if(s)s.classList.toggle('on',!!on); });
@@ -905,7 +977,11 @@ function renderSeg(idx,val) {
 function renderSwitches(nl) {
   const el=document.getElementById('sw-grid'); el.innerHTML='';
   const sw_nets=new Set();
-  for (const l of (nl.luts||[])) for (const inp of (l.inputs||[])) if(inp&&inp.startsWith('sw')) sw_nets.add(inp);
+  const add = n => { if (n && typeof n==='string' && n.startsWith('sw')) sw_nets.add(n); };
+  // sw_ nets can be consumed by LUTs, carry cells, OR flip-flop D inputs.
+  for (const l of (nl.luts||[])) for (const inp of (l.inputs||[])) add(inp);
+  for (const c of (nl.carries||[])) { add(c.i0); add(c.i1); add(c.ci); }
+  for (const ff of (nl.ffs||[])) add(ff.d_net);
   if (!sw_nets.size) { el.innerHTML='<span style="font-size:11px;color:var(--muted)">no sw* inputs</span>'; return; }
   for (const sw of [...sw_nets].sort()) {
     swState[sw]=0;
