@@ -1,4 +1,4 @@
-# Softice — iCE40 FPGA Emulator
+# Softfpga — iCE40 FPGA Emulator
 
 > A browser emulator for iCE40 FPGAs. Write Verilog, simulate instantly. No install. No server.
 
