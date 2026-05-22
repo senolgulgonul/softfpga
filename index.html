@@ -34,8 +34,8 @@ body { background: var(--bg); color: var(--text); font-family: var(--mono); min-
 body::before { content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 9999; background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,.07) 2px, rgba(0,0,0,.07) 4px); }
 
 /* header */
-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 20px; border-bottom: 1px solid var(--border); background: var(--bg2); position: sticky; top: 0; z-index: 100; }
-.logo { font-family: var(--display); font-size: 18px; font-weight: 800; letter-spacing: -.02em; }
+header { display: flex; align-items: center; justify-content: space-between; padding: 12px 20px; border-bottom: 1px solid var(--border); background: var(--bg2); position: sticky; top: 0; z-index: 100; min-height: 49px; overflow: visible; }
+.logo { font-family: var(--display); font-size: 18px; font-weight: 800; letter-spacing: -.02em; white-space: nowrap; display: flex; align-items: baseline; gap: 6px; }
 .logo span { color: var(--green); }
 .header-right { display: flex; align-items: center; gap: 14px; font-size: 11px; color: var(--muted); }
 .chip-badge { background: var(--green-dim); color: var(--green); border: 1px solid #1a5c35; border-radius: 4px; padding: 2px 8px; font-size: 10px; font-weight: 700; letter-spacing: .06em; }
@@ -188,7 +188,7 @@ select { font-family: var(--mono); font-size: 11px; background: var(--bg3); bord
 <body>
 
 <header>
-  <div class="logo">soft<span>fpga</span> <span style="font-size:11px;font-weight:400;color:var(--muted);letter-spacing:0">v1.5</span></div>
+  <div class="logo">soft<span>fpga</span> <span style="font-size:11px;font-weight:400;color:var(--muted);letter-spacing:0">v1.6</span></div>
   <div class="header-right">
     <span><span class="status-dot" id="sdot"></span><span id="stxt">idle</span></span>
     <span class="chip-badge">iCE40UP5K</span>
@@ -484,29 +484,39 @@ async function compileVerilog(src) {
   const run = await loadYosys();
 
   const filesIn = { 'top.v': new TextEncoder().encode(src) };
-  const dec = new TextDecoder();
   let filesOut = {};
+
+  // Safe decode — handles string, Uint8Array, number, or anything else
+  function safeStr(x) {
+    if (typeof x === 'string') return x;
+    if (x instanceof Uint8Array) return new TextDecoder().decode(x);
+    if (x instanceof ArrayBuffer) return new TextDecoder().decode(x);
+    if (typeof x === 'number') return String.fromCharCode(x);
+    if (x && x.buffer) return new TextDecoder().decode(new Uint8Array(x.buffer, x.byteOffset, x.byteLength));
+    return String(x);
+  }
+
+  let stderrBuf = '', stdoutBuf = '';
 
   try {
     filesOut = await run(
       ['top.v', '-p', 'synth_ice40 -flatten -json top.json'],
       filesIn,
       {
-        stdout: (bytes) => {
-          const line = dec.decode(bytes).trim();
-          if (line) log(line, 'dim');
-        },
-        stderr: (bytes) => {
-          const line = dec.decode(bytes).trim();
-          if (!line) return;
-          if (line.includes('Warning') || line.includes('warning')) log(line, 'warn');
-          else if (line.includes('ERROR') || line.includes('error:') || line.includes('Error:')) log(line, 'err');
-          else log(line, 'dim');
-        },
+        stdout: (x) => { stdoutBuf += safeStr(x); },
+        stderr: (x) => { stderrBuf += safeStr(x); },
       }
     );
   } catch(e) {
     log('Yosys: ' + e.message, 'err');
+  }
+
+  // Print all output lines to console
+  for (const line of (stderrBuf + stdoutBuf).split('\n')) {
+    if (!line.trim()) continue;
+    if (line.includes('Warning') || line.includes('warning')) log(line, 'warn');
+    else if (line.includes('ERROR') || line.includes('error:') || line.includes('Error:')) log(line, 'err');
+    else log(line, 'dim');
   }
 
   if (filesOut && filesOut['top.json']) {
