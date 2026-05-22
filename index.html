@@ -35,7 +35,8 @@ body::before { content: ''; position: fixed; inset: 0; pointer-events: none; z-i
 
 /* header */
 header { display: flex; align-items: center; justify-content: space-between; padding: 12px 20px; border-bottom: 1px solid var(--border); background: var(--bg2); position: sticky; top: 0; z-index: 100; min-height: 49px; overflow: visible; }
-.logo { font-family: var(--display); font-size: 18px; font-weight: 800; letter-spacing: -.02em; white-space: nowrap; display: flex; align-items: baseline; gap: 6px; }
+.logo { font-family: var(--display); font-size: 18px; font-weight: 800; letter-spacing: -.02em; white-space: nowrap; display: flex; align-items: baseline; gap: 6px; overflow: visible; }
+.ver { font-family: var(--mono); font-size: 10px; font-weight: 400; color: var(--muted); letter-spacing: 0; padding-left: 2px; }
 .logo span { color: var(--green); }
 .header-right { display: flex; align-items: center; gap: 14px; font-size: 11px; color: var(--muted); }
 .chip-badge { background: var(--green-dim); color: var(--green); border: 1px solid #1a5c35; border-radius: 4px; padding: 2px 8px; font-size: 10px; font-weight: 700; letter-spacing: .06em; }
@@ -188,7 +189,7 @@ select { font-family: var(--mono); font-size: 11px; background: var(--bg3); bord
 <body>
 
 <header>
-  <div class="logo">soft<span>fpga</span> <span style="font-size:11px;font-weight:400;color:var(--muted);letter-spacing:0">v1.6</span></div>
+  <div class="logo">soft<span>fpga</span><span class="ver">v1.7</span></div>
   <div class="header-right">
     <span><span class="status-dot" id="sdot"></span><span id="stxt">idle</span></span>
     <span class="chip-badge">iCE40UP5K</span>
@@ -511,16 +512,40 @@ async function compileVerilog(src) {
     log('Yosys: ' + e.message, 'err');
   }
 
-  // Print all output lines to console
-  for (const line of (stderrBuf + stdoutBuf).split('\n')) {
-    if (!line.trim()) continue;
-    if (line.includes('Warning') || line.includes('warning')) log(line, 'warn');
-    else if (line.includes('ERROR') || line.includes('error:') || line.includes('Error:')) log(line, 'err');
-    else log(line, 'dim');
+  // Print filtered output — skip verbose pass details, show summary only
+  const allOutput = stderrBuf + stdoutBuf;
+  for (const line of allOutput.split('\n')) {
+    const t = line.replace(/^null/,'').trim();
+    if (!t) continue;
+    if (line.includes('Warning') || line.includes('warning')) { log(t, 'warn'); continue; }
+    if (line.includes('ERROR') || line.includes('error:') || line.includes('Error:')) { log(t, 'err'); continue; }
+    // Only show key summary lines, skip verbose internals
+    if (t.startsWith('===') || t.startsWith('Yosys') || t.startsWith('End of script') ||
+        t.includes('SB_LUT4') || t.includes('SB_DFF') || t.includes('SB_CARRY') ||
+        t.includes('statistics') || t.includes('submodules') || t.includes('Printing') ||
+        t.includes('ABC RESULTS') || t.includes('Number of LUT') ||
+        t.startsWith('2.') && t.includes('Executing') && !t.includes('frontend') && !t.includes('Verilog-2005')) {
+      log(t, 'dim');
+    }
   }
 
   if (filesOut && filesOut['top.json']) {
-    const jsonStr = new TextDecoder().decode(filesOut['top.json']);
+    let jsonStr = '';
+    const raw = filesOut['top.json'];
+    if (typeof raw === 'string') {
+      jsonStr = raw;
+    } else if (raw instanceof Uint8Array) {
+      jsonStr = new TextDecoder().decode(raw);
+    } else if (raw && typeof raw === 'object') {
+      // May be a plain object, array-like, or something else — try every way
+      try { jsonStr = new TextDecoder().decode(new Uint8Array(raw)); } catch(_) {}
+      if (!jsonStr.trim().startsWith('{')) {
+        try { jsonStr = new TextDecoder().decode(Uint8Array.from(Object.values(raw))); } catch(_) {}
+      }
+      if (!jsonStr.trim().startsWith('{')) {
+        try { jsonStr = String.fromCharCode(...Object.values(raw)); } catch(_) {}
+      }
+    }
     if (jsonStr.trim().startsWith('{')) return JSON.parse(jsonStr);
   }
 
