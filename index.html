@@ -188,7 +188,7 @@ select { font-family: var(--mono); font-size: 11px; background: var(--bg3); bord
 <body>
 
 <header>
-  <div class="logo">soft<span>fpga</span> <span style="font-size:11px;font-weight:400;color:var(--muted);letter-spacing:0">v1.3</span></div>
+  <div class="logo">soft<span>fpga</span> <span style="font-size:11px;font-weight:400;color:var(--muted);letter-spacing:0">v1.4</span></div>
   <div class="header-right">
     <span><span class="status-dot" id="sdot"></span><span id="stxt">idle</span></span>
     <span class="chip-badge">iCE40UP5K</span>
@@ -482,56 +482,38 @@ async function loadYosys() {
 
 async function compileVerilog(src) {
   const run = await loadYosys();
-  let stdout = '', stderr = '';
-  const outFiles = {};
-  const files = { 'top.v': new TextEncoder().encode(src) };
 
-  // YoWASP throws on non-zero exit — catch it and still read output
+  // Correct YoWASP JS API:
+  //   filesOut = await runYosys(args, filesIn, { stdout, stderr })
+  //   filesIn  = { filename: Uint8Array }
+  //   filesOut = { filename: Uint8Array }  (returned value)
+  const filesIn = { 'top.v': new TextEncoder().encode(src) };
+  let filesOut = {};
+
   try {
-    await run(['-p', 'synth_ice40 -flatten -json top.json', 'top.v'], {
-      stdin:     () => null,
-      stdout:    (b) => { stdout += String.fromCharCode(b); },
-      stderr:    (b) => { stderr += String.fromCharCode(b); },
-      readFile:  (p) => {
-        if (files[p]) return files[p];
-        // return empty for unknown files rather than throwing
-        return new Uint8Array(0);
-      },
-      writeFile: (p, d) => { outFiles[p] = d; },
-      getenv:    (k) => null,
-    });
+    filesOut = await run(
+      ['top.v', '-p', 'synth_ice40 -flatten -json top.json'],
+      filesIn,
+      {
+        stdout: (line) => { if (line.trim()) log(line, 'dim'); },
+        stderr: (line) => {
+          if (!line.trim()) return;
+          if (line.includes('Warning') || line.includes('warning')) log(line, 'warn');
+          else if (line.includes('ERROR') || line.includes('error:') || line.includes('Error:')) log(line, 'err');
+          else log(line, 'dim');
+        },
+      }
+    );
   } catch(e) {
-    // non-zero exit — still try to show stderr and read output
-    if (!e.message?.includes('exit') && !e.message?.includes('Exit') && !e.message?.includes('status')) {
-      throw e; // real error, re-throw
-    }
+    log('Yosys exit: ' + e.message, 'err');
   }
 
-  // Always dump stderr to console so user sees what happened
-  const lines = (stdout + stderr).split('\n');
-  for (const line of lines) {
-    if (!line.trim()) continue;
-    if (line.includes('Warning') || line.includes('warning')) log(line, 'warn');
-    else if (line.includes('ERROR') || line.includes('error:') || line.includes('Error:')) log(line, 'err');
-    else if (line.startsWith('{')) {} // skip raw JSON echo
-    else log(line, 'dim');
+  if (filesOut && filesOut['top.json']) {
+    const jsonStr = new TextDecoder().decode(filesOut['top.json']);
+    if (jsonStr.trim().startsWith('{')) return JSON.parse(jsonStr);
   }
 
-  // Try virtual FS output first
-  let jsonStr = '';
-  if (outFiles['top.json']) {
-    jsonStr = new TextDecoder().decode(outFiles['top.json']);
-  }
-  // Fallback: stdout may contain JSON directly
-  if (!jsonStr.trim().startsWith('{') && stdout.trim().startsWith('{')) {
-    jsonStr = stdout;
-  }
-
-  if (!jsonStr.trim().startsWith('{')) {
-    throw new Error('Synthesis failed — no JSON output. See console for Yosys errors.');
-  }
-
-  return JSON.parse(jsonStr);
+  throw new Error('Synthesis failed — no JSON produced. Check console for errors.');
 }
 
 // ══════════════════════════════════════════════════════════════
