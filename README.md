@@ -1,6 +1,6 @@
 # Softice — iCE40 FPGA Emulator
 
-> A Wokwi-style browser emulator for iCE40 FPGAs. Write Verilog, simulate instantly. No install. No server.
+> A browser emulator for iCE40 FPGAs. Write Verilog, simulate instantly. No install. No server.
 
 **Live demo:** `https://yourusername.github.io/fpga-emulator`
 
