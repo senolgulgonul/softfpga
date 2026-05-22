@@ -317,29 +317,60 @@ select { font-family: var(--mono); font-size: 11px; background: var(--bg3); bord
 class ICE40Emu {
   constructor(nl) {
     if ((nl.luts||[]).length > 5280) throw new Error(`LUT count ${nl.luts.length} > 5280 (iCE40UP5K)`);
-    this.luts  = nl.luts  || [];
-    this.ffs   = nl.ffs   || [];
-    this.ios   = nl.ios   || [];
-    this.nets  = { const0:0, const1:1 };
-    this.cycle = 0;
-    for (const ff of this.ffs) this.nets[ff.id+'_q'] = ff.init || 0;
+    this.luts    = nl.luts    || [];
+    this.ffs     = nl.ffs     || [];
+    this.ios     = nl.ios     || [];
+    this.carries = nl.carries || [];   // SB_CARRY / carry-wrapper cells
+    this.nets    = { const0:0, const1:1 };
+    this.cycle   = 0;
+    for (const ff of this.ffs) this.nets[ff.q_net || ff.id+'_q'] = ff.init || 0;
   }
+
+  // Read a net by name; FF Q aliases (id+'_q') resolve too.
+  rd(name) {
+    if (name == null) return 0;
+    if (name === 'const0') return 0;
+    if (name === 'const1') return 1;
+    return (this.nets[name] || 0) & 1;
+  }
+
   evalLUT(lut) {
     let a = 0;
-    for (let i = 0; i < 4; i++) a |= ((this.nets[lut.inputs[i]||'const0']||0)&1)<<i;
+    for (let i = 0; i < 4; i++) a |= this.rd(lut.inputs[i] || 'const0') << i;
     return (lut.truth_table >> a) & 1;
   }
+
+  // SB_CARRY: carry-out = majority(I0, I1, CI).
+  evalCarry(c) {
+    const i0 = this.rd(c.i0), i1 = this.rd(c.i1), ci = this.rd(c.ci);
+    return (i0 + i1 + ci) >= 2 ? 1 : 0;
+  }
+
   tick() {
-    const lo = {};
-    for (const l of this.luts) lo[l.id] = this.evalLUT(l);
-    for (const ff of this.ffs) this.nets[ff.id+'_q'] = lo[ff.d] ?? 0;
+    // 1. Settle combinational logic. Iterate enough times for the longest
+    //    LUT/carry chain to propagate (cheap; net count is the upper bound).
+    const passes = this.luts.length + this.carries.length + 1;
+    for (let p = 0; p < passes; p++) {
+      for (const l of this.luts)    this.nets[l.out] = this.evalLUT(l);
+      for (const c of this.carries) this.nets[c.out] = this.evalCarry(c);
+    }
+    // 2. Sample every FF's D BEFORE clocking, then apply the edge together.
+    const nextQ = {};
+    for (const ff of this.ffs) nextQ[ff.q_net || ff.id+'_q'] = this.rd(ff.d_net);
+    for (const k in nextQ) this.nets[k] = nextQ[k];
+
     this.nets.const0 = 0; this.nets.const1 = 1;
     this.cycle++;
-    return lo;
+    return nextQ;
   }
-  getIO()       { return this.ios.map(io => ({ ...io, value: this.nets[io.net]||0 })); }
+
+  getIO()       { return this.ios.map(io => ({ ...io, value: this.rd(io.net) })); }
   setNet(k,v)   { this.nets[k] = v?1:0; }
-  reset()       { this.cycle=0; this.nets={const0:0,const1:1}; for(const ff of this.ffs) this.nets[ff.id+'_q']=ff.init||0; }
+  reset()       {
+    this.cycle = 0;
+    this.nets = { const0:0, const1:1 };
+    for (const ff of this.ffs) this.nets[ff.q_net || ff.id+'_q'] = ff.init || 0;
+  }
   util()        { return (this.luts.length/5280*100).toFixed(1); }
 }
 
@@ -414,92 +445,89 @@ function yosysJsonToNetlist(yj, ioAnnotations) {
     return parseInt(s, 10) || 0;
   }
 
-  const luts = [], ffs = [];
+  const luts = [], ffs = [], carries = [];
 
-  // Collect FFs first (to know which nets are FF Q outputs)
-  const ffQNets = new Map(); // net_name → ff_id+'_q'
-  for (const [cname, cell] of Object.entries(cells)) {
-    if (!cell.type.startsWith('SB_DFF')) continue;
-    const qBit = (cell.connections.Q || [])[0];
-    if (qBit != null) {
-      const qNet = bname(qBit);
-      ffQNets.set(qNet, cname + '_q');
-    }
-  }
-
-  // Collect LUTs
-  const lutOutMap = {}; // output net → lut id
+  // Collect LUTs — keyed by OUTPUT NET so downstream cells can read them.
   for (const [cname, cell] of Object.entries(cells)) {
     if (cell.type !== 'SB_LUT4') continue;
     const raw = cell.parameters?.LUT_INIT ?? cell.parameters?.lut_init ?? '0';
     const tt  = parseLutInit(raw);
     const ins = ['I0','I1','I2','I3'].map(p => {
       const b = (cell.connections[p] || [])[0];
-      if (b == null) return 'const0';
-      const n = bname(b);
-      return ffQNets.get(n) || n;
+      return b == null ? 'const0' : bname(b);
     });
     const outBit = (cell.connections.O || [])[0];
     const outNet = outBit != null ? bname(outBit) : `lut_out_${cname}`;
-    lutOutMap[outNet] = cname;
     luts.push({ id: cname, inputs: ins, truth_table: tt, out: outNet });
   }
 
-  // Collect FFs, linking D input to driving LUT or net
+  // Collect carry cells (SB_CARRY). CO = majority(I0, I1, CI).
+  for (const [cname, cell] of Object.entries(cells)) {
+    if (cell.type !== 'SB_CARRY') continue;
+    const pin = p => { const b = (cell.connections[p]||[])[0]; return b==null ? 'const0' : bname(b); };
+    const coBit = (cell.connections.CO || [])[0];
+    carries.push({
+      id: cname,
+      i0: pin('I0'), i1: pin('I1'), ci: pin('CI'),
+      out: coBit != null ? bname(coBit) : `carry_out_${cname}`,
+    });
+  }
+
+  // Collect FFs. D is stored as a NET NAME — tick() resolves it from this.nets,
+  // where LUT outputs, carry outputs and FF Q values all live.
   for (const [cname, cell] of Object.entries(cells)) {
     if (!cell.type.startsWith('SB_DFF')) continue;
     const dBit = (cell.connections.D || [])[0];
     const qBit = (cell.connections.Q || [])[0];
     const dNet = dBit != null ? bname(dBit) : 'const0';
     const qNet = qBit != null ? bname(qBit) : `ff_q_${cname}`;
-    // D input: prefer LUT id, else net name, else FF Q alias
-    const dSrc = lutOutMap[dNet] || ffQNets.get(dNet) || dNet;
-    ffs.push({ id: cname, d: dSrc, q_net: qNet });
+    ffs.push({ id: cname, d_net: dNet, q_net: qNet, init: 0 });
   }
 
-  // Build IOs from output ports
+  // Build IOs from output ports. Every output port bit is already a real net
+  // (driven by a LUT, a carry cell, or an FF Q), so bind directly to it.
   const ios = [];
   const colors = ['green','green','amber','amber','red','red','blue','blue'];
   let ci = 0;
   for (const [pname, pd] of Object.entries(ports)) {
     if (pd.direction === 'output') {
       for (let i = 0; i < (pd.bits||[]).length; i++) {
-        const b    = pd.bits[i];
-        const net  = bname(b);
-        const qNet = ffQNets.get(net) || lutOutMap[net] ? net : (ffQNets.get(net) || net);
-        // Try to resolve to FF Q or LUT output
-        const resolved = ffQNets.get(net) || net;
+        const net = bname(pd.bits[i]);
         ios.push({
           name:  pd.bits.length === 1 ? pname : `${pname}[${i}]`,
-          net:   resolved,
+          net:   net,
           color: colors[ci++ % colors.length]
         });
       }
     }
   }
 
-  // Fallback: use FF outputs if no IOs found
+  // Fallback: use FF Q nets if no output ports were found.
   if (!ios.length) {
     ffs.slice(0, 8).forEach((ff, i) =>
-      ios.push({ name:`FF${i}`, net: ff.id+'_q', color: colors[i%colors.length] })
+      ios.push({ name:`FF${i}`, net: ff.q_net, color: colors[i%colors.length] })
     );
   }
 
-  // Expose non-clk input ports as sw_* nets
+  // Expose non-clk input ports as sw_* nets (rewires LUT + carry inputs).
   for (const [pname, pd] of Object.entries(ports)) {
     const skip = ['clk','CLK','clk_i','rst','RST','reset'];
     if (pd.direction === 'input' && !skip.includes(pname)) {
       for (let i = 0; i < (pd.bits||[]).length; i++) {
-        const b     = pd.bits[i];
-        const net   = bname(b);
+        const net    = bname(pd.bits[i]);
         const swName = pd.bits.length === 1 ? `sw_${pname}` : `sw_${pname}[${i}]`;
         for (const l of luts) l.inputs = l.inputs.map(n => n===net ? swName : n);
+        for (const c of carries) {
+          if (c.i0===net) c.i0=swName;
+          if (c.i1===net) c.i1=swName;
+          if (c.ci===net) c.ci=swName;
+        }
       }
     }
   }
 
-  log(`Converted: ${luts.length} LUTs · ${ffs.length} FFs · ${ios.length} IOs`, 'ok');
-  return { luts, ffs, ios };
+  log(`Converted: ${luts.length} LUTs · ${carries.length} carries · ${ffs.length} FFs · ${ios.length} IOs`, 'ok');
+  return { luts, ffs, ios, carries };
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -536,7 +564,7 @@ async function compileVerilog(src) {
   try {
     // -q = quiet mode, suppresses verbose pass output
     filesOut = await run(
-      ['top.v', '-q', '-p', 'synth_ice40 -flatten -json top.json'],
+      ['top.v', '-q', '-p', 'synth_ice40 -nocarry -flatten -json top.json'],
       filesIn,
       {
         stdout: (x) => { stdoutBuf += safeStr(x); },
@@ -720,11 +748,27 @@ window.doCompile = async function() {
         log(`  IO ${io.name} → ${v}`, 'dim');
       }
       // Debug: show available FF Q nets
-      log('  FF Q nets: ' + netlist.ffs.map(f=>f.id+'_q').join(', '), 'dim');
+      log('  FF Q nets: ' + netlist.ffs.map(f=>f.q_net||f.id+'_q').join(', '), 'dim');
 
     } else {
       let jsrc = src.replace(/:\s*0x([0-9a-fA-F]+)/g, (_,h)=>': '+parseInt(h,16));
       netlist = JSON.parse(jsrc);
+      // Normalize legacy JSON schema → unified net-keyed schema.
+      // Legacy FFs use {id, d:<lut-id>}; legacy LUTs have no `out`.
+      // Give each FF a Q net (id+'_q') and rewrite d:<lut-id> → d_net:<lut-out-net>.
+      const lutById = {};
+      for (const l of (netlist.luts||[])) {
+        if (!l.out) l.out = l.id + '_o';   // synthesize an output net
+        lutById[l.id] = l;
+      }
+      for (const ff of (netlist.ffs||[])) {
+        if (!ff.q_net) ff.q_net = ff.id + '_q';
+        if (!ff.d_net) {
+          // ff.d may be a LUT id (legacy) or already a net name.
+          ff.d_net = lutById[ff.d] ? lutById[ff.d].out : (ff.d || 'const0');
+        }
+      }
+      netlist.carries = netlist.carries || [];
       log(`Loaded JSON: ${netlist.luts.length} LUTs · ${netlist.ffs.length} FFs · ${netlist.ios.length} IOs`, 'ok');
     }
     emu = new ICE40Emu(netlist);
@@ -751,7 +795,7 @@ window.stepSim = function() {
   document.getElementById('st-cycle').textContent = c;
   document.getElementById('hcycle').textContent = 'cycle '+c;
   renderLEDs(); renderNets(); inspectLUT(inspLUT);
-  if (c<=5||c%16===0) log(`cy${String(c).padStart(5)} │ Q[${emu.ffs.map(f=>emu.nets[f.id+'_q']).join('')}]`);
+  if (c<=5||c%16===0) log(`cy${String(c).padStart(5)} │ Q[${emu.ffs.map(f=>emu.rd(f.q_net||f.id+'_q')).join('')}]`);
 }
 
 function stopRun() {
@@ -810,7 +854,7 @@ function renderLEDs() {
     if(l) l.className=`led ${io.color||'green'}${io.value?' on':''}`;
   }
   // 7-seg from low 8 FF bits
-  const v=emu.ffs.slice(0,8).reduce((a,ff,i)=>a|((emu.nets[ff.id+'_q']||0)<<i),0);
+  const v=emu.ffs.slice(0,8).reduce((a,ff,i)=>a|(emu.rd(ff.q_net||ff.id+'_q')<<i),0);
   renderSeg(0,v&0xF); renderSeg(1,(v>>4)&0xF);
 }
 
@@ -839,7 +883,7 @@ function renderSwitches(nl) {
 function renderNets() {
   if (!emu) return;
   const el=document.getElementById('net-tbl'); el.innerHTML='';
-  const nets=[...emu.ffs.map(f=>f.id+'_q'),...Object.keys(swState).sort()];
+  const nets=[...emu.ffs.map(f=>f.q_net||f.id+'_q'),...Object.keys(swState).sort()];
   for (const net of nets.slice(0,20)) {
     const v=emu.nets[net]||0;
     const tr=document.createElement('tr');
