@@ -191,7 +191,7 @@ select { font-family: var(--mono); font-size: 11px; background: var(--bg3); bord
 <header>
   <div style="display:flex;align-items:center;gap:10px;min-width:0;overflow:visible">
     <div class="logo">soft<span>fpga</span></div>
-    <span class="ver">v1.8</span>
+    <span class="ver">v1.9</span>
   </div>
   <div class="header-right">
     <span><span class="status-dot" id="sdot"></span><span id="stxt">idle</span></span>
@@ -522,7 +522,6 @@ async function compileVerilog(src) {
   const filesIn = { 'top.v': new TextEncoder().encode(src) };
   let filesOut = {};
 
-  // Safe decode — handles string, Uint8Array, number, or anything else
   function safeStr(x) {
     if (typeof x === 'string') return x;
     if (x instanceof Uint8Array) return new TextDecoder().decode(x);
@@ -535,8 +534,9 @@ async function compileVerilog(src) {
   let stderrBuf = '', stdoutBuf = '';
 
   try {
+    // -q = quiet mode, suppresses verbose pass output
     filesOut = await run(
-      ['top.v', '-p', 'synth_ice40 -flatten -json top.json'],
+      ['top.v', '-q', '-p', 'synth_ice40 -flatten -json top.json'],
       filesIn,
       {
         stdout: (x) => { stdoutBuf += safeStr(x); },
@@ -547,19 +547,17 @@ async function compileVerilog(src) {
     log('Yosys: ' + e.message, 'err');
   }
 
-  // Print filtered output — skip verbose pass details, show summary only
-  const allOutput = stderrBuf + stdoutBuf;
-  for (const line of allOutput.split('\n')) {
+  // Show only warnings, errors, and the key stats lines
+  for (const line of (stderrBuf + stdoutBuf).split('\n')) {
     const t = line.replace(/^null/,'').trim();
     if (!t) continue;
-    if (line.includes('Warning') || line.includes('warning')) { log(t, 'warn'); continue; }
-    if (line.includes('ERROR') || line.includes('error:') || line.includes('Error:')) { log(t, 'err'); continue; }
-    // Only show key summary lines, skip verbose internals
-    if (t.startsWith('===') || t.startsWith('Yosys') || t.startsWith('End of script') ||
-        t.includes('SB_LUT4') || t.includes('SB_DFF') || t.includes('SB_CARRY') ||
-        t.includes('statistics') || t.includes('submodules') || t.includes('Printing') ||
-        t.includes('ABC RESULTS') || t.includes('Number of LUT') ||
-        t.startsWith('2.') && t.includes('Executing') && !t.includes('frontend') && !t.includes('Verilog-2005')) {
+    if (t.includes('Warning') || t.includes('warning')) { log(t, 'warn'); continue; }
+    if (t.includes('ERROR')   || t.includes('error:'))  { log(t, 'err');  continue; }
+    // Show: version header, stats table, end summary
+    if (t.startsWith('Yosys') || t.startsWith('===') ||
+        t.startsWith('---') || t.match(/^\s*(SB_LUT4|SB_DFF|SB_CARRY|\d+ submodules)/) ||
+        t.includes('End of script') || t.includes('Number of LUT') ||
+        t.includes('ABC RESULTS')) {
       log(t, 'dim');
     }
   }
