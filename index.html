@@ -8,221 +8,300 @@
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Syne:wght@400;500;700;800&display=swap" rel="stylesheet">
 <style>
 :root {
-  --bg:       #0a0c0f;
-  --bg2:      #111318;
-  --bg3:      #181b22;
-  --border:   #232730;
-  --border2:  #2e3340;
-  --text:     #e2e4ea;
-  --muted:    #6b7280;
-  --dim:      #3d4350;
-  --green:    #22d45e;
-  --green-dim:#0d4a24;
-  --amber:    #f5a623;
-  --amber-dim:#4a3000;
-  --red:      #f04040;
-  --red-dim:  #4a0f0f;
-  --blue:     #4f9eff;
-  --blue-dim: #0d2a52;
-  --purple:   #a78bfa;
-  --mono:     'JetBrains Mono', monospace;
-  --display:  'Syne', sans-serif;
+  --bg:        #e8e8e8;
+  --panel:     #f4f4f4;
+  --panel2:    #ffffff;
+  --frame:     #c4c8cf;
+  --frame2:    #d8dbe0;
+  --ink:       #1c1f24;
+  --ink2:      #3d4350;
+  --muted:     #7a808c;
+  --blue:      #1f6fd4;
+  --blue-dim:  #dce8f7;
+  --blue-deep: #134a91;
+  --green:     #1f9d4d;
+  --amber:     #d98a00;
+  --red:       #d63a3a;
+  --led-off:   #5a1414;
+  --led-on:    #ff2e2e;
+  --mono:      'JetBrains Mono', 'Consolas', monospace;
+  --ui:        'Segoe UI', 'Syne', system-ui, sans-serif;
 }
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { font-size: 14px; }
-body { background: var(--bg); color: var(--text); font-family: var(--mono); min-height: 100vh; overflow-x: hidden; }
-body::before { content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 9999; background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,.07) 2px, rgba(0,0,0,.07) 4px); }
+body { background: var(--bg); color: var(--ink); font-family: var(--ui); height: 100vh; overflow: hidden; }
 
-/* header */
-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; border-bottom: 1px solid var(--border); background: var(--bg2); position: sticky; top: 0; z-index: 100; min-height: 58px; overflow: visible; }
-.logo { font-family: var(--display); font-size: 18px; font-weight: 800; letter-spacing: -.02em; white-space: nowrap; flex-shrink: 0; line-height: 1.6; padding-bottom: 5px; }
-.ver { font-family: var(--mono); font-size: 10px; font-weight: 400; color: var(--muted); white-space: nowrap; flex-shrink: 0; }
-.logo span { color: var(--green); }
-.header-right { display: flex; align-items: center; gap: 14px; font-size: 11px; color: var(--muted); }
-.chip-badge { background: var(--green-dim); color: var(--green); border: 1px solid #1a5c35; border-radius: 4px; padding: 2px 8px; font-size: 10px; font-weight: 700; letter-spacing: .06em; }
-.status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); display: inline-block; margin-right: 5px; transition: background .3s, box-shadow .3s; }
-.status-dot.running { background: var(--green); box-shadow: 0 0 6px var(--green); animation: blink 1s ease-in-out infinite; }
-.status-dot.compiling { background: var(--amber); box-shadow: 0 0 6px var(--amber); animation: blink .4s ease-in-out infinite; }
-.status-dot.error { background: var(--red); }
-@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.4} }
+/* ── HEADER ── */
+header {
+  display: flex; align-items: center; gap: 14px;
+  padding: 6px 14px; background: var(--panel);
+  border-bottom: 1px solid var(--frame); flex-shrink: 0;
+}
+.logo { font-family: var(--ui); font-size: 17px; font-weight: 800; letter-spacing: -.01em; color: var(--ink); line-height: 1.5; }
+.logo span { color: var(--blue); }
+.ver { font-family: var(--mono); font-size: 10px; color: var(--muted); }
 
-/* mode tabs */
-.mode-tabs { display: flex; border-bottom: 1px solid var(--border); background: var(--bg2); }
-.mode-tab { padding: 8px 18px; font-size: 11px; font-family: var(--mono); font-weight: 500; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); cursor: pointer; border: none; background: none; border-bottom: 2px solid transparent; transition: all .15s; }
-.mode-tab:hover { color: var(--text); }
-.mode-tab.active { color: var(--green); border-bottom-color: var(--green); }
+/* ── TOOLBAR (all actions on top, single line) ── */
+.toolbar {
+  display: flex; align-items: center; gap: 3px; flex-wrap: nowrap;
+  padding: 5px 10px; background: var(--panel);
+  border-bottom: 1px solid var(--frame); flex-shrink: 0;
+  position: relative; z-index: 300;
+}
+.tb-sep { width: 1px; height: 20px; background: var(--frame); margin: 0 4px; flex-shrink: 0; }
+.tb-spacer { flex: 1; min-width: 8px; }
+button {
+  font-family: var(--ui); font-size: 12px; color: var(--ink);
+  background: linear-gradient(180deg, #fdfdfd, #e9ebee);
+  border: 1px solid var(--frame); border-radius: 4px;
+  padding: 5px 9px; cursor: pointer; transition: background .12s, border-color .12s;
+  white-space: nowrap; flex-shrink: 0;
+}
+button:hover { background: linear-gradient(180deg, #ffffff, #dde6f2); border-color: var(--blue); }
+button:active { background: var(--blue-dim); }
+button:disabled { opacity: .45; cursor: default; }
+button.primary {
+  background: linear-gradient(180deg, #2f86e8, #1f6fd4); color: #fff;
+  border-color: var(--blue-deep); font-weight: 600;
+}
+button.primary:hover { background: linear-gradient(180deg, #3a92f0, #2575d8); }
+button.run-btn.active {
+  background: linear-gradient(180deg, #e8a13a, #d98a00); color: #fff; border-color: #9c6400;
+}
+.tb-btn-icon { font-size: 12px; margin-right: 3px; }
+select {
+  font-family: var(--ui); font-size: 12px; color: var(--ink);
+  background: var(--panel2); border: 1px solid var(--frame);
+  border-radius: 4px; padding: 5px 6px; cursor: pointer;
+}
+select:hover { border-color: var(--blue); }
 
-/* layout */
-.app { display: grid; grid-template-columns: 380px 1fr 260px; height: calc(100vh - 91px); overflow: hidden; }
-@media (max-width: 1100px) { .app { grid-template-columns: 320px 1fr; } .right-col { display: none; } }
-@media (max-width: 720px) { .app { grid-template-columns: 1fr; } .left-col { display: none; } }
+/* examples dropdown */
+.ex-menu { position: relative; }
+.ex-list {
+  display: none; position: absolute; top: 100%; left: 0; z-index: 200;
+  background: var(--panel2); border: 1px solid var(--frame);
+  border-radius: 4px; box-shadow: 0 6px 18px rgba(0,0,0,.18); margin-top: 3px;
+  min-width: 150px; overflow: hidden;
+}
+.ex-list.open { display: block; }
+.ex-list button {
+  display: block; width: 100%; text-align: left; border: none;
+  border-radius: 0; background: var(--panel2); border-bottom: 1px solid var(--frame2);
+}
+.ex-list button:last-child { border-bottom: none; }
+.ex-list button:hover { background: var(--blue-dim); }
 
-/* columns */
-.left-col { border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; }
-.mid-col  { display: flex; flex-direction: column; overflow: hidden; }
-.right-col { border-left: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; }
+/* ── APP GRID: editor | board | info ── */
+.app { display: flex; height: calc(100vh - 84px); }
+.col { display: flex; flex-direction: column; min-width: 0; }
+.col-editor { flex: 1.1; border-right: 1px solid var(--frame); }
+.col-board  { width: 340px; flex-shrink: 0; background: var(--panel); border-right: 1px solid var(--frame); overflow-y: auto; }
+.col-info   { width: 250px; flex-shrink: 0; background: var(--panel); }
 
-/* panel headers */
-.phead { padding: 9px 14px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
-.file-bar { padding: 6px 12px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 6px; flex-shrink: 0; background: var(--bg); }
-.file-btn { font-size: 10px; padding: 3px 9px; }
-.file-name-input { font-family: var(--mono); font-size: 10px; color: var(--fg); background: var(--bg2); border: 1px solid var(--border); border-radius: 3px; padding: 3px 7px; margin-left: 4px; width: 140px; }
-.file-name-input:focus { outline: none; border-color: var(--green); }
-.plabel { font-family: var(--display); font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
-.pbody { flex: 1; overflow: auto; padding: 14px; }
+.phead {
+  padding: 5px 12px; background: var(--frame2);
+  border-bottom: 1px solid var(--frame);
+  font-size: 11px; font-weight: 700; letter-spacing: .04em;
+  text-transform: uppercase; color: var(--ink2);
+  display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;
+}
 
-/* editor */
-.editor-wrap { flex: 1; display: flex; overflow: hidden; position: relative; }
-.line-nums { width: 36px; background: var(--bg); border-right: 1px solid var(--border); padding: 14px 0; overflow: hidden; flex-shrink: 0; }
-.line-num { font-size: 10px; color: var(--dim); text-align: right; padding-right: 8px; line-height: 1.65; height: 1.65em; }
+/* ── EDITOR ── */
+.file-bar {
+  display: flex; align-items: center; gap: 6px;
+  padding: 5px 10px; background: var(--panel);
+  border-bottom: 1px solid var(--frame); flex-shrink: 0;
+}
+.file-name-input {
+  font-family: var(--mono); font-size: 11px; color: var(--ink);
+  background: var(--panel2); border: 1px solid var(--frame);
+  border-radius: 3px; padding: 3px 7px; width: 150px;
+}
+.file-name-input:focus { outline: none; border-color: var(--blue); }
+.editor-wrap { flex: 1; display: flex; overflow: hidden; background: var(--panel2); }
+.line-nums {
+  padding: 8px 6px 8px 10px; background: #f0f1f3; color: #9aa0ab;
+  font-family: var(--mono); font-size: 12.5px; line-height: 1.55;
+  text-align: right; user-select: none; border-right: 1px solid var(--frame2); overflow: hidden;
+}
+.line-num { height: calc(12.5px * 1.55); }
 .editor-scroll { flex: 1; overflow: auto; }
-textarea#editor { width: 100%; min-height: 100%; background: transparent; border: none; outline: none; color: var(--text); font-family: var(--mono); font-size: 12px; line-height: 1.65; resize: none; padding: 14px; caret-color: var(--green); }
+#editor {
+  width: 100%; height: 100%; min-height: 100%;
+  background: var(--panel2); color: #1c1f24;
+  font-family: var(--mono); font-size: 12.5px; line-height: 1.55;
+  border: none; outline: none; resize: none; padding: 8px 12px;
+  white-space: pre; tab-size: 2;
+}
 
-/* toolbar */
-.toolbar { padding: 9px 12px; border-top: 1px solid var(--border); display: flex; gap: 6px; flex-wrap: wrap; flex-shrink: 0; background: var(--bg); align-items: center; }
-button { font-family: var(--mono); font-size: 11px; font-weight: 500; border: 1px solid var(--border2); background: var(--bg3); color: var(--text); border-radius: 4px; padding: 5px 12px; cursor: pointer; transition: all .12s; white-space: nowrap; }
-button:hover { background: var(--border); }
-button.primary { background: var(--green); color: var(--bg); border-color: var(--green); font-weight: 700; }
-button.primary:hover { filter: brightness(1.1); }
-button.primary:disabled { background: var(--green-dim); color: #1a5c35; border-color: #1a5c35; cursor: not-allowed; filter: none; }
-button.run-btn.active { background: var(--blue-dim); color: var(--blue); border-color: var(--blue); }
-select { font-family: var(--mono); font-size: 11px; background: var(--bg3); border: 1px solid var(--border2); color: var(--text); border-radius: 4px; padding: 5px 8px; outline: none; }
+/* ── CONSOLE (bottom of editor col) ── */
+.console-box { height: 160px; display: flex; flex-direction: column; border-top: 1px solid var(--frame); flex-shrink: 0; }
+.log-out {
+  flex: 1; overflow: auto; background: var(--panel2);
+  font-family: var(--mono); font-size: 11px; line-height: 1.65;
+  padding: 6px 10px; color: var(--ink);
+}
+.log-out .inf { color: var(--muted); }
+.log-out .dim { color: #aab; }
+.log-out .ok  { color: var(--green); }
+.log-out .warn{ color: var(--amber); }
+.log-out .err { color: var(--red); }
 
-/* compile progress */
-.compile-bar { height: 2px; background: var(--border); flex-shrink: 0; position: relative; overflow: hidden; }
-.compile-bar-fill { position: absolute; left: -60%; top: 0; height: 100%; width: 60%; background: var(--amber); transition: left 0s; }
-.compile-bar-fill.active { animation: sweep 1.2s ease-in-out infinite; }
-@keyframes sweep { 0%{left:-60%} 100%{left:100%} }
-.compile-bar-fill.done { left: 0; width: 100%; background: var(--green); transition: width .3s; animation: none; }
-.compile-bar-fill.error { left: 0; width: 100%; background: var(--red); transition: none; animation: none; }
+/* ── BOARD (middle, the PCB) ── */
+.board-stage { padding: 12px 14px; display: flex; flex-direction: column; align-items: center; }
+.pcb {
+  width: 296px; background: linear-gradient(160deg, #1a4d8f, #123a6e);
+  border: 2px solid #0a2548; border-radius: 8px;
+  padding: 13px 14px; box-shadow: 0 6px 16px rgba(0,0,0,.3), inset 0 1px 3px rgba(255,255,255,.1);
+  position: relative;
+}
+.pcb::before {
+  content: ''; position: absolute; inset: 6px; border: 1px dashed rgba(255,255,255,.14);
+  border-radius: 5px; pointer-events: none;
+}
+.board-row-title {
+  font-family: var(--mono); font-size: 8px; letter-spacing: .1em;
+  color: rgba(255,255,255,.5); text-transform: uppercase; margin: 9px 0 5px;
+}
+.board-row-title:first-child { margin-top: 0; }
 
-/* io panel */
-.io-section { margin-bottom: 18px; }
-.io-sec-title { font-size: 10px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; padding-bottom: 5px; border-bottom: 1px solid var(--border); }
-.led-grid { display: flex; flex-wrap: wrap; gap: 10px; }
-.led-unit { display: flex; flex-direction: column; align-items: center; gap: 3px; }
-.led { width: 22px; height: 22px; border-radius: 50%; border: 1px solid var(--border2); background: #0b0e12; transition: background .06s, box-shadow .06s; }
-.led.on.green { background: var(--green); box-shadow: 0 0 10px var(--green), 0 0 20px #22d45e44; }
-.led.on.amber { background: var(--amber); box-shadow: 0 0 10px var(--amber), 0 0 20px #f5a62344; }
-.led.on.red   { background: var(--red);   box-shadow: 0 0 10px var(--red),   0 0 20px #f0404044; }
-.led.on.blue  { background: var(--blue);  box-shadow: 0 0 10px var(--blue),  0 0 20px #4f9eff44; }
-.led-lbl { font-size: 9px; color: var(--muted); }
+/* LEDs — all red, on top */
+.led-row { display: flex; justify-content: space-between; gap: 3px; }
+.led-cell { display: flex; flex-direction: column; align-items: center; gap: 3px; flex: 1; }
+.led {
+  width: 18px; height: 18px; border-radius: 50%;
+  background: radial-gradient(circle at 38% 32%, #7a2020, var(--led-off));
+  border: 2px solid #3a0d0d; box-shadow: inset 0 1px 2px rgba(0,0,0,.5);
+  transition: background .08s, box-shadow .08s;
+}
+.led.on {
+  background: radial-gradient(circle at 38% 32%, #ff8a8a, var(--led-on));
+  box-shadow: 0 0 9px 1px rgba(255,46,46,.85), inset 0 1px 2px rgba(255,255,255,.4);
+}
+.led-lbl { font-family: var(--mono); font-size: 7.5px; color: rgba(255,255,255,.6); }
 
-/* 7-seg */
-.seg-wrap { background: #04080a; border: 1px solid var(--border); border-radius: 6px; padding: 10px 14px; display: inline-flex; gap: 8px; }
-.seg-digit { position: relative; width: 20px; height: 36px; }
-.seg { position: absolute; background: #1a0a0a; border-radius: 1px; transition: background .06s, box-shadow .06s; }
-.seg.on { background: var(--red); box-shadow: 0 0 5px var(--red); }
-.seg-a{top:0;left:3px;width:14px;height:3px} .seg-b{top:3px;right:0;width:3px;height:13px}
-.seg-c{bottom:3px;right:0;width:3px;height:13px} .seg-d{bottom:0;left:3px;width:14px;height:3px}
-.seg-e{bottom:3px;left:0;width:3px;height:13px} .seg-f{top:3px;left:0;width:3px;height:13px}
-.seg-g{top:50%;left:3px;width:14px;height:3px;transform:translateY(-50%)}
+/* hex display — two digits, with a vertical stencil label to the right */
+.seg-wrap { display: flex; justify-content: center; align-items: flex-start; gap: 14px; }
+.seg-digit {
+  position: relative; width: 36px; height: 60px;
+  background: #1a0505; border: 2px solid #3a0d0d; border-radius: 4px;
+}
+.seg { position: absolute; background: #2e0a0a; transition: background .08s, box-shadow .08s; }
+.seg.on { background: var(--led-on); box-shadow: 0 0 6px rgba(255,46,46,.9); }
+/* horizontal segments: 18px wide, 4px tall */
+.seg-a { top:6px;     left:9px;  width:18px; height:4px; }
+.seg-g { top:28px;    left:9px;  width:18px; height:4px; }
+.seg-d { top:50px;    left:9px;  width:18px; height:4px; }
+/* vertical segments: 4px wide, 18px tall — sit between the horizontals */
+.seg-f { top:10px;    left:6px;  width:4px;  height:18px; }
+.seg-b { top:10px;    left:26px; width:4px;  height:18px; }
+.seg-e { top:32px;    left:6px;  width:4px;  height:18px; }
+.seg-c { top:32px;    left:26px; width:4px;  height:18px; }
+.seg-cap { text-align: center; font-family: var(--mono); font-size: 7.5px; color: rgba(255,255,255,.5); margin-top: 4px; }
+.pcb-stencil {
+  font-family: var(--mono); font-size: 8.5px; font-weight: 700;
+  letter-spacing: .14em; color: rgba(255,255,255,.78);
+  text-align: center; margin-top: 12px;
+}
 
-/* switches */
-.sw-grid { display: flex; flex-wrap: wrap; gap: 10px; }
-.sw-unit { display: flex; flex-direction: column; align-items: center; gap: 3px; }
-.sw-btn { width: 34px; height: 18px; border-radius: 9px; background: var(--bg3); border: 1px solid var(--border2); cursor: pointer; position: relative; padding: 0; transition: background .2s, border-color .2s; }
-.sw-btn::after { content:''; position: absolute; top:2px; left:2px; width:12px; height:12px; border-radius:50%; background: var(--dim); transition: transform .2s, background .2s; }
-.sw-btn.on { background: var(--green-dim); border-color: var(--green); }
-.sw-btn.on::after { transform: translateX(16px); background: var(--green); }
-.sw-lbl { font-size: 9px; color: var(--muted); }
+/* switches — same order as LEDs (sw7 left → sw0 right) */
+.sw-row { display: flex; justify-content: space-between; gap: 3px; }
+.sw-cell { display: flex; flex-direction: column; align-items: center; gap: 3px; flex: 1; }
+.sw-btn {
+  width: 22px; height: 13px; border-radius: 7px; padding: 0;
+  background: #444; border: 1px solid #222; cursor: pointer; position: relative;
+  transition: background .12s;
+}
+.sw-btn::after {
+  content: ''; position: absolute; top: 1px; left: 1px;
+  width: 9px; height: 9px; border-radius: 50%; background: #ddd;
+  transition: left .12s;
+}
+.sw-btn.on { background: var(--green); }
+.sw-btn.on::after { left: 10px; }
+.sw-lbl { font-family: var(--mono); font-size: 7.5px; color: rgba(255,255,255,.6); }
 
-/* net table */
-.net-tbl { width: 100%; font-size: 11px; border-collapse: collapse; }
-.net-tbl tr { border-bottom: 1px solid var(--border); }
-.net-tbl tr:last-child { border-bottom: none; }
-.net-tbl td { padding: 4px 0; }
-.nv { color: var(--green); font-weight: 700; width: 20px; text-align: right; padding-right: 10px; }
-.nv.z { color: var(--dim); }
-.nn { color: var(--muted); font-size: 10px; }
-.nbar { height: 3px; border-radius: 2px; background: var(--green-dim); margin-top: 3px; }
-.nbar.on { background: var(--green); }
-
-/* stats */
-.stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px; }
-.stat { background: var(--bg3); border: 1px solid var(--border); border-radius: 6px; padding: 10px 12px; }
-.stat-v { font-family: var(--display); font-size: 20px; font-weight: 800; line-height: 1; }
-.stat-v.g { color: var(--green); }
-.stat-l { font-size: 9px; color: var(--muted); letter-spacing: .07em; text-transform: uppercase; margin-top: 4px; }
-
-/* lut inspector */
-.lut-sel { display: flex; flex-wrap: wrap; gap: 3px; margin-bottom: 10px; }
-.lut-sel button { font-size: 10px; padding: 3px 7px; }
-.lut-sel button.active { background: var(--purple); border-color: var(--purple); color: var(--bg); }
-.lut-grid16 { display: grid; grid-template-columns: repeat(4,1fr); gap: 3px; }
-.lc { background: var(--bg3); border: 1px solid var(--border); border-radius: 3px; text-align: center; padding: 4px 2px; font-size: 10px; color: var(--dim); cursor: default; }
-.lc.one { color: var(--text); }
-.lc.cur { background: var(--green-dim); border-color: var(--green); color: var(--green); font-weight: 700; }
-.lut-info { font-size: 10px; color: var(--muted); margin-top: 7px; line-height: 1.7; }
-.lut-info span { color: var(--blue); }
-
-/* log */
-.log-out { flex: 1; overflow-y: auto; padding: 10px 14px; font-size: 11px; line-height: 1.75; background: var(--bg); }
-.log-out .ok   { color: var(--green); }
-.log-out .err  { color: var(--red); }
-.log-out .inf  { color: var(--blue); }
-.log-out .warn { color: var(--amber); }
-.log-out .dim  { color: var(--dim); }
-
-/* statusbar */
-.statusbar { display: flex; align-items: center; gap: 16px; padding: 0 16px; height: 24px; font-size: 10px; color: var(--muted); border-top: 1px solid var(--border); background: var(--bg); flex-shrink: 0; position: relative; z-index: 50; }
-.statusbar b { color: var(--text); font-weight: 500; }
-.statusbar .sep { color: var(--border2); }
-
-/* example tabs */
-.ex-tabs { display: flex; gap: 4px; }
-.ex-tabs button { font-size: 10px; padding: 3px 8px; }
-.ex-tabs button.active { background: var(--bg); border-color: var(--green); color: var(--green); }
-
-/* util bar */
-.util-bar-wrap { margin: 8px 0 14px; }
-.util-label { display: flex; justify-content: space-between; font-size: 10px; color: var(--muted); margin-bottom: 4px; }
-.util-track { height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
-.util-fill { height: 100%; background: var(--green); border-radius: 2px; transition: width .4s; }
+/* ── INFO PANEL (right) ── */
+.info-body { padding: 12px; overflow-y: auto; flex: 1; }
+.info-card {
+  background: var(--panel2); border: 1px solid var(--frame);
+  border-radius: 5px; padding: 10px 12px; margin-bottom: 10px;
+}
+.info-card h4 {
+  font-size: 10px; font-weight: 700; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--blue); margin-bottom: 8px;
+}
+.info-row { display: flex; justify-content: space-between; font-size: 11.5px; padding: 3px 0; }
+.info-row .k { color: var(--muted); }
+.info-row .v { font-family: var(--mono); color: var(--ink); font-weight: 600; }
+.util-label { display: flex; justify-content: space-between; font-size: 10.5px; color: var(--muted); margin-bottom: 5px; }
+.util-track { height: 9px; background: var(--frame2); border-radius: 5px; overflow: hidden; border: 1px solid var(--frame); }
+.util-fill { height: 100%; background: var(--blue); transition: width .3s; }
 .util-fill.warn { background: var(--amber); }
 .util-fill.danger { background: var(--red); }
 
-/* verilog mode notice */
-.v-notice { background: var(--blue-dim); border: 1px solid var(--blue); border-radius: 6px; padding: 10px 12px; font-size: 11px; color: var(--blue); margin-bottom: 12px; line-height: 1.6; }
+/* ── HELP OVERLAY ── */
 
-::-webkit-scrollbar { width: 5px; height: 5px; }
-::-webkit-scrollbar-track { background: var(--bg); }
-::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+/* status dot */
+.status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); display: inline-block; }
+.status-dot.running { background: var(--green); }
+.status-dot.compiling { background: var(--amber); }
+.status-dot.error { background: var(--red); }
+
+::-webkit-scrollbar { width: 11px; height: 11px; }
+::-webkit-scrollbar-track { background: var(--panel); }
+::-webkit-scrollbar-thumb { background: var(--frame); border-radius: 5px; border: 2px solid var(--panel); }
+::-webkit-scrollbar-thumb:hover { background: #aab; }
 </style>
 </head>
 <body>
 
 <header>
-  <div style="display:flex;align-items:center;gap:10px;min-width:0;overflow:visible">
-    <div class="logo">soft<span>fpga</span></div>
-    <span class="ver">v1.21</span>
-  </div>
-  <div class="header-right">
-    <span><span class="status-dot" id="sdot"></span><span id="stxt">idle</span></span>
-    <span class="chip-badge">iCE40UP5K</span>
-    <span>5280 LUTs · 5280 FFs</span>
-    <span id="hcycle">cycle 0</span>
-  </div>
+  <div class="logo">soft<span>fpga</span></div>
+  <span class="ver">v1.27</span>
+  <span style="font-size:11px;color:var(--muted)"><span class="status-dot" id="sdot"></span><span id="stxt">idle</span></span>
 </header>
 
-<div class="mode-tabs">
-  <button class="mode-tab active" id="tab-verilog" onclick="setMode('verilog')">⚡ Verilog</button>
-  <button class="mode-tab" id="tab-json" onclick="setMode('json')">{ } Netlist JSON</button>
+<!-- ALL ACTIONS ON TOP -->
+<div class="toolbar">
+  <div class="ex-menu">
+    <button id="ex-btn">📁 Examples ▾</button>
+    <div class="ex-list" id="ex-list"></div>
+  </div>
+  <button onclick="openFile()"><span class="tb-btn-icon">📂</span>Open</button>
+  <button onclick="saveFile()"><span class="tb-btn-icon">💾</span>Save</button>
+  <input type="file" id="file-input" accept=".v,.sv,.vh,.txt,.json" style="display:none">
+  <div class="tb-sep"></div>
+  <button class="primary" id="compile-btn" onclick="doCompile()">⚡ Synthesize</button>
+  <button id="run-btn" class="run-btn" onclick="toggleRun()">▶ Run</button>
+  <button onclick="stepSim()">⏭ Step</button>
+  <button onclick="resetSim()">↺ Reset</button>
+  <div class="tb-sep"></div>
+  <button onclick="dumpNetlist()">⬇ Dump Netlist</button>
+  <select id="clk-sel" onchange="updateClock()">
+    <option value="1000">1 Hz</option>
+    <option value="500">2 Hz</option>
+    <option value="200" selected>5 Hz</option>
+    <option value="100">10 Hz</option>
+    <option value="50">20 Hz</option>
+    <option value="16">60 Hz</option>
+    <option value="4">250 Hz</option>
+  </select>
+  <div class="tb-spacer"></div>
+  <button id="tab-verilog" onclick="setMode('verilog')">Verilog</button>
+  <button id="tab-json" onclick="setMode('json')">Netlist JSON</button>
+  <div class="tb-sep"></div>
+  <button onclick="showHelp()">❓ Help</button>
 </div>
 
 <div class="app">
 
-  <!-- LEFT: Editor -->
-  <div class="left-col">
+  <!-- LEFT: code editor + console -->
+  <div class="col col-editor">
     <div class="phead">
-      <span class="plabel" id="editor-label">Verilog source</span>
-      <div class="ex-tabs" id="ex-tabs"></div>
-    </div>
-    <div class="file-bar">
-      <button class="file-btn" onclick="openFile()">📂 Open</button>
-      <button class="file-btn" onclick="saveFile()">💾 Save</button>
+      <span id="editor-label">Verilog source</span>
       <input type="text" class="file-name-input" id="file-name" value="untitled.v" spellcheck="false" autocomplete="off">
-      <input type="file" id="file-input" accept=".v,.sv,.vh,.txt,.json" style="display:none">
     </div>
     <div class="editor-wrap">
       <div class="line-nums" id="lnums"></div>
@@ -230,95 +309,73 @@ select { font-family: var(--mono); font-size: 11px; background: var(--bg3); bord
         <textarea id="editor" spellcheck="false" autocomplete="off" oninput="onEdit()"></textarea>
       </div>
     </div>
-    <div class="compile-bar"><div class="compile-bar-fill" id="cbar"></div></div>
-    <div class="toolbar">
-      <button class="primary" id="compile-btn" onclick="doCompile()">⚡ Compile</button>
-      <button onclick="resetSim()">↺ Reset</button>
-      <button id="run-btn" class="run-btn" onclick="toggleRun()">▶ Run</button>
-      <button onclick="stepSim()">⏭ Step</button>
-      <button onclick="dumpNetlist()">⬇ Dump Netlist</button>
-      <select id="clk-sel" onchange="updateClock()">
-        <option value="1000">1 Hz</option>
-        <option value="500">2 Hz</option>
-        <option value="200" selected>5 Hz</option>
-        <option value="100">10 Hz</option>
-        <option value="50">20 Hz</option>
-        <option value="16">60 Hz</option>
-        <option value="4">250 Hz</option>
-      </select>
-    </div>
-  </div>
-
-  <!-- MIDDLE: IO -->
-  <div class="mid-col">
-    <div class="phead"><span class="plabel">Virtual IO</span><span id="io-count" style="font-size:10px;color:var(--muted)">–</span></div>
-    <div class="pbody" style="flex:1;overflow:auto">
-
-      <div id="v-notice" class="v-notice" style="display:none">
-        <b>Yosys WASM</b> — loading from jsDelivr CDN (~8 MB, first load only). Compiles real Verilog to iCE40 netlist in your browser. No server, no install.
+    <div class="console-box">
+      <div class="phead">
+        <span>Console</span>
+        <button onclick="clearLog()" style="font-size:10px;padding:2px 8px">clear</button>
       </div>
-
-      <div class="io-section">
-        <div class="io-sec-title">LEDs</div>
-        <div class="led-grid" id="leds-display"><span style="font-size:11px;color:var(--muted)">compile a design first</span></div>
-      </div>
-      <div class="io-section">
-        <div class="io-sec-title">7-segment hex</div>
-        <div class="seg-wrap" id="seg-wrap">
-          <div class="seg-digit" id="sd0"><div class="seg seg-a"></div><div class="seg seg-b"></div><div class="seg seg-c"></div><div class="seg seg-d"></div><div class="seg seg-e"></div><div class="seg seg-f"></div><div class="seg seg-g"></div></div>
-          <div class="seg-digit" id="sd1"><div class="seg seg-a"></div><div class="seg seg-b"></div><div class="seg seg-c"></div><div class="seg seg-d"></div><div class="seg seg-e"></div><div class="seg seg-f"></div><div class="seg seg-g"></div></div>
-        </div>
-      </div>
-      <div class="io-section">
-        <div class="io-sec-title">Input switches</div>
-        <div class="sw-grid" id="sw-grid"><span style="font-size:11px;color:var(--muted)">no sw* inputs found</span></div>
-      </div>
-    </div>
-
-    <div style="height:170px;border-top:1px solid var(--border);display:flex;flex-direction:column">
-      <div class="phead" style="flex-shrink:0"><span class="plabel">Console</span><button onclick="clearLog()" style="font-size:10px;padding:2px 8px">clear</button></div>
       <div class="log-out" id="log-out">
-        <div class="inf">// softfpga — iCE40UP5K FPGA Emulator</div>
-        <div class="inf">// Verilog mode: uses YoWASP Yosys WASM via jsDelivr</div>
-        <div class="inf">// JSON mode: direct LUT/FF netlist, no external deps</div>
-        <div class="dim">// Select a mode above and press ⚡ Compile</div>
+        <div class="dim">// softfpga — write Verilog, press ⚡ Synthesize, then ▶ Run</div>
       </div>
-    </div>
-
-    <div class="statusbar">
-      <span><b id="sb-luts">0</b> LUTs</span><span class="sep">|</span>
-      <span><b id="sb-ffs">0</b> FFs</span><span class="sep">|</span>
-      <span id="sb-util">0%</span> util<span class="sep">|</span>
-      <span id="sb-st">idle</span>
     </div>
   </div>
 
-  <!-- RIGHT: Inspector -->
-  <div class="right-col">
-    <div class="phead"><span class="plabel">Inspector</span></div>
-    <div style="flex:1;overflow:auto;padding:14px;border-bottom:1px solid var(--border)">
-      <div class="stats-grid">
-        <div class="stat"><div class="stat-v g" id="st-cycle">0</div><div class="stat-l">Cycles</div></div>
-        <div class="stat"><div class="stat-v" id="st-luts">0</div><div class="stat-l">LUTs</div></div>
-        <div class="stat"><div class="stat-v" id="st-ffs">0</div><div class="stat-l">FFs</div></div>
-        <div class="stat"><div class="stat-v" id="st-util">0%</div><div class="stat-l">Util</div></div>
+  <!-- MIDDLE: the virtual FPGA board (always present) -->
+  <div class="col col-board">
+    <div class="phead"><span>FPGA Board</span><span id="io-count" style="font-weight:400;text-transform:none;color:var(--muted)"></span></div>
+    <div class="board-stage">
+      <div class="pcb">
+        <div class="board-row-title">LEDs (led7 → led0)</div>
+        <div class="led-row" id="leds-display"></div>
+
+        <div class="board-row-title">Hex display</div>
+        <div class="seg-wrap">
+          <div>
+            <div class="seg-digit" id="sd0">
+              <div class="seg seg-a"></div><div class="seg seg-b"></div><div class="seg seg-c"></div>
+              <div class="seg seg-d"></div><div class="seg seg-e"></div><div class="seg seg-f"></div><div class="seg seg-g"></div>
+            </div>
+            <div class="seg-cap">led 7-4</div>
+          </div>
+          <div>
+            <div class="seg-digit" id="sd1">
+              <div class="seg seg-a"></div><div class="seg seg-b"></div><div class="seg seg-c"></div>
+              <div class="seg seg-d"></div><div class="seg seg-e"></div><div class="seg seg-f"></div><div class="seg seg-g"></div>
+            </div>
+            <div class="seg-cap">led 3-0</div>
+          </div>
+        </div>
+
+        <div class="board-row-title">Switches (sw7 → sw0)</div>
+        <div class="sw-row" id="sw-grid"></div>
+
+        <div class="pcb-stencil">iCE40UP5K · softfpga board</div>
       </div>
-      <div class="util-bar-wrap">
-        <div class="util-label"><span>LUT utilisation</span><span id="util-pct">0 / 5280</span></div>
-        <div class="util-track"><div class="util-fill" id="util-fill" style="width:0%"></div></div>
-      </div>
-      <div style="font-size:10px;color:var(--muted);letter-spacing:.07em;text-transform:uppercase;margin-bottom:8px">Net state</div>
-      <table class="net-tbl" id="net-tbl"><tr><td class="nn">–</td></tr></table>
     </div>
-    <div style="padding:14px;overflow:auto;height:260px">
-      <div style="font-size:10px;color:var(--muted);letter-spacing:.07em;text-transform:uppercase;margin-bottom:8px">LUT inspector</div>
-      <div class="lut-sel" id="lut-sel"></div>
-      <div class="lut-grid16" id="lut-g16"></div>
-      <div class="lut-info" id="lut-info"></div>
+  </div>
+
+  <!-- RIGHT: info panel (beginner-friendly, no debug) -->
+  <div class="col col-info">
+    <div class="phead"><span>Information</span></div>
+    <div class="info-body">
+      <div class="info-card">
+        <h4>Device</h4>
+        <div class="info-row"><span class="k">Chip</span><span class="v">iCE40UP5K</span></div>
+        <div class="info-row"><span class="k">Logic cells</span><span class="v">5280 LUTs</span></div>
+        <div class="info-row"><span class="k">Flip-flops</span><span class="v">5280 FFs</span></div>
+      </div>
+      <div class="info-card">
+        <h4>Resource Usage</h4>
+        <div class="info-row"><span class="k">LUTs used</span><span class="v" id="info-luts">0</span></div>
+        <div class="info-row"><span class="k">FFs used</span><span class="v" id="info-ffs">0</span></div>
+        <div class="info-row"><span class="k">Clock cycle</span><span class="v" id="info-cycle">0</span></div>
+      </div>
     </div>
   </div>
 
 </div>
+
+
 
 <script type="module">
 // ══════════════════════════════════════════════════════════════
@@ -759,11 +816,12 @@ window.clearLog = function() { document.getElementById('log-out').innerHTML = ''
 function setStatus(s, msg) {
   const dot = document.getElementById('sdot');
   const txt = document.getElementById('stxt');
+  if (dot) dot.className = 'status-dot ' + (s==='running'?'running':s==='compiling'?'compiling':s==='error'?'error':'');
+  if (txt) txt.textContent = msg || s;
   const bar = document.getElementById('cbar');
-  dot.className = 'status-dot ' + (s==='running'?'running':s==='compiling'?'compiling':s==='error'?'error':'');
-  txt.textContent = msg || s;
-  bar.className = 'compile-bar-fill ' + (s==='compiling'?'active':s==='done'?'done':s==='error'?'error':'');
-  document.getElementById('sb-st').textContent = msg || s;
+  if (bar) bar.className = 'compile-bar-fill ' + (s==='compiling'?'active':s==='done'?'done':s==='error'?'error':'');
+  const sbst = document.getElementById('sb-st');
+  if (sbst) sbst.textContent = msg || s;
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -771,10 +829,10 @@ function setStatus(s, msg) {
 // ══════════════════════════════════════════════════════════════
 window.setMode = function(m) {
   mode = m;
-  document.getElementById('tab-verilog').classList.toggle('active', m==='verilog');
-  document.getElementById('tab-json').classList.toggle('active', m==='json');
-  document.getElementById('editor-label').textContent = m==='verilog' ? 'Verilog source' : 'Netlist JSON';
-  document.getElementById('v-notice').style.display = m==='verilog' ? 'block' : 'none';
+  { const t=document.getElementById('tab-verilog'); if(t) t.classList.toggle('active', m==='verilog'); }
+  { const t=document.getElementById('tab-json'); if(t) t.classList.toggle('active', m==='json'); }
+  { const el=document.getElementById('editor-label'); if(el) el.textContent = m==='verilog' ? 'Verilog source' : 'Netlist JSON'; }
+  { const vn=document.getElementById('v-notice'); if(vn) vn.style.display = m==='verilog' ? 'block' : 'none'; }
   buildExTabs();
   loadExample(Object.keys(m==='verilog'?VERILOG_EXAMPLES:JSON_EXAMPLES)[0], true);
 }
@@ -883,8 +941,7 @@ window.stepSim = function() {
   if (!emu) { log('Compile first', 'warn'); return; }
   emu.tick();
   const c = emu.cycle;
-  document.getElementById('st-cycle').textContent = c;
-  document.getElementById('hcycle').textContent = 'cycle '+c;
+  setCycle(c);
   renderLEDs(); renderNets(); inspectLUT(inspLUT);
   if (c<=5||c%16===0) {
     // Print Q with bit 7 leftmost, indexed by IO bit position.
@@ -930,8 +987,7 @@ window.resetSim = function() {
   if (!emu) return; stopRun();
   emu.reset();
   for (const [k,v] of Object.entries(swState)) emu.nets[k]=v;
-  document.getElementById('st-cycle').textContent='0';
-  document.getElementById('hcycle').textContent='cycle 0';
+  setCycle(0);
   renderLEDs(); renderNets(); inspectLUT(inspLUT);
   log('— reset —', 'dim');
 }
@@ -944,36 +1000,37 @@ window.updateClock = function() {
 //  RENDER
 // ══════════════════════════════════════════════════════════════
 function renderLEDs() {
-  if (!emu) return;
-  const el = document.getElementById('leds-display');
-  const allIos = emu.getIO();
-  // LED row shows only led-kind IOs. MSB-left, LSB-right.
-  const ledIos = allIos.filter(io => (io.kind||'led') === 'led');
-  const dispIos = ledIos.slice().sort((a,b) => (b.bit||0) - (a.bit||0));
-  if (el.children.length!==dispIos.length) {
+  const el = document.getElementById('leds-display'); if(!el) return;
+  // The board always shows 8 LED slots (led7 left → led0 right), fixed.
+  if (el.children.length !== 8) {
     el.innerHTML='';
-    for (const io of dispIos) {
-      const w=document.createElement('div'); w.className='led-unit';
-      const l=document.createElement('div'); l.className=`led ${io.color||'green'}`; l.id='led_'+io.name.replace(/[\[\]]/g,'_');
-      const lb=document.createElement('div'); lb.className='led-lbl'; lb.textContent=io.name;
-      w.appendChild(l); w.appendChild(lb); el.appendChild(w);
+    for (let bit = 7; bit >= 0; bit--) {
+      const c=document.createElement('div'); c.className='led-cell';
+      const l=document.createElement('div'); l.className='led'; l.id='led_bit'+bit;
+      const lb=document.createElement('div'); lb.className='led-lbl'; lb.textContent='led'+bit;
+      c.appendChild(l); c.appendChild(lb); el.appendChild(c);
     }
-    document.getElementById('io-count').textContent=dispIos.length+' ios';
   }
-  for (const io of dispIos) {
-    const l=document.getElementById('led_'+io.name.replace(/[\[\]]/g,'_'));
-    if(l) l.className=`led ${io.color||'green'}${io.value?' on':''}`;
+  // Map current design's led IOs onto the 8 fixed slots by bit index.
+  const litByBit = {};
+  if (emu) {
+    for (const io of emu.getIO()) {
+      if ((io.kind||'led')==='led') litByBit[io.bit||0] = io.value;
+    }
   }
-  // 7-seg: driven ONLY by the dedicated `hex` port. No fallback —
-  // a design with no hex output leaves the display blank.
-  const hexIos = allIos.filter(io => io.kind === 'hex');
-  if (hexIos.length) {
-    let v = 0;
-    for (const io of hexIos) if (io.value) v |= 1 << (io.bit||0);
-    renderSeg(0,(v>>4)&0xF,true); renderSeg(1,v&0xF,true);
-  } else {
-    renderSeg(0,0,false); renderSeg(1,0,false);
+  for (let bit = 0; bit < 8; bit++) {
+    const l=document.getElementById('led_bit'+bit);
+    if (l) l.className = 'led' + (litByBit[bit] ? ' on' : '');
   }
+  // Hex display — driven only by `hex`-kind IOs, no fallback.
+  let hexV = 0, hasHex = false;
+  if (emu) {
+    for (const io of emu.getIO()) {
+      if (io.kind==='hex') { hasHex = true; if (io.value) hexV |= 1 << (io.bit||0); }
+    }
+  }
+  if (hasHex) { renderSeg(0,(hexV>>4)&0xF,true); renderSeg(1,hexV&0xF,true); }
+  else        { renderSeg(0,0,false); renderSeg(1,0,false); }
 }
 
 function renderSeg(idx,val,lit){
@@ -985,27 +1042,50 @@ function renderSeg(idx,val,lit){
 }
 
 function renderSwitches(nl) {
-  const el=document.getElementById('sw-grid'); el.innerHTML='';
-  const sw_nets=new Set();
-  const add = n => { if (n && typeof n==='string' && n.startsWith('sw')) sw_nets.add(n); };
-  // sw_ nets can be consumed by LUTs, carry cells, OR flip-flop D inputs.
+  const el=document.getElementById('sw-grid'); if(!el) return;
+  // Which sw nets does this design actually consume?
+  const used=new Set();
+  const add = n => { if (n && typeof n==='string' && n.startsWith('sw')) used.add(n); };
   for (const l of (nl.luts||[])) for (const inp of (l.inputs||[])) add(inp);
   for (const c of (nl.carries||[])) { add(c.i0); add(c.i1); add(c.ci); }
   for (const ff of (nl.ffs||[])) add(ff.d_net);
-  if (!sw_nets.size) { el.innerHTML='<span style="font-size:11px;color:var(--muted)">no sw* inputs</span>'; return; }
-  for (const sw of [...sw_nets].sort()) {
-    swState[sw]=0;
-    const w=document.createElement('div'); w.className='sw-unit';
-    const b=document.createElement('button'); b.className='sw-btn'; b.title=sw;
-    const lb=document.createElement('div'); lb.className='sw-lbl'; lb.textContent=sw;
-    b.addEventListener('click',()=>{ swState[sw]^=1; b.classList.toggle('on',!!swState[sw]); if(emu){emu.setNet(sw,swState[sw]);renderNets();} });
-    w.appendChild(b); w.appendChild(lb); el.appendChild(w);
+
+  // Map a bit index → the actual net name the design uses for it.
+  // Accepts sw[N], swN, or sw_NAME (single-bit → bit 0).
+  const netForBit = {};
+  for (const n of used) {
+    let m = n.match(/\[(\d+)\]$/) || n.match(/(\d+)$/);
+    netForBit[m ? +m[1] : 0] = n;
+  }
+
+  // Board always shows 8 switch slots, sw7 (left) → sw0 (right).
+  el.innerHTML='';
+  for (let bit = 7; bit >= 0; bit--) {
+    const net = netForBit[bit];                    // may be undefined (unused)
+    const c=document.createElement('div'); c.className='sw-cell';
+    const b=document.createElement('button'); b.className='sw-btn';
+    const lb=document.createElement('div'); lb.className='sw-lbl'; lb.textContent='sw'+bit;
+    if (net) {
+      swState[net] = swState[net] || 0;
+      b.classList.toggle('on', !!swState[net]);
+      b.title = net;
+      b.addEventListener('click', () => {
+        swState[net] ^= 1;
+        b.classList.toggle('on', !!swState[net]);
+        if (emu) { emu.setNet(net, swState[net]); renderLEDs(); renderNets(); }
+      });
+    } else {
+      b.disabled = true;                           // not used by this design
+      b.style.opacity = '.35';
+      b.title = 'sw'+bit+' — not used by this design';
+    }
+    c.appendChild(b); c.appendChild(lb); el.appendChild(c);
   }
 }
 
 function renderNets() {
   if (!emu) return;
-  const el=document.getElementById('net-tbl'); el.innerHTML='';
+  const el=document.getElementById('net-tbl'); if(!el) return; el.innerHTML='';
   const nets=[...emu.ffs.map(f=>f.q_net||f.id+'_q'),...Object.keys(swState).sort()];
   for (const net of nets.slice(0,20)) {
     const v=emu.nets[net]||0;
@@ -1017,22 +1097,19 @@ function renderNets() {
 
 function updateStats() {
   if (!emu) return;
-  document.getElementById('st-luts').textContent=emu.luts.length;
-  document.getElementById('st-ffs').textContent=emu.ffs.length;
   const u=parseFloat(emu.util());
-  document.getElementById('st-util').textContent=u+'%';
-  document.getElementById('sb-luts').textContent=emu.luts.length;
-  document.getElementById('sb-ffs').textContent=emu.ffs.length;
-  document.getElementById('sb-util').textContent=u+'%';
-  document.getElementById('util-pct').textContent=`${emu.luts.length} / 5280`;
+  const set=(id,v)=>{ const e=document.getElementById(id); if(e) e.textContent=v; };
+  set('st-luts',emu.luts.length); set('st-ffs',emu.ffs.length); set('st-util',u+'%');
+  set('sb-luts',emu.luts.length); set('sb-ffs',emu.ffs.length); set('sb-util',u+'%');
+  set('info-luts',emu.luts.length); set('info-ffs',emu.ffs.length);
+  set('util-pct',`${emu.luts.length} / 5280`);
   const fill=document.getElementById('util-fill');
-  fill.style.width=u+'%';
-  fill.className='util-fill'+(u>80?' danger':u>50?' warn':'');
+  if(fill){ fill.style.width=u+'%'; fill.className='util-fill'+(u>80?' danger':u>50?' warn':''); }
 }
 
 function renderLUTSel() {
   if (!emu) return;
-  const el=document.getElementById('lut-sel'); el.innerHTML='';
+  const el=document.getElementById('lut-sel'); if(!el) return; el.innerHTML='';
   emu.luts.slice(0,12).forEach((l,i)=>{
     const b=document.createElement('button');
     b.textContent=l.id.replace(/lut_/,'').slice(0,10);
@@ -1045,6 +1122,7 @@ function renderLUTSel() {
 
 function inspectLUT(idx) {
   if (!emu||!emu.luts[idx]) return;
+  if(!document.getElementById('lut-g16')) return;
   inspLUT=idx;
   const lut=emu.luts[idx];
   let addr=0;
@@ -1067,15 +1145,32 @@ function inspectLUT(idx) {
 //  EXAMPLES + LINE NUMS
 // ══════════════════════════════════════════════════════════════
 function buildExTabs() {
-  const el=document.getElementById('ex-tabs'); el.innerHTML='';
+  const el=document.getElementById('ex-list'); if(!el) return; el.innerHTML='';
   const examples = mode==='verilog' ? VERILOG_EXAMPLES : JSON_EXAMPLES;
-  Object.keys(examples).forEach((k,i)=>{
+  Object.keys(examples).forEach((k)=>{
     const b=document.createElement('button');
-    b.textContent=k; b.className='ex-tab'+(i===0?' active':'');
-    b.onclick=(e)=>{ document.querySelectorAll('.ex-tab').forEach(x=>x.classList.remove('active')); e.target.classList.add('active'); loadExample(k,true); };
+    b.textContent=k;
+    b.onclick=()=>{ loadExample(k,true); el.classList.remove('open'); };
     el.appendChild(b);
   });
 }
+
+window.toggleExMenu = function(e) {
+  if (e) { e.stopPropagation(); e.preventDefault(); }
+  const el=document.getElementById('ex-list');
+  if(el) el.classList.toggle('open');
+}
+// Wire the Examples button directly (robust across browsers).
+{
+  const exb = document.getElementById('ex-btn');
+  if (exb) exb.addEventListener('click', (e) => toggleExMenu(e));
+}
+// close the examples dropdown when clicking outside it
+document.addEventListener('click', (e) => {
+  const menu = document.querySelector('.ex-menu');
+  const el = document.getElementById('ex-list');
+  if (el && menu && !menu.contains(e.target)) el.classList.remove('open');
+});
 
 function loadExample(name, noCompile) {
   const examples = mode==='verilog' ? VERILOG_EXAMPLES : JSON_EXAMPLES;
@@ -1162,9 +1257,26 @@ window.saveFile = async function() {
 }
 
 // ══════════════════════════════════════════════════════════════
+//  HELPERS  (cycle display + help)
+// ══════════════════════════════════════════════════════════════
+function setCycle(c) {
+  for (const id of ['st-cycle','hcycle','info-cycle']) {
+    const e=document.getElementById(id);
+    if(e) e.textContent = (id==='hcycle' ? 'cycle '+c : c);
+  }
+}
+
+window.showHelp = function() {
+  window.open('https://github.com/senolgulgonul/softfpga', '_blank', 'noopener');
+}
+
+// ══════════════════════════════════════════════════════════════
 //  BOOT
 // ══════════════════════════════════════════════════════════════
 setMode('verilog');
+renderLEDs();           // draw the 8 LED slots + blank hex immediately
+renderSwitches({});     // draw the 8 switch slots (all inert until a design uses them)
+
 </script>
 </body>
 </html>
