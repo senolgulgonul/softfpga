@@ -17,9 +17,9 @@ to a fixed virtual board with LEDs, a hex display, and switches.
 - **Verilog mode** — real Verilog, synthesized in-browser by Yosys WASM
 - **JSON mode** — hand-written LUT/FF netlists for instant simulation, zero dependencies
 - **iCE40UP5K model** — LUT4 + D-flip-flop fabric, up to 5,280 LUTs
-- **Fixed virtual board** — 8 LEDs, a 2-digit hex display, 8 switches
-- **LUT inspector** — view any LUT's 16-entry truth table with the active row highlighted
-- **Netlist dump** — export the raw Yosys JSON and the converted netlist for debugging
+- **Virtual FPGA board** — a fixed board with 8 LEDs, a 2-digit hex display, and 8 switches
+- **Open / save** — load and save Verilog files from your local disk
+- **Netlist dump** — export the Yosys netlist and the converted netlist for inspection
 
 ---
 
@@ -58,30 +58,37 @@ trade-off for learning and experimenting with digital logic.
 
 ## How to use it
 
-1. Open the app and make sure the **⚡ Verilog** tab is selected.
-2. Pick an example (counter, blink, shift, pwm, adder) or write your own.
-3. Press **⚡ Compile**. On first use this downloads Yosys WASM (~8 MB from a
-   CDN, cached afterwards), then synthesizes your design. The console reports
-   the LUT / flip-flop / IO counts.
+All actions live in the toolbar across the top of the window.
+
+1. Make sure the **Verilog** mode button (top-right) is selected.
+2. Click **📁 Examples** and pick a design (counter, blink, shift, pwm, adder),
+   or write your own in the editor.
+3. Press **⚡ Synthesize**. On first use this downloads Yosys WASM (~8 MB from a
+   CDN, cached afterwards), then synthesizes your design. The console below the
+   editor reports the LUT / flip-flop / IO counts.
 4. Press **▶ Run** to start the clock, or **⏭ Step** to advance one cycle at a
    time. **↺ Reset** clears all flip-flops back to zero.
 5. Use the **clock speed** dropdown to slow fast designs down enough to watch.
-6. For designs with switches, click the switch toggles to set input bits, then
-   Run or Step to see the effect.
+6. For designs with switches, click the switch toggles on the board to set
+   input bits, then Run or Step to see the effect.
 
-The typical loop is just **Compile → Run**. Edit, Compile again, Run again.
+The typical loop is just **Synthesize → Run**. Edit, Synthesize again, Run again.
+
+The window has three areas: the **Verilog editor** with a console on the left,
+the **virtual FPGA board** in the middle (always visible — LEDs on top, hex
+display, switches below), and an **Information** panel on the right showing the
+device and resource usage. The **❓ Help** button opens this documentation.
 
 ### Opening and saving files
 
-A small toolbar above the editor lets you work with files on your own disk:
+The toolbar's file buttons let you work with Verilog files on your own disk:
 
 - **📂 Open** — load a Verilog (`.v`, `.sv`, `.vh`) or netlist (`.json`) file
-  from disk into the editor. The mode switches automatically to match the
-  file type.
+  into the editor. The mode switches automatically to match the file type.
 - **💾 Save** — write the editor contents back to a file. Edit the filename in
-  the toolbar field first to choose the name. On Chromium browsers (Chrome,
-  Edge) served over `https`/`localhost`, this opens a native *Save As* dialog;
-  elsewhere it downloads the file to your browser's download folder.
+  the field next to the editor title first to choose the name. On Chromium
+  browsers (Chrome, Edge) served over `https`/`localhost`, this opens a native
+  *Save As* dialog; elsewhere it downloads the file to your download folder.
 
 Everything is fully client-side — no upload, no server. The Save extension is
 corrected automatically to `.v` or `.json` to match the current mode.
@@ -216,9 +223,9 @@ input with no logic) are not currently supported.
 - [x] LUT4 + D-flip-flop fabric (up to 5280 LUTs)
 - [x] Fixed virtual board: 8 LEDs, hex display, 8 switches
 - [x] Reserved-name IO model (no constraint file needed)
-- [x] LUT inspector and utilisation meter
-- [x] Netlist dump for debugging
+- [x] Netlist dump for inspection
 - [x] Open / save .v files from local disk
+- [x] Gowin-style light theme UI with a virtual FPGA board
 - [ ] Clock prescaler for visually slowing fast designs
 - [ ] Block RAM emulation
 - [ ] UART terminal peripheral
@@ -245,13 +252,9 @@ please cite it. Update the year and URL as appropriate.
   title   = {softfpga: A browser-based iCE40 FPGA emulator},
   year    = {2026},
   url     = {https://github.com/senolgulgonul/softfpga},
-  version = {1.21}
+  version = {1.27}
 }
 ```
-
-For a citable, versioned snapshot with a DOI, you can connect the GitHub
-repository to [Zenodo](https://zenodo.org) and create a release; Zenodo will
-mint a DOI for each tagged version.
 
 ---
 
