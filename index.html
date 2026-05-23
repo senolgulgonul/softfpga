@@ -259,7 +259,7 @@ select:hover { border-color: var(--blue); }
 
 <header>
   <div class="logo">soft<span>fpga</span></div>
-  <span class="ver">v1.28</span>
+  <span class="ver">v1.29</span>
   <span style="font-size:11px;color:var(--muted)"><span class="status-dot" id="sdot"></span><span id="stxt">idle</span></span>
 </header>
 
@@ -793,6 +793,75 @@ module top (
 );
   assign led = sw;
   assign hex = sw;
+endmodule`,
+
+  gates: `// 1. PRIMITIVES — a half adder built from gate primitives
+// sw0 = A, sw1 = B.  led0 = Sum (A xor B), led1 = Carry (A and B).
+module top (
+  input  clk,
+  input  [7:0] sw,
+  output [7:0] led,
+  output [7:0] hex
+);
+  xor G0 (led[0], sw[0], sw[1]);   // Sum
+  and G1 (led[1], sw[0], sw[1]);   // Carry
+  assign led[7:2] = 0;
+  assign hex = led;
+endmodule`,
+
+  fulladder: `// 2. HIERARCHICAL MODELING — a full adder built from two half adders
+// sw0 = A, sw1 = B, sw2 = Carry-in.  led0 = Sum, led1 = Carry-out.
+module halfadder (output S, C, input A, B);
+  xor G0 (S, A, B);
+  and G1 (C, A, B);
+endmodule
+
+module top (
+  input  clk,
+  input  [7:0] sw,
+  output [7:0] led,
+  output [7:0] hex
+);
+  wire s1, c1, c2;
+  halfadder M0 (.S(s1),     .C(c1), .A(sw[0]), .B(sw[1]));
+  halfadder M1 (.S(led[0]), .C(c2), .A(s1),    .B(sw[2]));
+  or G1 (led[1], c1, c2);          // Carry-out
+  assign led[7:2] = 0;
+  assign hex = led;
+endmodule`,
+
+  dataflow: `// 3. DATAFLOW MODELING — continuous assignment, bitwise operators
+// led shows several bitwise ops on the two switch nibbles.
+module top (
+  input  clk,
+  input  [7:0] sw,
+  output [7:0] led,
+  output [7:0] hex
+);
+  wire [3:0] a = sw[3:0];
+  wire [3:0] b = sw[7:4];
+  assign led[3:0] = a & b;         // bitwise AND
+  assign led[7:4] = a ^ b;         // bitwise XOR
+  assign hex = led;
+endmodule`,
+
+  fsm: `// 4. BEHAVIORAL MODELING — an up/down counter FSM
+// sw0 = direction (0 = up, 1 = down).  Counts on every clock.
+module top (
+  input  clk,
+  input  [7:0] sw,
+  output [7:0] led,
+  output [7:0] hex
+);
+  reg [7:0] count = 0;
+  always @(posedge clk) begin
+    if (sw[0])
+      count <= count - 1;          // count down
+    else
+      count <= count + 1;          // count up
+  end
+  assign led = count;
+  assign hex = count;
 endmodule`,
 };
 

@@ -126,6 +126,10 @@ flip-flop-based simulation models.
 | pwm      | A PWM generator; `sw[0]` selects the duty cycle           |
 | adder    | A 4-bit adder: `sw[3:0] + sw[7:4]`, result on LEDs and hex |
 | switches | Switch passthrough: `sw` drives the LEDs and hex directly |
+| gates    | Primitives — a half adder from `xor` / `and` gates       |
+| fulladder| Hierarchical modeling — a full adder from two half adders |
+| dataflow | Dataflow modeling — continuous assignment, bitwise operators |
+| fsm      | Behavioral modeling — an up/down counter (`sw[0]` sets direction) |
 
 ---
 
@@ -252,7 +256,7 @@ please cite it. Update the year and URL as appropriate.
   title   = {softfpga: A browser-based iCE40 FPGA emulator},
   year    = {2026},
   url     = {https://github.com/senolgulgonul/softfpga},
-  version = {1.28}
+  version = {1.29}
 }
 ```
 
