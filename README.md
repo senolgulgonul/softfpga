@@ -125,6 +125,7 @@ flip-flop-based simulation models.
 | shift    | An 8-bit shift register; `sw[0]` is the serial input      |
 | pwm      | A PWM generator; `sw[0]` selects the duty cycle           |
 | adder    | A 4-bit adder: `sw[3:0] + sw[7:4]`, result on LEDs and hex |
+| switches | Switch passthrough: `sw` drives the LEDs and hex directly |
 
 ---
 
@@ -211,8 +212,8 @@ switches) addressed by reserved names.
 
 Not modeled: signal timing and propagation delay, place & route, block RAM,
 DSP/multiplier blocks, the hardened RGB LED driver, PLLs, and bitstream
-generation. Pure wire-through designs (an output assigned directly from an
-input with no logic) are not currently supported.
+generation. For a tool aimed at learning logic design, none of these are
+needed — the logic itself runs correctly.
 
 ---
 
@@ -230,7 +231,6 @@ input with no logic) are not currently supported.
 - [ ] Block RAM emulation
 - [ ] UART terminal peripheral
 - [ ] Waveform (VCD) export
-- [ ] Pure wire-through (combinational pass-through) support
 
 ---
 
@@ -252,7 +252,7 @@ please cite it. Update the year and URL as appropriate.
   title   = {softfpga: A browser-based iCE40 FPGA emulator},
   year    = {2026},
   url     = {https://github.com/senolgulgonul/softfpga},
-  version = {1.27}
+  version = {1.28}
 }
 ```
 

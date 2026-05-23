@@ -259,7 +259,7 @@ select:hover { border-color: var(--blue); }
 
 <header>
   <div class="logo">soft<span>fpga</span></div>
-  <span class="ver">v1.27</span>
+  <span class="ver">v1.28</span>
   <span style="font-size:11px;color:var(--muted)"><span class="status-dot" id="sdot"></span><span id="stxt">idle</span></span>
 </header>
 
@@ -598,9 +598,10 @@ function yosysJsonToNetlist(yj, ioAnnotations) {
   }
 
   // Expose non-clk input ports as sw_* nets.
-  // Must rewire EVERY consumer: LUT inputs, carry inputs, AND FF D inputs.
-  // (A shift register feeds its serial input straight into a FF, with no
-  // LUT in between — missing the FF rewire leaves it permanently at 0.)
+  // Must rewire EVERY consumer: LUT inputs, carry inputs, FF D inputs,
+  // AND output IO nets — the last case handles a bare wire-through
+  // (`assign led = sw;`), where an input net IS an output net with no
+  // cell in between. Without the IO rewire that signal never reaches the LED.
   for (const [pname, pd] of Object.entries(ports)) {
     const skip = ['clk','CLK','clk_i','rst','RST','reset'];
     if (pd.direction === 'input' && !skip.includes(pname)) {
@@ -616,6 +617,7 @@ function yosysJsonToNetlist(yj, ioAnnotations) {
           if (c.ci===net) c.ci=swName;
         }
         for (const ff of ffs) if (ff.d_net===net) ff.d_net=swName;
+        for (const io of ios) if (io.net===net) io.net=swName;
       }
     }
   }
@@ -779,6 +781,18 @@ module top (
   wire [4:0] sum = sw[3:0] + sw[7:4];
   assign led = {3'b0, sum};
   assign hex = {3'b0, sum};
+endmodule`,
+
+  switches: `// Switch passthrough — the switches drive the LEDs directly
+// Flip a switch and its LED follows. The hex display shows the value.
+module top (
+  input  clk,
+  input  [7:0] sw,
+  output [7:0] led,
+  output [7:0] hex
+);
+  assign led = sw;
+  assign hex = sw;
 endmodule`,
 };
 
@@ -1049,6 +1063,9 @@ function renderSwitches(nl) {
   for (const l of (nl.luts||[])) for (const inp of (l.inputs||[])) add(inp);
   for (const c of (nl.carries||[])) { add(c.i0); add(c.i1); add(c.ci); }
   for (const ff of (nl.ffs||[])) add(ff.d_net);
+  // Also scan output IO nets — a bare wire-through (`assign led = sw`) puts
+  // the sw net directly on an LED IO with no cell in between.
+  for (const io of (nl.ios||[])) add(io.net);
 
   // Map a bit index → the actual net name the design uses for it.
   // Accepts sw[N], swN, or sw_NAME (single-bit → bit 0).
