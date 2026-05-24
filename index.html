@@ -29,7 +29,8 @@
 }
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { font-size: 14px; }
-body { background: var(--bg); color: var(--ink); font-family: var(--ui); height: 100vh; overflow: hidden; }
+body { background: var(--bg); color: var(--ink); font-family: var(--ui); height: 100vh; overflow: hidden;
+  font-variant-ligatures: none; font-feature-settings: "liga" 0, "calt" 0; }
 
 /* ── HEADER ── */
 header {
@@ -133,6 +134,10 @@ select:hover { border-color: var(--blue); }
   font-family: var(--mono); font-size: 12.5px; line-height: 1.55;
   border: none; outline: none; resize: none; padding: 8px 12px;
   white-space: pre; tab-size: 2;
+  /* Disable programming ligatures — Verilog's `<=` must read as two
+     characters, not a single ≤ glyph (it is an assignment, not a comparison). */
+  font-variant-ligatures: none;
+  font-feature-settings: "liga" 0, "calt" 0, "clig" 0, "dlig" 0;
 }
 
 /* ── CONSOLE (bottom of editor col) ── */
@@ -259,7 +264,7 @@ select:hover { border-color: var(--blue); }
 
 <header>
   <div class="logo">soft<span>fpga</span></div>
-  <span class="ver">v1.29</span>
+  <span class="ver">v1.30</span>
   <span style="font-size:11px;color:var(--muted)"><span class="status-dot" id="sdot"></span><span id="stxt">idle</span></span>
 </header>
 
