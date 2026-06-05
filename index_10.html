@@ -1,0 +1,1812 @@
+<!DOCTYPE html>
+<!-- ═══════════════════════════════════════════════════════════════
+     softfpga — iCE40 FPGA emulator
+     CHANGELOG (bump the v… in the header on every update):
+       v1.38 — synthesized LUTs are now auto-named by function (NOT/XOR/AND/OR/…); shows as comment in the netlist JSON and label in the schematic
+       v1.37 — fixed wire-through designs (e.g. switches: assign led = sw): netlist no longer shows empty, and schematic now draws input→LED with no cell
+       v1.36 — editor starts empty; tabs use separate buffers (no example forced into Netlist JSON); JSON tab shows only the synthesized netlist
+       v1.35 — schematic now shows primary inputs / constants that feed a flip-flop's D directly (e.g. sw[0] serial-in in the shift register)
+       v1.34 — counter example is now a 4-bit counter (0–15) instead of 8-bit
+       v1.33 — Examples menu always lists the full Verilog library (no longer shrinks in JSON mode); picking one returns to Verilog mode
+       v1.32 — Netlist JSON tab now shows the synthesized netlist (window.__lastNetlist), not a fixed example
+       v1.31 — added Schematic viewer (◫ Schematic); removed Dump Netlist
+       v1.30 — live baseline
+     ═══════════════════════════════════════════════════════════════ -->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>softfpga — iCE40 FPGA Emulator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Syne:wght@400;500;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:        #e8e8e8;
+  --panel:     #f4f4f4;
+  --panel2:    #ffffff;
+  --frame:     #c4c8cf;
+  --frame2:    #d8dbe0;
+  --ink:       #1c1f24;
+  --ink2:      #3d4350;
+  --muted:     #7a808c;
+  --blue:      #1f6fd4;
+  --blue-dim:  #dce8f7;
+  --blue-deep: #134a91;
+  --green:     #1f9d4d;
+  --amber:     #d98a00;
+  --red:       #d63a3a;
+  --led-off:   #5a1414;
+  --led-on:    #ff2e2e;
+  --mono:      'JetBrains Mono', 'Consolas', monospace;
+  --ui:        'Segoe UI', 'Syne', system-ui, sans-serif;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 14px; }
+body { background: var(--bg); color: var(--ink); font-family: var(--ui); height: 100vh; overflow: hidden;
+  font-variant-ligatures: none; font-feature-settings: "liga" 0, "calt" 0; }
+
+/* ── HEADER ── */
+header {
+  display: flex; align-items: center; gap: 14px;
+  padding: 6px 14px; background: var(--panel);
+  border-bottom: 1px solid var(--frame); flex-shrink: 0;
+}
+.logo { font-family: var(--ui); font-size: 17px; font-weight: 800; letter-spacing: -.01em; color: var(--ink); line-height: 1.5; }
+.logo span { color: var(--blue); }
+.ver { font-family: var(--mono); font-size: 10px; color: var(--muted); }
+
+/* ── TOOLBAR (all actions on top, single line) ── */
+.toolbar {
+  display: flex; align-items: center; gap: 3px; flex-wrap: nowrap;
+  padding: 5px 10px; background: var(--panel);
+  border-bottom: 1px solid var(--frame); flex-shrink: 0;
+  position: relative; z-index: 300;
+}
+.tb-sep { width: 1px; height: 20px; background: var(--frame); margin: 0 4px; flex-shrink: 0; }
+.tb-spacer { flex: 1; min-width: 8px; }
+button {
+  font-family: var(--ui); font-size: 12px; color: var(--ink);
+  background: linear-gradient(180deg, #fdfdfd, #e9ebee);
+  border: 1px solid var(--frame); border-radius: 4px;
+  padding: 5px 9px; cursor: pointer; transition: background .12s, border-color .12s;
+  white-space: nowrap; flex-shrink: 0;
+}
+button:hover { background: linear-gradient(180deg, #ffffff, #dde6f2); border-color: var(--blue); }
+button:active { background: var(--blue-dim); }
+button:disabled { opacity: .45; cursor: default; }
+button.primary {
+  background: linear-gradient(180deg, #2f86e8, #1f6fd4); color: #fff;
+  border-color: var(--blue-deep); font-weight: 600;
+}
+button.primary:hover { background: linear-gradient(180deg, #3a92f0, #2575d8); }
+button.run-btn.active {
+  background: linear-gradient(180deg, #e8a13a, #d98a00); color: #fff; border-color: #9c6400;
+}
+.tb-btn-icon { font-size: 12px; margin-right: 3px; }
+select {
+  font-family: var(--ui); font-size: 12px; color: var(--ink);
+  background: var(--panel2); border: 1px solid var(--frame);
+  border-radius: 4px; padding: 5px 6px; cursor: pointer;
+}
+select:hover { border-color: var(--blue); }
+
+/* examples dropdown */
+.ex-menu { position: relative; }
+.ex-list {
+  display: none; position: absolute; top: 100%; left: 0; z-index: 200;
+  background: var(--panel2); border: 1px solid var(--frame);
+  border-radius: 4px; box-shadow: 0 6px 18px rgba(0,0,0,.18); margin-top: 3px;
+  min-width: 150px; overflow: hidden;
+}
+.ex-list.open { display: block; }
+.ex-list button {
+  display: block; width: 100%; text-align: left; border: none;
+  border-radius: 0; background: var(--panel2); border-bottom: 1px solid var(--frame2);
+}
+.ex-list button:last-child { border-bottom: none; }
+.ex-list button:hover { background: var(--blue-dim); }
+
+/* ── APP GRID: editor | board | info ── */
+.app { display: flex; height: calc(100vh - 84px); }
+.col { display: flex; flex-direction: column; min-width: 0; }
+.col-editor { flex: 1.1; border-right: 1px solid var(--frame); }
+.col-board  { width: 340px; flex-shrink: 0; background: var(--panel); border-right: 1px solid var(--frame); overflow-y: auto; }
+.col-info   { width: 250px; flex-shrink: 0; background: var(--panel); }
+
+.phead {
+  padding: 5px 12px; background: var(--frame2);
+  border-bottom: 1px solid var(--frame);
+  font-size: 11px; font-weight: 700; letter-spacing: .04em;
+  text-transform: uppercase; color: var(--ink2);
+  display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;
+}
+
+/* ── EDITOR ── */
+.file-bar {
+  display: flex; align-items: center; gap: 6px;
+  padding: 5px 10px; background: var(--panel);
+  border-bottom: 1px solid var(--frame); flex-shrink: 0;
+}
+.file-name-input {
+  font-family: var(--mono); font-size: 11px; color: var(--ink);
+  background: var(--panel2); border: 1px solid var(--frame);
+  border-radius: 3px; padding: 3px 7px; width: 150px;
+}
+.file-name-input:focus { outline: none; border-color: var(--blue); }
+.editor-wrap { flex: 1; display: flex; overflow: hidden; background: var(--panel2); }
+.line-nums {
+  padding: 8px 6px 8px 10px; background: #f0f1f3; color: #9aa0ab;
+  font-family: var(--mono); font-size: 12.5px; line-height: 1.55;
+  text-align: right; user-select: none; border-right: 1px solid var(--frame2); overflow: hidden;
+}
+.line-num { height: calc(12.5px * 1.55); }
+.editor-scroll { flex: 1; overflow: auto; }
+#editor {
+  width: 100%; height: 100%; min-height: 100%;
+  background: var(--panel2); color: #1c1f24;
+  font-family: var(--mono); font-size: 12.5px; line-height: 1.55;
+  border: none; outline: none; resize: none; padding: 8px 12px;
+  white-space: pre; tab-size: 2;
+  /* Disable programming ligatures — Verilog's `<=` must read as two
+     characters, not a single ≤ glyph (it is an assignment, not a comparison). */
+  font-variant-ligatures: none;
+  font-feature-settings: "liga" 0, "calt" 0, "clig" 0, "dlig" 0;
+}
+
+/* ── CONSOLE (bottom of editor col) ── */
+.console-box { height: 160px; display: flex; flex-direction: column; border-top: 1px solid var(--frame); flex-shrink: 0; }
+.log-out {
+  flex: 1; overflow: auto; background: var(--panel2);
+  font-family: var(--mono); font-size: 11px; line-height: 1.65;
+  padding: 6px 10px; color: var(--ink);
+}
+.log-out .inf { color: var(--muted); }
+.log-out .dim { color: #aab; }
+.log-out .ok  { color: var(--green); }
+.log-out .warn{ color: var(--amber); }
+.log-out .err { color: var(--red); }
+
+/* ── BOARD (middle, the PCB) ── */
+.board-stage { padding: 12px 14px; display: flex; flex-direction: column; align-items: center; }
+.pcb {
+  width: 296px; background: linear-gradient(160deg, #1a4d8f, #123a6e);
+  border: 2px solid #0a2548; border-radius: 8px;
+  padding: 13px 14px; box-shadow: 0 6px 16px rgba(0,0,0,.3), inset 0 1px 3px rgba(255,255,255,.1);
+  position: relative;
+}
+.pcb::before {
+  content: ''; position: absolute; inset: 6px; border: 1px dashed rgba(255,255,255,.14);
+  border-radius: 5px; pointer-events: none;
+}
+.board-row-title {
+  font-family: var(--mono); font-size: 8px; letter-spacing: .1em;
+  color: rgba(255,255,255,.5); text-transform: uppercase; margin: 9px 0 5px;
+}
+.board-row-title:first-child { margin-top: 0; }
+
+/* LEDs — all red, on top */
+.led-row { display: flex; justify-content: space-between; gap: 3px; }
+.led-cell { display: flex; flex-direction: column; align-items: center; gap: 3px; flex: 1; }
+.led {
+  width: 18px; height: 18px; border-radius: 50%;
+  background: radial-gradient(circle at 38% 32%, #7a2020, var(--led-off));
+  border: 2px solid #3a0d0d; box-shadow: inset 0 1px 2px rgba(0,0,0,.5);
+  transition: background .08s, box-shadow .08s;
+}
+.led.on {
+  background: radial-gradient(circle at 38% 32%, #ff8a8a, var(--led-on));
+  box-shadow: 0 0 9px 1px rgba(255,46,46,.85), inset 0 1px 2px rgba(255,255,255,.4);
+}
+.led-lbl { font-family: var(--mono); font-size: 7.5px; color: rgba(255,255,255,.6); }
+
+/* hex display — two digits, with a vertical stencil label to the right */
+.seg-wrap { display: flex; justify-content: center; align-items: flex-start; gap: 14px; }
+.seg-digit {
+  position: relative; width: 36px; height: 60px;
+  background: #1a0505; border: 2px solid #3a0d0d; border-radius: 4px;
+}
+.seg { position: absolute; background: #2e0a0a; transition: background .08s, box-shadow .08s; }
+.seg.on { background: var(--led-on); box-shadow: 0 0 6px rgba(255,46,46,.9); }
+/* horizontal segments: 18px wide, 4px tall */
+.seg-a { top:6px;     left:9px;  width:18px; height:4px; }
+.seg-g { top:28px;    left:9px;  width:18px; height:4px; }
+.seg-d { top:50px;    left:9px;  width:18px; height:4px; }
+/* vertical segments: 4px wide, 18px tall — sit between the horizontals */
+.seg-f { top:10px;    left:6px;  width:4px;  height:18px; }
+.seg-b { top:10px;    left:26px; width:4px;  height:18px; }
+.seg-e { top:32px;    left:6px;  width:4px;  height:18px; }
+.seg-c { top:32px;    left:26px; width:4px;  height:18px; }
+.seg-cap { text-align: center; font-family: var(--mono); font-size: 7.5px; color: rgba(255,255,255,.5); margin-top: 4px; }
+.pcb-stencil {
+  font-family: var(--mono); font-size: 8.5px; font-weight: 700;
+  letter-spacing: .14em; color: rgba(255,255,255,.78);
+  text-align: center; margin-top: 12px;
+}
+
+/* switches — same order as LEDs (sw7 left → sw0 right) */
+.sw-row { display: flex; justify-content: space-between; gap: 3px; }
+.sw-cell { display: flex; flex-direction: column; align-items: center; gap: 3px; flex: 1; }
+.sw-btn {
+  width: 22px; height: 13px; border-radius: 7px; padding: 0;
+  background: #444; border: 1px solid #222; cursor: pointer; position: relative;
+  transition: background .12s;
+}
+.sw-btn::after {
+  content: ''; position: absolute; top: 1px; left: 1px;
+  width: 9px; height: 9px; border-radius: 50%; background: #ddd;
+  transition: left .12s;
+}
+.sw-btn.on { background: var(--green); }
+.sw-btn.on::after { left: 10px; }
+.sw-lbl { font-family: var(--mono); font-size: 7.5px; color: rgba(255,255,255,.6); }
+
+/* ── INFO PANEL (right) ── */
+.info-body { padding: 12px; overflow-y: auto; flex: 1; }
+.info-card {
+  background: var(--panel2); border: 1px solid var(--frame);
+  border-radius: 5px; padding: 10px 12px; margin-bottom: 10px;
+}
+.info-card h4 {
+  font-size: 10px; font-weight: 700; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--blue); margin-bottom: 8px;
+}
+.info-row { display: flex; justify-content: space-between; font-size: 11.5px; padding: 3px 0; }
+.info-row .k { color: var(--muted); }
+.info-row .v { font-family: var(--mono); color: var(--ink); font-weight: 600; }
+.util-label { display: flex; justify-content: space-between; font-size: 10.5px; color: var(--muted); margin-bottom: 5px; }
+.util-track { height: 9px; background: var(--frame2); border-radius: 5px; overflow: hidden; border: 1px solid var(--frame); }
+.util-fill { height: 100%; background: var(--blue); transition: width .3s; }
+.util-fill.warn { background: var(--amber); }
+.util-fill.danger { background: var(--red); }
+
+/* ── HELP OVERLAY ── */
+
+/* status dot */
+.status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); display: inline-block; }
+.status-dot.running { background: var(--green); }
+.status-dot.compiling { background: var(--amber); }
+.status-dot.error { background: var(--red); }
+
+::-webkit-scrollbar { width: 11px; height: 11px; }
+::-webkit-scrollbar-track { background: var(--panel); }
+::-webkit-scrollbar-thumb { background: var(--frame); border-radius: 5px; border: 2px solid var(--panel); }
+::-webkit-scrollbar-thumb:hover { background: #aab; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">soft<span>fpga</span></div>
+  <span class="ver">v1.38</span>
+  <span style="font-size:11px;color:var(--muted)"><span class="status-dot" id="sdot"></span><span id="stxt">idle</span></span>
+</header>
+
+<!-- ALL ACTIONS ON TOP -->
+<div class="toolbar">
+  <div class="ex-menu">
+    <button id="ex-btn">📁 Examples ▾</button>
+    <div class="ex-list" id="ex-list"></div>
+  </div>
+  <button onclick="openFile()"><span class="tb-btn-icon">📂</span>Open</button>
+  <button onclick="saveFile()"><span class="tb-btn-icon">💾</span>Save</button>
+  <input type="file" id="file-input" accept=".v,.sv,.vh,.txt,.json" style="display:none">
+  <div class="tb-sep"></div>
+  <button class="primary" id="compile-btn" onclick="doCompile()">⚡ Synthesize</button>
+  <button id="run-btn" class="run-btn" onclick="toggleRun()">▶ Run</button>
+  <button onclick="stepSim()">⏭ Step</button>
+  <button onclick="resetSim()">↺ Reset</button>
+  <div class="tb-sep"></div>
+  <select id="clk-sel" onchange="updateClock()">
+    <option value="1000">1 Hz</option>
+    <option value="500">2 Hz</option>
+    <option value="200" selected>5 Hz</option>
+    <option value="100">10 Hz</option>
+    <option value="50">20 Hz</option>
+    <option value="16">60 Hz</option>
+    <option value="4">250 Hz</option>
+  </select>
+  <div class="tb-spacer"></div>
+  <button id="tab-verilog" onclick="setMode('verilog')">Verilog</button>
+  <button id="tab-json" onclick="setMode('json')">Netlist JSON</button>
+  <button id="tab-schematic" onclick="openSchematic()">◫ Schematic</button>
+  <div class="tb-sep"></div>
+  <button onclick="showHelp()">❓ Help</button>
+</div>
+
+<div class="app">
+
+  <!-- LEFT: code editor + console -->
+  <div class="col col-editor">
+    <div class="phead">
+      <span id="editor-label">Verilog source</span>
+      <input type="text" class="file-name-input" id="file-name" value="untitled.v" spellcheck="false" autocomplete="off">
+    </div>
+    <div class="editor-wrap">
+      <div class="line-nums" id="lnums"></div>
+      <div class="editor-scroll">
+        <textarea id="editor" spellcheck="false" autocomplete="off" oninput="onEdit()"></textarea>
+      </div>
+    </div>
+    <div class="console-box">
+      <div class="phead">
+        <span>Console</span>
+        <button onclick="clearLog()" style="font-size:10px;padding:2px 8px">clear</button>
+      </div>
+      <div class="log-out" id="log-out">
+        <div class="dim">// softfpga — write Verilog, press ⚡ Synthesize, then ▶ Run</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MIDDLE: the virtual FPGA board (always present) -->
+  <div class="col col-board">
+    <div class="phead"><span>FPGA Board</span><span id="io-count" style="font-weight:400;text-transform:none;color:var(--muted)"></span></div>
+    <div class="board-stage">
+      <div class="pcb">
+        <div class="board-row-title">LEDs (led7 → led0)</div>
+        <div class="led-row" id="leds-display"></div>
+
+        <div class="board-row-title">Hex display</div>
+        <div class="seg-wrap">
+          <div>
+            <div class="seg-digit" id="sd0">
+              <div class="seg seg-a"></div><div class="seg seg-b"></div><div class="seg seg-c"></div>
+              <div class="seg seg-d"></div><div class="seg seg-e"></div><div class="seg seg-f"></div><div class="seg seg-g"></div>
+            </div>
+            <div class="seg-cap">led 7-4</div>
+          </div>
+          <div>
+            <div class="seg-digit" id="sd1">
+              <div class="seg seg-a"></div><div class="seg seg-b"></div><div class="seg seg-c"></div>
+              <div class="seg seg-d"></div><div class="seg seg-e"></div><div class="seg seg-f"></div><div class="seg seg-g"></div>
+            </div>
+            <div class="seg-cap">led 3-0</div>
+          </div>
+        </div>
+
+        <div class="board-row-title">Switches (sw7 → sw0)</div>
+        <div class="sw-row" id="sw-grid"></div>
+
+        <div class="pcb-stencil">iCE40UP5K · softfpga board</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT: info panel (beginner-friendly, no debug) -->
+  <div class="col col-info">
+    <div class="phead"><span>Information</span></div>
+    <div class="info-body">
+      <div class="info-card">
+        <h4>Device</h4>
+        <div class="info-row"><span class="k">Chip</span><span class="v">iCE40UP5K</span></div>
+        <div class="info-row"><span class="k">Logic cells</span><span class="v">5280 LUTs</span></div>
+        <div class="info-row"><span class="k">Flip-flops</span><span class="v">5280 FFs</span></div>
+      </div>
+      <div class="info-card">
+        <h4>Resource Usage</h4>
+        <div class="info-row"><span class="k">LUTs used</span><span class="v" id="info-luts">0</span></div>
+        <div class="info-row"><span class="k">FFs used</span><span class="v" id="info-ffs">0</span></div>
+        <div class="info-row"><span class="k">Clock cycle</span><span class="v" id="info-cycle">0</span></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+
+
+<script type="module">
+// ══════════════════════════════════════════════════════════════
+//  iCE40 FABRIC EMULATOR CORE
+//  LUT4 = 16-bit truth table. D-FF. Up to 5280 LUTs (UP5K).
+// ══════════════════════════════════════════════════════════════
+class ICE40Emu {
+  constructor(nl) {
+    if ((nl.luts||[]).length > 5280) throw new Error(`LUT count ${nl.luts.length} > 5280 (iCE40UP5K)`);
+    this.luts    = nl.luts    || [];
+    this.ffs     = nl.ffs     || [];
+    this.ios     = nl.ios     || [];
+    this.carries = nl.carries || [];   // SB_CARRY / carry-wrapper cells
+    this.nets    = { const0:0, const1:1 };
+    this.cycle   = 0;
+    for (const ff of this.ffs) this.nets[ff.q_net || ff.id+'_q'] = ff.init || 0;
+  }
+
+  // Read a net by name; FF Q aliases (id+'_q') resolve too.
+  rd(name) {
+    if (name == null) return 0;
+    if (name === 'const0') return 0;
+    if (name === 'const1') return 1;
+    return (this.nets[name] || 0) & 1;
+  }
+
+  evalLUT(lut) {
+    // SB_LUT4 address: I0 is the LSB, I3 the MSB.
+    // address = I3<<3 | I2<<2 | I1<<1 | I0
+    let a = 0;
+    for (let i = 0; i < 4; i++) a |= this.rd(lut.inputs[i] || 'const0') << i;
+    return (lut.truth_table >> a) & 1;
+  }
+
+  // SB_CARRY: carry-out = majority(I0, I1, CI).
+  evalCarry(c) {
+    const i0 = this.rd(c.i0), i1 = this.rd(c.i1), ci = this.rd(c.ci);
+    return (i0 + i1 + ci) >= 2 ? 1 : 0;
+  }
+
+  tick() {
+    // 1. Settle combinational logic. Iterate enough times for the longest
+    //    LUT/carry chain to propagate (cheap; net count is the upper bound).
+    const passes = this.luts.length + this.carries.length + 1;
+    for (let p = 0; p < passes; p++) {
+      for (const l of this.luts)    this.nets[l.out] = this.evalLUT(l);
+      for (const c of this.carries) this.nets[c.out] = this.evalCarry(c);
+    }
+    // 2. Sample every FF's D BEFORE clocking, then apply the edge together.
+    const nextQ = {};
+    for (const ff of this.ffs) nextQ[ff.q_net || ff.id+'_q'] = this.rd(ff.d_net);
+    for (const k in nextQ) this.nets[k] = nextQ[k];
+
+    this.nets.const0 = 0; this.nets.const1 = 1;
+    this.cycle++;
+    return nextQ;
+  }
+
+  getIO()       { return this.ios.map(io => ({ ...io, value: this.rd(io.net) })); }
+  setNet(k,v)   { this.nets[k] = v?1:0; }
+  reset()       {
+    this.cycle = 0;
+    this.nets = { const0:0, const1:1 };
+    for (const ff of this.ffs) this.nets[ff.q_net || ff.id+'_q'] = ff.init || 0;
+  }
+  util()        { return (this.luts.length/5280*100).toFixed(1); }
+}
+
+// ══════════════════════════════════════════════════════════════
+//  YOSYS NETLIST → EMULATOR NETLIST CONVERTER
+//  Parses Yosys JSON (write_json) output for iCE40.
+//  Handles: SB_LUT4 → lut, SB_DFF* → ff, top-level ports → ios
+// ══════════════════════════════════════════════════════════════
+function yosysJsonToNetlist(yj, ioAnnotations) {
+  // Find the user's top module — it has ports, not a library cell
+  // Prefer module named 'top', else pick the one with the most cells
+  const allMods = Object.entries(yj.modules || {});
+  let topEntry = allMods.find(([n]) => n === 'top') ||
+                 allMods.find(([n]) => n === '\\top') ||
+                 allMods.reduce((best, cur) =>
+                   Object.keys(cur[1].cells||{}).length > Object.keys(best[1].cells||{}).length ? cur : best
+                 , allMods[0]);
+
+  if (!topEntry) throw new Error('No module found in Yosys JSON');
+  const [modName, mod] = topEntry;
+  const cells    = mod.cells    || {};
+  const ports    = mod.ports    || {};
+  const netnames = mod.netnames || {};
+
+  log(`Using module: ${modName} (${Object.keys(cells).length} cells)`, 'inf');
+
+  // Build bit-number → net name map.
+  // CRITICAL: a bit number is electrically unique. A netname that spans
+  // multiple bits is a BUS — its name must NOT be used as a label for any
+  // single bit, or distinct nets get shorted together. Only single-bit
+  // netnames are safe as direct labels; bus bits get `name[i]`.
+  const bitName = {};
+  for (const [nm, nd] of Object.entries(netnames)) {
+    const bits = nd.bits || [];
+    if (bits.length === 1) {
+      const b = bits[0];
+      if (typeof b === 'number' && !bitName[b]) bitName[b] = nm;
+    } else {
+      for (let i = 0; i < bits.length; i++) {
+        const b = bits[i];
+        if (typeof b === 'number' && !bitName[b]) bitName[b] = `${nm}[${i}]`;
+      }
+    }
+  }
+  // Ports take priority — they are the user-visible names.
+  for (const [pname, pd] of Object.entries(ports)) {
+    for (let i = 0; i < (pd.bits||[]).length; i++) {
+      const b = pd.bits[i];
+      if (typeof b === 'number') {
+        bitName[b] = pd.bits.length === 1 ? pname : `${pname}[${i}]`;
+      }
+    }
+  }
+
+  function bname(bit) {
+    if (bit === '0' || bit === 0) return 'const0';
+    if (bit === '1' || bit === 1) return 'const1';
+    // Fallback name is per-bit unique — never collapses distinct nets.
+    if (typeof bit === 'number') return bitName[bit] || `net_${bit}`;
+    return `net_${bit}`;
+  }
+
+  // Parse LUT_INIT. Yosys JSON stores it as a binary string, MSB-first
+  // (leftmost char = highest truth-table index). Parse as-is, no reversal.
+  function parseLutInit(raw) {
+    if (raw === undefined || raw === null) return 0;
+    const s = String(raw);
+    const tickMatch = s.match(/\d+'([bBoOdDhH]?)([0-9a-fA-F_x]+)/);
+    if (tickMatch) {
+      const base = tickMatch[1].toLowerCase();
+      const val  = tickMatch[2].replace(/_/g,'').replace(/x/g,'0');
+      if (base === 'h') return parseInt(val, 16) || 0;
+      if (base === 'b') return parseInt(val, 2)  || 0;
+      if (base === 'o') return parseInt(val, 8)  || 0;
+      return parseInt(val, 10) || 0;
+    }
+    // Plain binary string, MSB-first — parse directly.
+    if (/^[01]+$/.test(s) && s.length >= 4) {
+      return parseInt(s, 2) || 0;
+    }
+    if (/^[0-9a-fA-F]+$/.test(s)) return parseInt(s, 16) || 0;
+    return parseInt(s, 10) || 0;
+  }
+
+  const luts = [], ffs = [], carries = [];
+
+  // Collect LUTs — keyed by OUTPUT NET so downstream cells can read them.
+  for (const [cname, cell] of Object.entries(cells)) {
+    if (cell.type !== 'SB_LUT4') continue;
+    const raw = cell.parameters?.LUT_INIT ?? cell.parameters?.lut_init ?? '0';
+    const tt  = parseLutInit(raw);
+    const ins = ['I0','I1','I2','I3'].map(p => {
+      const b = (cell.connections[p] || [])[0];
+      return b == null ? 'const0' : bname(b);
+    });
+    const outBit = (cell.connections.O || [])[0];
+    const outNet = outBit != null ? bname(outBit) : `lut_out_${cname}`;
+    luts.push({ id: cname, inputs: ins, truth_table: tt, out: outNet });
+  }
+
+  // Collect carry cells (SB_CARRY). CO = majority(I0, I1, CI).
+  for (const [cname, cell] of Object.entries(cells)) {
+    if (cell.type !== 'SB_CARRY') continue;
+    const pin = p => { const b = (cell.connections[p]||[])[0]; return b==null ? 'const0' : bname(b); };
+    const coBit = (cell.connections.CO || [])[0];
+    carries.push({
+      id: cname,
+      i0: pin('I0'), i1: pin('I1'), ci: pin('CI'),
+      out: coBit != null ? bname(coBit) : `carry_out_${cname}`,
+    });
+  }
+
+  // Collect FFs. D is stored as a NET NAME — tick() resolves it from this.nets,
+  // where LUT outputs, carry outputs and FF Q values all live.
+  for (const [cname, cell] of Object.entries(cells)) {
+    if (!cell.type.startsWith('SB_DFF')) continue;
+    const dBit = (cell.connections.D || [])[0];
+    const qBit = (cell.connections.Q || [])[0];
+    const dNet = dBit != null ? bname(dBit) : 'const0';
+    const qNet = qBit != null ? bname(qBit) : `ff_q_${cname}`;
+    ffs.push({ id: cname, d_net: dNet, q_net: qNet, init: 0 });
+  }
+
+  // Build IOs from output ports. Reserved-name board model:
+  //   led[7:0]  → the 8 LEDs
+  //   hex[7:0]  → the 2-digit hex display
+  // Each IO carries a `kind` so the UI knows where to route it.
+  const ios = [];
+  const colors = ['green','green','amber','amber','red','red','blue','blue'];
+  let ci = 0;
+  for (const [pname, pd] of Object.entries(ports)) {
+    if (pd.direction === 'output') {
+      const lname = pname.toLowerCase();
+      const kind  = lname.startsWith('hex') ? 'hex'
+                  : lname.startsWith('led') ? 'led'
+                  : 'led';   // unrecognized outputs default to LEDs
+      for (let i = 0; i < (pd.bits||[]).length; i++) {
+        const net = bname(pd.bits[i]);
+        ios.push({
+          name:  pd.bits.length === 1 ? pname : `${pname}[${i}]`,
+          net:   net,
+          kind:  kind,
+          bit:   pd.bits.length === 1 ? 0 : i,
+          color: colors[ci++ % colors.length]
+        });
+      }
+    }
+  }
+
+  // Fallback: use FF Q nets if no output ports were found.
+  if (!ios.length) {
+    ffs.slice(0, 8).forEach((ff, i) =>
+      ios.push({ name:`FF${i}`, net: ff.q_net, kind:'led', bit:i, color: colors[i%colors.length] })
+    );
+  }
+
+  // Expose non-clk input ports as sw_* nets.
+  // Must rewire EVERY consumer: LUT inputs, carry inputs, FF D inputs,
+  // AND output IO nets — the last case handles a bare wire-through
+  // (`assign led = sw;`), where an input net IS an output net with no
+  // cell in between. Without the IO rewire that signal never reaches the LED.
+  for (const [pname, pd] of Object.entries(ports)) {
+    const skip = ['clk','CLK','clk_i','rst','RST','reset'];
+    if (pd.direction === 'input' && !skip.includes(pname)) {
+      for (let i = 0; i < (pd.bits||[]).length; i++) {
+        const net    = bname(pd.bits[i]);
+        // Don't double the prefix if the port is already named sw* (e.g. sw_in).
+        const base   = /^sw/i.test(pname) ? pname : `sw_${pname}`;
+        const swName = pd.bits.length === 1 ? base : `${base}[${i}]`;
+        for (const l of luts) l.inputs = l.inputs.map(n => n===net ? swName : n);
+        for (const c of carries) {
+          if (c.i0===net) c.i0=swName;
+          if (c.i1===net) c.i1=swName;
+          if (c.ci===net) c.ci=swName;
+        }
+        for (const ff of ffs) if (ff.d_net===net) ff.d_net=swName;
+        for (const io of ios) if (io.net===net) io.net=swName;
+      }
+    }
+  }
+
+  log(`Converted: ${luts.length} LUTs · ${carries.length} carries · ${ffs.length} FFs · ${ios.length} IOs`, 'ok');
+  return { luts, ffs, ios, carries };
+}
+
+// ══════════════════════════════════════════════════════════════
+//  YOSYS WASM RUNNER (YoWASP via jsDelivr)
+// ══════════════════════════════════════════════════════════════
+let yosysModule = null;
+async function loadYosys() {
+  if (yosysModule) return yosysModule;
+  log('Loading Yosys WASM from jsDelivr (~8 MB)...', 'inf');
+  setStatus('compiling');
+  const { runYosys } = await import('https://cdn.jsdelivr.net/npm/@yowasp/yosys/gen/bundle.js');
+  yosysModule = runYosys;
+  log('Yosys WASM loaded ✓', 'ok');
+  return yosysModule;
+}
+
+async function compileVerilog(src) {
+  const run = await loadYosys();
+
+  const filesIn = { 'top.v': new TextEncoder().encode(src) };
+  let filesOut = {};
+
+  function safeStr(x) {
+    if (typeof x === 'string') return x;
+    if (x instanceof Uint8Array) return new TextDecoder().decode(x);
+    if (x instanceof ArrayBuffer) return new TextDecoder().decode(x);
+    if (typeof x === 'number') return String.fromCharCode(x);
+    if (x && x.buffer) return new TextDecoder().decode(new Uint8Array(x.buffer, x.byteOffset, x.byteLength));
+    return String(x);
+  }
+
+  let stderrBuf = '', stdoutBuf = '';
+
+  try {
+    // -q = quiet mode, suppresses verbose pass output
+    filesOut = await run(
+      ['top.v', '-q', '-p', 'synth_ice40 -nocarry -flatten -json top.json'],
+      filesIn,
+      {
+        stdout: (x) => { stdoutBuf += safeStr(x); },
+        stderr: (x) => { stderrBuf += safeStr(x); },
+      }
+    );
+  } catch(e) {
+    log('Yosys: ' + e.message, 'err');
+  }
+
+  // Show only warnings, errors, and the key stats lines
+  for (const line of (stderrBuf + stdoutBuf).split('\n')) {
+    const t = line.replace(/^null/,'').trim();
+    if (!t) continue;
+    if (t.includes('Warning') || t.includes('warning')) { log(t, 'warn'); continue; }
+    if (t.includes('ERROR')   || t.includes('error:'))  { log(t, 'err');  continue; }
+    // Show: version header, stats table, end summary
+    if (t.startsWith('Yosys') || t.startsWith('===') ||
+        t.startsWith('---') || t.match(/^\s*(SB_LUT4|SB_DFF|SB_CARRY|\d+ submodules)/) ||
+        t.includes('End of script') || t.includes('Number of LUT') ||
+        t.includes('ABC RESULTS')) {
+      log(t, 'dim');
+    }
+  }
+
+  if (filesOut && filesOut['top.json']) {
+    let jsonStr = '';
+    const raw = filesOut['top.json'];
+    if (typeof raw === 'string') {
+      jsonStr = raw;
+    } else if (raw instanceof Uint8Array) {
+      jsonStr = new TextDecoder().decode(raw);
+    } else if (raw && typeof raw === 'object') {
+      // May be a plain object, array-like, or something else — try every way
+      try { jsonStr = new TextDecoder().decode(new Uint8Array(raw)); } catch(_) {}
+      if (!jsonStr.trim().startsWith('{')) {
+        try { jsonStr = new TextDecoder().decode(Uint8Array.from(Object.values(raw))); } catch(_) {}
+      }
+      if (!jsonStr.trim().startsWith('{')) {
+        try { jsonStr = String.fromCharCode(...Object.values(raw)); } catch(_) {}
+      }
+    }
+    if (jsonStr.trim().startsWith('{')) { window.__lastYosysJSON = jsonStr; return JSON.parse(jsonStr); }
+  }
+
+  throw new Error('Synthesis failed — no JSON produced. Check console for errors.');
+}
+
+// ══════════════════════════════════════════════════════════════
+//  EXAMPLE DESIGNS
+// ══════════════════════════════════════════════════════════════
+const VERILOG_EXAMPLES = {
+  counter: `// 4-bit binary counter (counts 0–15)
+// led[3:0] shows the count; hex shows it as a hex digit
+module top (
+  input  clk,
+  output [7:0] led,
+  output [7:0] hex
+);
+  reg [3:0] count = 0;
+  always @(posedge clk)
+    count <= count + 1;
+  assign led = {4'b0, count};
+  assign hex = {4'b0, count};
+endmodule`,
+
+  blink: `// LED blink — one LED toggles every clock
+module top (
+  input  clk,
+  output [7:0] led,
+  output [7:0] hex
+);
+  reg state = 0;
+  always @(posedge clk)
+    state <= ~state;
+  assign led = {7'b0, state};
+  assign hex = {7'b0, state};
+endmodule`,
+
+  shift: `// 8-bit shift register
+// sw[0] feeds the serial input; led shows the state
+module top (
+  input  clk,
+  input  [7:0] sw,
+  output [7:0] led,
+  output [7:0] hex
+);
+  reg [7:0] sr = 0;
+  always @(posedge clk)
+    sr <= {sr[6:0], sw[0]};
+  assign led = sr;
+  assign hex = sr;
+endmodule`,
+
+  pwm: `// PWM generator — sw[0] selects duty cycle
+// led[0] is the PWM output; hex shows the counter
+module top (
+  input  clk,
+  input  [7:0] sw,
+  output [7:0] led,
+  output [7:0] hex
+);
+  reg [3:0] cnt = 0;
+  wire [3:0] thresh = sw[0] ? 4'd12 : 4'd4;
+  always @(posedge clk)
+    cnt <= cnt + 1;
+  assign led = {7'b0, (cnt < thresh)};
+  assign hex = {4'b0, cnt};
+endmodule`,
+
+  adder: `// 4-bit adder — sw[3:0] + sw[7:4], result on led and hex
+module top (
+  input  clk,
+  input  [7:0] sw,
+  output [7:0] led,
+  output [7:0] hex
+);
+  wire [4:0] sum = sw[3:0] + sw[7:4];
+  assign led = {3'b0, sum};
+  assign hex = {3'b0, sum};
+endmodule`,
+
+  switches: `// Switch passthrough — the switches drive the LEDs directly
+// Flip a switch and its LED follows. The hex display shows the value.
+module top (
+  input  clk,
+  input  [7:0] sw,
+  output [7:0] led,
+  output [7:0] hex
+);
+  assign led = sw;
+  assign hex = sw;
+endmodule`,
+
+  gates: `// 1. PRIMITIVES — a half adder built from gate primitives
+// sw0 = A, sw1 = B.  led0 = Sum (A xor B), led1 = Carry (A and B).
+module top (
+  input  clk,
+  input  [7:0] sw,
+  output [7:0] led,
+  output [7:0] hex
+);
+  xor G0 (led[0], sw[0], sw[1]);   // Sum
+  and G1 (led[1], sw[0], sw[1]);   // Carry
+  assign led[7:2] = 0;
+  assign hex = led;
+endmodule`,
+
+  fulladder: `// 2. HIERARCHICAL MODELING — a full adder built from two half adders
+// sw0 = A, sw1 = B, sw2 = Carry-in.  led0 = Sum, led1 = Carry-out.
+module halfadder (output S, C, input A, B);
+  xor G0 (S, A, B);
+  and G1 (C, A, B);
+endmodule
+
+module top (
+  input  clk,
+  input  [7:0] sw,
+  output [7:0] led,
+  output [7:0] hex
+);
+  wire s1, c1, c2;
+  halfadder M0 (.S(s1),     .C(c1), .A(sw[0]), .B(sw[1]));
+  halfadder M1 (.S(led[0]), .C(c2), .A(s1),    .B(sw[2]));
+  or G1 (led[1], c1, c2);          // Carry-out
+  assign led[7:2] = 0;
+  assign hex = led;
+endmodule`,
+
+  dataflow: `// 3. DATAFLOW MODELING — continuous assignment, bitwise operators
+// led shows several bitwise ops on the two switch nibbles.
+module top (
+  input  clk,
+  input  [7:0] sw,
+  output [7:0] led,
+  output [7:0] hex
+);
+  wire [3:0] a = sw[3:0];
+  wire [3:0] b = sw[7:4];
+  assign led[3:0] = a & b;         // bitwise AND
+  assign led[7:4] = a ^ b;         // bitwise XOR
+  assign hex = led;
+endmodule`,
+
+  fsm: `// 4. BEHAVIORAL MODELING — an up/down counter FSM
+// sw0 = direction (0 = up, 1 = down).  Counts on every clock.
+module top (
+  input  clk,
+  input  [7:0] sw,
+  output [7:0] led,
+  output [7:0] hex
+);
+  reg [7:0] count = 0;
+  always @(posedge clk) begin
+    if (sw[0])
+      count <= count - 1;          // count down
+    else
+      count <= count + 1;          // count up
+  end
+  assign led = count;
+  assign hex = count;
+endmodule`,
+};
+
+const JSON_EXAMPLES = {
+  counter: {"luts":[{"id":"lut_b0","inputs":["ff0_q","const0","const0","const0"],"truth_table":21845,"comment":"NOT(ff0)"},{"id":"lut_b1","inputs":["ff0_q","ff1_q","const0","const0"],"truth_table":6,"comment":"XOR"},{"id":"lut_b2","inputs":["ff0_q","ff1_q","ff2_q","const0"],"truth_table":20},{"id":"lut_b3","inputs":["ff0_q","ff1_q","ff2_q","ff3_q"],"truth_table":27030}],"ffs":[{"id":"ff0","d":"lut_b0"},{"id":"ff1","d":"lut_b1"},{"id":"ff2","d":"lut_b2"},{"id":"ff3","d":"lut_b3"}],"ios":[{"name":"LED0","net":"ff0_q","color":"green"},{"name":"LED1","net":"ff1_q","color":"green"},{"name":"LED2","net":"ff2_q","color":"green"},{"name":"LED3","net":"ff3_q","color":"amber"}]},
+  blink:   {"luts":[{"id":"lut_not","inputs":["ff0_q","const0","const0","const0"],"truth_table":21845}],"ffs":[{"id":"ff0","d":"lut_not"}],"ios":[{"name":"LED0","net":"ff0_q","color":"red"}]},
+  shift:   {"luts":[{"id":"lut_p0","inputs":["sw0","const0","const0","const0"],"truth_table":43690},{"id":"lut_p1","inputs":["ff0_q","const0","const0","const0"],"truth_table":43690},{"id":"lut_p2","inputs":["ff1_q","const0","const0","const0"],"truth_table":43690},{"id":"lut_p3","inputs":["ff2_q","const0","const0","const0"],"truth_table":43690}],"ffs":[{"id":"ff0","d":"lut_p0"},{"id":"ff1","d":"lut_p1"},{"id":"ff2","d":"lut_p2"},{"id":"ff3","d":"lut_p3"}],"ios":[{"name":"LED0","net":"ff0_q","color":"green"},{"name":"LED1","net":"ff1_q","color":"green"},{"name":"LED2","net":"ff2_q","color":"green"},{"name":"LED3","net":"ff3_q","color":"amber"}]},
+  pwm:     {"luts":[{"id":"lut_c0","inputs":["ff0_q","const0","const0","const0"],"truth_table":21845},{"id":"lut_c1","inputs":["ff0_q","ff1_q","const0","const0"],"truth_table":6},{"id":"lut_c2","inputs":["ff0_q","ff1_q","ff2_q","const0"],"truth_table":20},{"id":"lut_c3","inputs":["ff0_q","ff1_q","ff2_q","ff3_q"],"truth_table":27030},{"id":"lut_pwm","inputs":["ff3_q","ff2_q","sw0","const0"],"truth_table":12}],"ffs":[{"id":"ff0","d":"lut_c0"},{"id":"ff1","d":"lut_c1"},{"id":"ff2","d":"lut_c2"},{"id":"ff3","d":"lut_c3"},{"id":"ff_pwm","d":"lut_pwm"}],"ios":[{"name":"LED0","net":"ff0_q","color":"green"},{"name":"LED1","net":"ff1_q","color":"green"},{"name":"LED2","net":"ff2_q","color":"green"},{"name":"LED3","net":"ff3_q","color":"green"},{"name":"PWM","net":"ff_pwm_q","color":"amber"}]},
+};
+
+const SEG_MAP = {0:[1,1,1,1,1,1,0],1:[0,1,1,0,0,0,0],2:[1,1,0,1,1,0,1],3:[1,1,1,1,0,0,1],4:[0,1,1,0,0,1,1],5:[1,0,1,1,0,1,1],6:[1,0,1,1,1,1,1],7:[1,1,1,0,0,0,0],8:[1,1,1,1,1,1,1],9:[1,1,1,1,0,1,1],10:[1,1,1,0,1,1,1],11:[0,0,1,1,1,1,1],12:[1,0,0,1,1,1,0],13:[0,1,1,1,1,0,1],14:[1,0,0,1,1,1,1],15:[1,0,0,0,1,1,1]};
+
+// ══════════════════════════════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════════════════════════════
+let emu = null, running = false, timer = null;
+let swState = {}, inspLUT = 0, mode = 'verilog';
+// Separate buffers per editor tab so switching never clobbers your work and
+// nothing is auto-injected. The Netlist JSON buffer is filled from the
+// synthesized netlist (window.__lastNetlist), not from any example.
+let buf = { verilog: '', json: '' };
+let fnBuf = { verilog: 'untitled.v', json: 'netlist.json' };
+
+// ══════════════════════════════════════════════════════════════
+//  LOG
+// ══════════════════════════════════════════════════════════════
+window.log = function(msg, cls='') {
+  const el = document.getElementById('log-out');
+  const d = document.createElement('div');
+  if (cls) d.className = cls;
+  d.textContent = msg;
+  el.appendChild(d);
+  el.scrollTop = el.scrollHeight;
+}
+window.clearLog = function() { document.getElementById('log-out').innerHTML = ''; }
+
+// ══════════════════════════════════════════════════════════════
+//  STATUS
+// ══════════════════════════════════════════════════════════════
+function setStatus(s, msg) {
+  const dot = document.getElementById('sdot');
+  const txt = document.getElementById('stxt');
+  if (dot) dot.className = 'status-dot ' + (s==='running'?'running':s==='compiling'?'compiling':s==='error'?'error':'');
+  if (txt) txt.textContent = msg || s;
+  const bar = document.getElementById('cbar');
+  if (bar) bar.className = 'compile-bar-fill ' + (s==='compiling'?'active':s==='done'?'done':s==='error'?'error':'');
+  const sbst = document.getElementById('sb-st');
+  if (sbst) sbst.textContent = msg || s;
+}
+
+// ══════════════════════════════════════════════════════════════
+//  MODE
+// ══════════════════════════════════════════════════════════════
+// Apply the tab/label UI for a given editor mode (no content change).
+function applyModeUI(m) {
+  { const t=document.getElementById('tab-verilog');   if(t) t.classList.toggle('active', m==='verilog'); }
+  { const t=document.getElementById('tab-json');       if(t) t.classList.toggle('active', m==='json'); }
+  { const t=document.getElementById('tab-schematic');  if(t) t.classList.remove('active'); }
+  { const el=document.getElementById('editor-label');  if(el) el.textContent = m==='verilog' ? 'Verilog source' : 'Netlist JSON'; }
+  { const vn=document.getElementById('v-notice');      if(vn) vn.style.display = m==='verilog' ? 'block' : 'none'; }
+}
+
+window.setMode = function(m) {
+  const ed = document.getElementById('editor');
+  const fn = document.getElementById('file-name');
+  if (ed) buf[mode] = ed.value;            // save the outgoing tab's content
+  if (fn) fnBuf[mode] = fn.value;
+  mode = m;
+  applyModeUI(m);
+  buildExTabs();
+  // Netlist JSON reflects the synthesized netlist when one exists; otherwise it
+  // shows whatever JSON you've typed (empty until you synthesize or author one).
+  // Nothing is auto-loaded — no example is ever forced in.
+  if (m === 'json' && window.__lastNetlist) {
+    buf.json = JSON.stringify(window.__lastNetlist, null, 2);
+    fnBuf.json = 'netlist.json';
+  }
+  if (ed) ed.value = (m === 'json') ? buf.json : buf.verilog;
+  if (fn) fn.value = fnBuf[m];
+  updateLineNums();
+}
+
+// ══════════════════════════════════════════════════════════════
+//  LUT FUNCTION NAMING
+//  Decode a 16-bit LUT4 truth table into a readable gate name
+//  (NOT, XOR, AND, OR, NAND, NOR, XNOR, AND3/OR3/XOR3/MAJ3, …).
+//  Constant-tied inputs are folded out first; the remaining "support"
+//  inputs are classified. Symmetric functions (order-independent) plus
+//  BUF/NOT/const are named; anything else falls back to LUT<arity>.
+// ══════════════════════════════════════════════════════════════
+function lutComment(tt, inputs) {
+  tt = (tt >>> 0) & 0xFFFF;
+  inputs = inputs || [];
+  // Separate tied (const) inputs from free ones.
+  const tied = [0, 0, 0, 0], free = [];
+  for (let i = 0; i < 4; i++) {
+    const n = inputs[i];
+    if (n === 'const1') tied[i] = 1;
+    else if (n === 'const0' || n == null) tied[i] = 0;
+    else free.push(i);
+  }
+  const k = free.length;
+  // Effective function g over the free inputs (consts held at their tied value).
+  const g = new Array(1 << k);
+  for (let mm = 0; mm < (1 << k); mm++) {
+    let addr = 0;
+    for (let i = 0; i < 4; i++) {
+      const fi = free.indexOf(i);
+      const bit = fi >= 0 ? ((mm >> fi) & 1) : tied[i];
+      addr |= bit << i;
+    }
+    g[mm] = (tt >> addr) & 1;
+  }
+  // Drop free inputs that don't actually affect the output (true support).
+  const supPos = [];
+  for (let j = 0; j < k; j++) {
+    let dep = false;
+    for (let mm = 0; mm < (1 << k); mm++) if (((mm >> j) & 1) === 0 && g[mm] !== g[mm | (1 << j)]) { dep = true; break; }
+    if (dep) supPos.push(j);
+  }
+  const s = supPos.length;
+  const h = new Array(1 << s);
+  for (let mm = 0; mm < (1 << s); mm++) {
+    let full = 0;
+    for (let t = 0; t < s; t++) if ((mm >> t) & 1) full |= 1 << supPos[t];
+    h[mm] = g[full];
+  }
+  if (s === 0) return h[0] ? '1' : '0';
+  if (s === 1) return (h[0] === 0 && h[1] === 1) ? 'BUF' : 'NOT';
+  // Symmetric? (output depends only on how many inputs are 1)
+  const byPop = {}; let sym = true;
+  for (let mm = 0; mm < (1 << s) && sym; mm++) {
+    let pc = 0; for (let t = 0; t < s; t++) pc += (mm >> t) & 1;
+    if (byPop[pc] === undefined) byPop[pc] = h[mm];
+    else if (byPop[pc] !== h[mm]) sym = false;
+  }
+  if (sym) {
+    let pat = ''; for (let p = 0; p <= s; p++) pat += (byPop[p] ? 1 : 0);
+    const suf = s === 2 ? '' : String(s);
+    if (pat === '0'.repeat(s) + '1') return 'AND' + suf;
+    if (pat === '0' + '1'.repeat(s)) return 'OR' + suf;
+    if (pat === '1'.repeat(s) + '0') return 'NAND' + suf;
+    if (pat === '1' + '0'.repeat(s)) return 'NOR' + suf;
+    let isXor = true, isXnor = true;
+    for (let p = 0; p <= s; p++) { if (byPop[p] !== (p & 1)) isXor = false; if (byPop[p] !== ((p & 1) ^ 1)) isXnor = false; }
+    if (isXor) return 'XOR' + suf;
+    if (isXnor) return 'XNOR' + suf;
+    if (s % 2 === 1) {
+      let maj = true; for (let p = 0; p <= s; p++) if (byPop[p] !== (p > s / 2 ? 1 : 0)) maj = false;
+      if (maj) return 'MAJ' + s;
+    }
+  }
+  return 'LUT' + s;
+}
+
+// ══════════════════════════════════════════════════════════════
+//  COMPILE
+// ══════════════════════════════════════════════════════════════
+window.doCompile = async function() {
+  const src = document.getElementById('editor').value.trim();
+  if (!src) return;
+  stopRun();
+  setStatus('compiling');
+  document.getElementById('compile-btn').disabled = true;
+
+  try {
+    let netlist;
+    if (mode === 'verilog') {
+      log('── Compiling Verilog with Yosys ──', 'inf');
+      const yj = await compileVerilog(src);
+      log(`Synthesis complete: ${Object.keys(yj.modules).length} modules`, 'ok');
+      netlist = yosysJsonToNetlist(yj, {});
+      log(`Mapped: ${netlist.luts.length} LUTs · ${netlist.ffs.length} FFs · ${netlist.ios.length} IOs`, 'ok');
+
+      // Debug: show what nets the IOs resolved to
+      for (const io of netlist.ios) {
+        const v = 'net: ' + io.net;
+        log(`  IO ${io.name} → ${v}`, 'dim');
+      }
+      // Debug: show available FF Q nets
+      log('  FF Q nets: ' + netlist.ffs.map(f=>f.q_net||f.id+'_q').join(', '), 'dim');
+
+    } else {
+      let jsrc = src.replace(/:\s*0x([0-9a-fA-F]+)/g, (_,h)=>': '+parseInt(h,16));
+      netlist = JSON.parse(jsrc);
+      // Normalize legacy JSON schema → unified net-keyed schema.
+      // Legacy FFs use {id, d:<lut-id>}; legacy LUTs have no `out`.
+      // Give each FF a Q net (id+'_q') and rewrite d:<lut-id> → d_net:<lut-out-net>.
+      const lutById = {};
+      for (const l of (netlist.luts||[])) {
+        if (!l.out) l.out = l.id + '_o';   // synthesize an output net
+        lutById[l.id] = l;
+      }
+      for (const ff of (netlist.ffs||[])) {
+        if (!ff.q_net) ff.q_net = ff.id + '_q';
+        if (!ff.d_net) {
+          // ff.d may be a LUT id (legacy) or already a net name.
+          ff.d_net = lutById[ff.d] ? lutById[ff.d].out : (ff.d || 'const0');
+        }
+      }
+      netlist.carries = netlist.carries || [];
+      // Tag IOs with kind/bit so the board renderer treats them consistently.
+      for (const io of (netlist.ios||[])) {
+        if (!io.kind) {
+          const ln = (io.name||'').toLowerCase();
+          io.kind = ln.startsWith('hex') ? 'hex' : 'led';
+        }
+        if (io.bit == null) {
+          const m = (io.name||'').match(/\[(\d+)\]$/) || (io.name||'').match(/(\d+)$/);
+          io.bit = m ? +m[1] : 0;
+        }
+      }
+      log(`Loaded JSON: ${netlist.luts.length} LUTs · ${netlist.ffs.length} FFs · ${netlist.ios.length} IOs`, 'ok');
+    }
+    // Name each LUT by its function (NOT/XOR/AND/…) where no comment exists,
+    // so the netlist JSON and schematic show what every LUT does.
+    for (const l of (netlist.luts || [])) {
+      if (!l.comment) { const c = lutComment(l.truth_table, l.inputs); if (c) l.comment = c; }
+    }
+    emu = new ICE40Emu(netlist);
+    window.__lastNetlist = netlist;
+    swState = {};
+    setStatus('done', 'compiled');
+    setTimeout(()=>setStatus('','idle'), 1500);
+    updateStats(); renderSwitches(netlist); renderLEDs(); renderNets();
+    renderLUTSel(); inspectLUT(0);
+    log(`Utilisation: ${emu.util()}% of iCE40UP5K (${emu.luts.length}/5280 LUTs)`, 'inf');
+  } catch(e) {
+    log('✗ ' + e.message, 'err');
+    setStatus('error', 'error');
+  }
+  document.getElementById('compile-btn').disabled = false;
+}
+
+// ══════════════════════════════════════════════════════════════
+//  SIM CONTROL
+// ══════════════════════════════════════════════════════════════
+window.stepSim = function() {
+  if (!emu) { log('Compile first', 'warn'); return; }
+  emu.tick();
+  const c = emu.cycle;
+  setCycle(c);
+  renderLEDs(); renderNets(); inspectLUT(inspLUT);
+  if (c<=5||c%16===0) {
+    // Print Q with bit 7 leftmost, indexed by IO bit position.
+    const ioByBit = {};
+    for (const io of emu.getIO()) {
+      const m = io.name.match(/\[(\d+)\]$/);
+      if (m) ioByBit[+m[1]] = io.value;
+    }
+    let bits;
+    if (Object.keys(ioByBit).length) {
+      bits = [];
+      for (let i = 7; i >= 0; i--) bits.push(ioByBit[i] ? 1 : 0);
+      bits = bits.join('');
+    } else {
+      bits = emu.ffs.map(f=>emu.rd(f.q_net||f.id+'_q')).join('');
+    }
+    log(`cy${String(c).padStart(5)} │ Q[${bits}]`);
+  }
+}
+
+function stopRun() {
+  if (!running) return;
+  running = false; clearInterval(timer);
+  document.getElementById('run-btn').textContent = '▶ Run';
+  document.getElementById('run-btn').classList.remove('active');
+  document.getElementById('sdot').classList.remove('running');
+  document.getElementById('stxt').textContent = 'paused';
+}
+
+window.toggleRun = function() {
+  if (!emu) { doCompile(); return; }
+  running = !running;
+  const btn = document.getElementById('run-btn');
+  btn.textContent = running ? '⏸ Pause' : '▶ Run';
+  btn.classList.toggle('active', running);
+  document.getElementById('sdot').classList.toggle('running', running);
+  document.getElementById('stxt').textContent = running ? 'running' : 'paused';
+  if (running) { const spd=parseInt(document.getElementById('clk-sel').value); timer=setInterval(stepSim,spd); }
+  else clearInterval(timer);
+}
+
+window.resetSim = function() {
+  if (!emu) return; stopRun();
+  emu.reset();
+  for (const [k,v] of Object.entries(swState)) emu.nets[k]=v;
+  setCycle(0);
+  renderLEDs(); renderNets(); inspectLUT(inspLUT);
+  log('— reset —', 'dim');
+}
+
+window.updateClock = function() {
+  if (running) { clearInterval(timer); const spd=parseInt(document.getElementById('clk-sel').value); timer=setInterval(stepSim,spd); }
+}
+
+// ══════════════════════════════════════════════════════════════
+//  RENDER
+// ══════════════════════════════════════════════════════════════
+function renderLEDs() {
+  const el = document.getElementById('leds-display'); if(!el) return;
+  // The board always shows 8 LED slots (led7 left → led0 right), fixed.
+  if (el.children.length !== 8) {
+    el.innerHTML='';
+    for (let bit = 7; bit >= 0; bit--) {
+      const c=document.createElement('div'); c.className='led-cell';
+      const l=document.createElement('div'); l.className='led'; l.id='led_bit'+bit;
+      const lb=document.createElement('div'); lb.className='led-lbl'; lb.textContent='led'+bit;
+      c.appendChild(l); c.appendChild(lb); el.appendChild(c);
+    }
+  }
+  // Map current design's led IOs onto the 8 fixed slots by bit index.
+  const litByBit = {};
+  if (emu) {
+    for (const io of emu.getIO()) {
+      if ((io.kind||'led')==='led') litByBit[io.bit||0] = io.value;
+    }
+  }
+  for (let bit = 0; bit < 8; bit++) {
+    const l=document.getElementById('led_bit'+bit);
+    if (l) l.className = 'led' + (litByBit[bit] ? ' on' : '');
+  }
+  // Hex display — driven only by `hex`-kind IOs, no fallback.
+  let hexV = 0, hasHex = false;
+  if (emu) {
+    for (const io of emu.getIO()) {
+      if (io.kind==='hex') { hasHex = true; if (io.value) hexV |= 1 << (io.bit||0); }
+    }
+  }
+  if (hasHex) { renderSeg(0,(hexV>>4)&0xF,true); renderSeg(1,hexV&0xF,true); }
+  else        { renderSeg(0,0,false); renderSeg(1,0,false); }
+}
+
+function renderSeg(idx,val,lit){
+  if (lit === undefined) lit = true;
+  const segs = lit ? (SEG_MAP[val]||[0,0,0,0,0,0,0]) : [0,0,0,0,0,0,0];
+  const names=['seg-a','seg-b','seg-c','seg-d','seg-e','seg-f','seg-g'];
+  const d=document.getElementById('sd'+idx); if(!d) return;
+  segs.forEach((on,i)=>{ const s=d.querySelector('.'+names[i]); if(s)s.classList.toggle('on',!!on); });
+}
+
+function renderSwitches(nl) {
+  const el=document.getElementById('sw-grid'); if(!el) return;
+  // Which sw nets does this design actually consume?
+  const used=new Set();
+  const add = n => { if (n && typeof n==='string' && n.startsWith('sw')) used.add(n); };
+  for (const l of (nl.luts||[])) for (const inp of (l.inputs||[])) add(inp);
+  for (const c of (nl.carries||[])) { add(c.i0); add(c.i1); add(c.ci); }
+  for (const ff of (nl.ffs||[])) add(ff.d_net);
+  // Also scan output IO nets — a bare wire-through (`assign led = sw`) puts
+  // the sw net directly on an LED IO with no cell in between.
+  for (const io of (nl.ios||[])) add(io.net);
+
+  // Map a bit index → the actual net name the design uses for it.
+  // Accepts sw[N], swN, or sw_NAME (single-bit → bit 0).
+  const netForBit = {};
+  for (const n of used) {
+    let m = n.match(/\[(\d+)\]$/) || n.match(/(\d+)$/);
+    netForBit[m ? +m[1] : 0] = n;
+  }
+
+  // Board always shows 8 switch slots, sw7 (left) → sw0 (right).
+  el.innerHTML='';
+  for (let bit = 7; bit >= 0; bit--) {
+    const net = netForBit[bit];                    // may be undefined (unused)
+    const c=document.createElement('div'); c.className='sw-cell';
+    const b=document.createElement('button'); b.className='sw-btn';
+    const lb=document.createElement('div'); lb.className='sw-lbl'; lb.textContent='sw'+bit;
+    if (net) {
+      swState[net] = swState[net] || 0;
+      b.classList.toggle('on', !!swState[net]);
+      b.title = net;
+      b.addEventListener('click', () => {
+        swState[net] ^= 1;
+        b.classList.toggle('on', !!swState[net]);
+        if (emu) { emu.setNet(net, swState[net]); renderLEDs(); renderNets(); }
+      });
+    } else {
+      b.disabled = true;                           // not used by this design
+      b.style.opacity = '.35';
+      b.title = 'sw'+bit+' — not used by this design';
+    }
+    c.appendChild(b); c.appendChild(lb); el.appendChild(c);
+  }
+}
+
+function renderNets() {
+  if (!emu) return;
+  const el=document.getElementById('net-tbl'); if(!el) return; el.innerHTML='';
+  const nets=[...emu.ffs.map(f=>f.q_net||f.id+'_q'),...Object.keys(swState).sort()];
+  for (const net of nets.slice(0,20)) {
+    const v=emu.nets[net]||0;
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td class="nv${v?'':' z'}">${v}</td><td class="nn">${net}</td><td style="width:60px"><div class="nbar${v?' on':''}" style="width:${v?'100%':'4px'}"></div></td>`;
+    el.appendChild(tr);
+  }
+}
+
+function updateStats() {
+  if (!emu) return;
+  const u=parseFloat(emu.util());
+  const set=(id,v)=>{ const e=document.getElementById(id); if(e) e.textContent=v; };
+  set('st-luts',emu.luts.length); set('st-ffs',emu.ffs.length); set('st-util',u+'%');
+  set('sb-luts',emu.luts.length); set('sb-ffs',emu.ffs.length); set('sb-util',u+'%');
+  set('info-luts',emu.luts.length); set('info-ffs',emu.ffs.length);
+  set('util-pct',`${emu.luts.length} / 5280`);
+  const fill=document.getElementById('util-fill');
+  if(fill){ fill.style.width=u+'%'; fill.className='util-fill'+(u>80?' danger':u>50?' warn':''); }
+}
+
+function renderLUTSel() {
+  if (!emu) return;
+  const el=document.getElementById('lut-sel'); if(!el) return; el.innerHTML='';
+  emu.luts.slice(0,12).forEach((l,i)=>{
+    const b=document.createElement('button');
+    b.textContent=l.id.replace(/lut_/,'').slice(0,10);
+    b.className=i===inspLUT?'active':'';
+    b.onclick=()=>{ inspLUT=i; renderLUTSel(); inspectLUT(i); };
+    el.appendChild(b);
+  });
+  if (emu.luts.length>12) { const s=document.createElement('span'); s.textContent=`+${emu.luts.length-12} more`; s.style.cssText='font-size:10px;color:var(--muted);padding:3px 4px'; el.appendChild(s); }
+}
+
+function inspectLUT(idx) {
+  if (!emu||!emu.luts[idx]) return;
+  if(!document.getElementById('lut-g16')) return;
+  inspLUT=idx;
+  const lut=emu.luts[idx];
+  let addr=0;
+  for(let i=0;i<4;i++) addr|=((emu.nets[lut.inputs[i]||'const0']||0)&1)<<i;
+  const g=document.getElementById('lut-g16'); g.innerHTML='';
+  for(let i=0;i<16;i++){
+    const b=(lut.truth_table>>i)&1;
+    const c=document.createElement('div');
+    c.className=`lc${i===addr?' cur':''}${b?' one':''}`;
+    c.title=`IN[3:0]=${i.toString(2).padStart(4,'0')} → ${b}`;
+    c.textContent=i.toString(16).toUpperCase()+':'+b;
+    g.appendChild(c);
+  }
+  const inf=document.getElementById('lut-info');
+  inf.innerHTML=lut.inputs.map((n,i)=>`IN${i}: <span>${n||'const0'}</span>`).join('  ')
+    +(lut.comment?`<br><span style="color:var(--muted)">// ${lut.comment}</span>`:'');
+}
+
+// ══════════════════════════════════════════════════════════════
+//  EXAMPLES + LINE NUMS
+// ══════════════════════════════════════════════════════════════
+function buildExTabs() {
+  const el=document.getElementById('ex-list'); if(!el) return; el.innerHTML='';
+  // Examples are design sources, so always list the full Verilog library
+  // regardless of the active tab. Picking one returns the app to Verilog mode
+  // (the Netlist JSON tab is an output view, not an example picker).
+  Object.keys(VERILOG_EXAMPLES).forEach((k)=>{
+    const b=document.createElement('button');
+    b.textContent=k;
+    b.onclick=()=>{ loadExample(k); el.classList.remove('open'); };
+    el.appendChild(b);
+  });
+}
+
+window.toggleExMenu = function(e) {
+  if (e) { e.stopPropagation(); e.preventDefault(); }
+  const el=document.getElementById('ex-list');
+  if(el) el.classList.toggle('open');
+}
+// Wire the Examples button directly (robust across browsers).
+{
+  const exb = document.getElementById('ex-btn');
+  if (exb) exb.addEventListener('click', (e) => toggleExMenu(e));
+}
+// close the examples dropdown when clicking outside it
+document.addEventListener('click', (e) => {
+  const menu = document.querySelector('.ex-menu');
+  const el = document.getElementById('ex-list');
+  if (el && menu && !menu.contains(e.target)) el.classList.remove('open');
+});
+
+function loadExample(name) {
+  const src = VERILOG_EXAMPLES[name];
+  if (!src) return;
+  // Selecting an example starts a fresh Verilog design: load the source and
+  // clear the netlist view — it stays empty until you press ⚡ Synthesize.
+  buf.verilog = src;
+  fnBuf.verilog = name + '.v';
+  buf.json = '';
+  window.__lastNetlist = null;
+  mode = 'verilog';
+  applyModeUI('verilog');
+  const ed = document.getElementById('editor'); if (ed) ed.value = src;
+  const fn = document.getElementById('file-name'); if (fn) fn.value = name + '.v';
+  updateLineNums();
+}
+
+window.onEdit = function() { updateLineNums(); }
+
+function updateLineNums() {
+  const lines=document.getElementById('editor').value.split('\n').length;
+  const el=document.getElementById('lnums'); el.innerHTML='';
+  for(let i=1;i<=lines;i++){ const d=document.createElement('div'); d.className='line-num'; d.textContent=i; el.appendChild(d); }
+}
+
+// ══════════════════════════════════════════════════════════════
+//  FILE OPEN / SAVE  (local disk, fully client-side)
+// ══════════════════════════════════════════════════════════════
+window.openFile = function() {
+  const inp = document.getElementById('file-input');
+  inp.value = '';                         // allow re-opening the same file
+  inp.onchange = () => {
+    const f = inp.files && inp.files[0];
+    if (!f) return;
+    const r = new FileReader();
+    r.onload = () => {
+      const isJson = /\.json$/i.test(f.name);
+      mode = isJson ? 'json' : 'verilog';
+      buf[mode] = r.result;
+      fnBuf[mode] = f.name;
+      if (!isJson) { buf.json = ''; window.__lastNetlist = null; }  // opening Verilog = new design
+      applyModeUI(mode);
+      buildExTabs();
+      const ed = document.getElementById('editor'); if (ed) ed.value = r.result;
+      const fn = document.getElementById('file-name'); if (fn) fn.value = f.name;
+      updateLineNums();
+      log(`Opened ${f.name} (${f.size} bytes)`, 'ok');
+    };
+    r.onerror = () => log(`Could not read ${f.name}`, 'err');
+    r.readAsText(f);
+  };
+  inp.click();
+}
+
+window.saveFile = async function() {
+  const text = document.getElementById('editor').value;
+  const fnEl = document.getElementById('file-name');
+  let name = (fnEl.value || '').trim() || 'untitled';
+  // Ensure the extension matches the current mode.
+  const wantExt = mode === 'json' ? '.json' : '.v';
+  if (!new RegExp(wantExt.replace('.','\\.')+'$','i').test(name)) {
+    name = name.replace(/\.[^.]*$/, '') + wantExt;
+  }
+  fnEl.value = name;
+
+  // Preferred: native Save-As dialog (Chromium browsers, https/localhost).
+  if (window.showSaveFilePicker) {
+    try {
+      const handle = await window.showSaveFilePicker({
+        suggestedName: name,
+        types: [{ description: 'Source file', accept: { 'text/plain': [wantExt] } }]
+      });
+      const w = await handle.createWritable();
+      await w.write(text);
+      await w.close();
+      fnEl.value = handle.name || name;
+      log(`Saved ${fnEl.value}`, 'ok');
+      return;
+    } catch (e) {
+      if (e && e.name === 'AbortError') return;   // user cancelled — do nothing
+      // any other error falls through to the download path
+    }
+  }
+  // Fallback: download with the chosen name.
+  const blob = new Blob([text], { type: 'text/plain' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  log(`Saved ${name}`, 'ok');
+}
+
+// ══════════════════════════════════════════════════════════════
+//  HELPERS  (cycle display + help)
+// ══════════════════════════════════════════════════════════════
+function setCycle(c) {
+  for (const id of ['st-cycle','hcycle','info-cycle']) {
+    const e=document.getElementById(id);
+    if(e) e.textContent = (id==='hcycle' ? 'cycle '+c : c);
+  }
+}
+
+window.showHelp = function() {
+  window.open('https://github.com/senolgulgonul/softfpga', '_blank', 'noopener');
+}
+
+// ══════════════════════════════════════════════════════════════
+//  BOOT
+// ══════════════════════════════════════════════════════════════
+setMode('verilog');
+renderLEDs();           // draw the 8 LED slots + blank hex immediately
+renderSwitches({});     // draw the 8 switch slots (all inert until a design uses them)
+
+</script>
+
+<!-- ══════════════════════════════════════════════════════════════
+     SCHEMATIC VIEWER
+     Reads window.__lastNetlist (set by doCompile) and draws the
+     synthesized circuit: LUT4 / DFF / SB_CARRY / IO as an SVG logic
+     diagram. Keys off the normalized schema (lut.out, ff.q_net,
+     ff.d_net), so it works for both Verilog- and JSON-compiled designs.
+
+     Layout is a simple register-feedback scheme — clean for small
+     designs (counter/blink/shift/pwm). For large arbitrary graphs,
+     keep this parser and swap the layout step for elkjs/netlistsvg.
+     ══════════════════════════════════════════════════════════════ -->
+<style>
+  #sch-tab-active { } /* placeholder */
+  #tab-schematic.active { background: linear-gradient(180deg,#2f86e8,#1f6fd4); color:#fff; border-color:var(--blue-deep); }
+  #sch-overlay {
+    position: fixed; inset: 0; z-index: 9999; display: none;
+    background: rgba(20,28,40,.55); backdrop-filter: blur(2px);
+    align-items: center; justify-content: center; padding: 28px;
+  }
+  #sch-overlay.open { display: flex; }
+  #sch-card {
+    background: var(--panel2); border: 1px solid var(--frame);
+    border-radius: 7px; box-shadow: 0 18px 50px rgba(0,0,0,.35);
+    max-width: 94vw; max-height: 92vh; display: flex; flex-direction: column;
+  }
+  #sch-head {
+    display: flex; align-items: center; gap: 12px;
+    padding: 6px 12px; background: var(--frame2);
+    border-bottom: 1px solid var(--frame); border-radius: 7px 7px 0 0;
+  }
+  #sch-head .sch-title {
+    font-size: 11px; font-weight: 700; letter-spacing: .04em;
+    text-transform: uppercase; color: var(--ink2);
+  }
+  #sch-head .sch-sub { font-family: var(--mono); font-size: 11px; color: var(--muted); flex: 1; }
+  #sch-stage {
+    overflow: auto; padding: 6px;
+    background:
+      radial-gradient(circle at center, #e6e8ec 1px, transparent 1px) 0 0/22px 22px,
+      var(--panel2);
+  }
+  #sch-stage .sch-empty { padding: 40px 48px; color: var(--muted); font-size: 13px; text-align: center; }
+  #sch-stage .sch-empty code { font-family: var(--mono); color: var(--ink2); }
+</style>
+
+<div id="sch-overlay" onclick="if(event.target===this)closeSchematic()">
+  <div id="sch-card">
+    <div id="sch-head">
+      <span class="sch-title">Schematic</span>
+      <span class="sch-sub" id="sch-sub"></span>
+      <button id="sch-export" style="font-size:11px;padding:4px 9px">⬇ SVG</button>
+      <button onclick="closeSchematic()" style="font-size:11px;padding:4px 9px">✕ Close</button>
+    </div>
+    <div id="sch-stage"></div>
+  </div>
+</div>
+
+<script>
+(function () {
+  const NS = "http://www.w3.org/2000/svg";
+  const E = (t, a = {}) => { const n = document.createElementNS(NS, t); for (const k in a) n.setAttribute(k, a[k]); return n; };
+  const C = { rowH: 92, lutW: 110, lutH: 64, ffW: 60, ffH: 52, ledR: 12, trk: 15, padT: 26, padL: 22, gap: 60 };
+  const LEDC = c => ({ green: "#1f9d4d", amber: "#d98a00", red: "#d63a3a", blue: "#1f6fd4" }[c] || "#d63a3a");
+  const isConst = n => n === "const0" || n === "const1";
+  const cssVar = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim() || v;
+
+  // ---- model: normalized schema (lut.out / ff.q_net / ff.d_net) ----------
+  function model(nl) {
+    const luts = nl.luts || [], ffs = nl.ffs || [], ios = nl.ios || [], carries = nl.carries || [];
+    const outNet = l => (l.out != null ? l.out : l.id);
+    const qNet   = f => (f.q_net || f.id + "_q");
+
+    const drv = {};                                   // net -> producer
+    luts.forEach(l => drv[outNet(l)] = { kind: "lut", cell: l });
+    ffs.forEach(f => drv[qNet(f)] = { kind: "ff", cell: f });
+    carries.forEach(c => { if (c.out != null) drv[c.out] = { kind: "carry", cell: c }; });
+
+    // one row per FF; the LUT feeding its D shares the row
+    const rows = [], used = new Set();
+    ffs.forEach(f => {
+      const d = drv[f.d_net];
+      const lut = d && d.kind === "lut" ? d.cell : null;
+      if (lut) used.add(lut);
+      rows.push({ ff: f, lut });
+    });
+    luts.filter(l => !used.has(l)).forEach(l => rows.push({ lut: l }));      // bare combinational LUTs
+    carries.forEach(c => rows.push({ carry: c }));
+
+    return { luts, ffs, ios, carries, drv, rows, outNet, qNet };
+  }
+
+  function buildSVG(nl) {
+    const m = model(nl);
+    const INK = cssVar("--ink"), INK2 = cssVar("--ink2"), MUT = cssVar("--muted"),
+          BLUE = cssVar("--blue"), AMBER = cssVar("--amber"), GREEN = cssVar("--green");
+
+    // nets that need routing = LUT/CARRY inputs that have a producer (not const, not primary)
+    const routed = [], seen = new Set();
+    const collectIn = arr => arr.forEach(n => {
+      if (n && !isConst(n) && m.drv[n] && !seen.has(n)) { seen.add(n); routed.push(n); }
+    });
+    m.luts.forEach(l => collectIn(l.inputs || []));
+    m.carries.forEach(c => collectIn([c.i0, c.i1, c.ci]));
+    const trackOf = Object.fromEntries(routed.map((n, i) => [n, i]));
+    const nTrk = routed.length;
+
+    const leftCh = nTrk * C.trk, topCh = nTrk * C.trk;
+    const lutX = C.padL + leftCh + 28;
+    const ffX  = lutX + C.lutW + C.gap;
+    const ledX = ffX + C.ffW + C.gap;
+    const STEP = 44;                                    // horizontal spacing for IOs sharing a net
+    const ioByNet = {};
+    m.ios.forEach(io => { (ioByNet[io.net] = ioByNet[io.net] || []).push(io); });
+    const maxIO = Math.max(1, ...Object.values(ioByNet).map(a => a.length));
+    // wire-through IO nets: outputs tied straight to a primary input/constant
+    // with no cell in between (e.g. `assign led = sw`). Each gets its own row.
+    const wtNets = [...new Set(m.ios.map(io => io.net).filter(n => !m.drv[n]))];
+    const wtIndex = Object.fromEntries(wtNets.map((n, i) => [n, i]));
+    const y0   = C.padT + topCh + 28;
+    const cy   = i => y0 + i * C.rowH + C.lutH / 2;
+    const W = ledX + (maxIO - 1) * STEP + C.ledR + 26, H = y0 + (m.rows.length + wtNets.length) * C.rowH + 10;
+
+    const svg = E("svg", { viewBox: `0 0 ${W} ${H}`, width: W, height: H });
+    const defs = E("defs");
+    defs.innerHTML = `<filter id="sch-glow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="2.6" result="b"/><feMerge>
+      <feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>`;
+    svg.appendChild(defs);
+    const wires = E("g"), dots = E("g"), cells = E("g");
+
+    // index helpers
+    const rowOf = new Map();                            // cell -> row index
+    m.rows.forEach((r, i) => { if (r.lut) rowOf.set(r.lut, i); if (r.ff) rowOf.set(r.ff, i); if (r.carry) rowOf.set(r.carry, i); });
+    const outPos = {};                                  // net -> {x,y} of its producer pin
+    m.rows.forEach((r, i) => {
+      if (r.lut)   outPos[m.outNet(r.lut)] = { x: lutX + C.lutW, y: cy(i) };
+      if (r.carry && r.carry.out != null) outPos[r.carry.out] = { x: lutX + C.lutW, y: cy(i) };
+      if (r.ff)    outPos[m.qNet(r.ff)] = { x: ffX + C.ffW, y: cy(i) };
+    });
+    const lutInY = (i, k) => cy(i) - C.lutH / 2 + (k + 0.5) * (C.lutH / 4);
+
+    const wire = (d, col) => wires.appendChild(E("path", { d, fill: "none", stroke: col, "stroke-width": 1.6, "stroke-linejoin": "round", "stroke-linecap": "round" }));
+    const dot  = (x, y, col) => dots.appendChild(E("circle", { cx: x, cy: y, r: 2.5, fill: col }));
+    const FWD = INK2, FB = BLUE;
+
+    // forward: producer of each FF.D -> FF.D pin (straight when same row)
+    m.rows.forEach((r, i) => {
+      if (!r.ff) return;
+      const p = outPos[r.ff.d_net];
+      if (!p) return;
+      if (Math.abs(p.y - cy(i)) < 1) wire(`M${p.x} ${cy(i)} H${ffX}`, FWD);          // same row, straight
+      else { const mx = (p.x + ffX) / 2; wire(`M${p.x} ${p.y} H${mx} V${cy(i)} H${ffX}`, FWD); }
+    });
+
+    // (IO leads are drawn per-slot below, so shared nets fan out cleanly.)
+
+    // routed nets: producer -> top channel -> left channel -> branch into input pins
+    routed.forEach(net => {
+      const src = outPos[net]; if (!src) return;
+      const ti = trackOf[net];
+      const sinks = [];
+      m.rows.forEach((r, i) => {
+        if (r.lut) (r.lut.inputs || []).forEach((n, k) => { if (n === net) sinks.push({ x: lutX, y: lutInY(i, k) }); });
+        if (r.carry) [r.carry.i0, r.carry.i1, r.carry.ci].forEach((n, k) => { if (n === net) sinks.push({ x: lutX, y: cy(i) - C.lutH / 2 + (k + 0.5) * (C.lutH / 3) }); });
+      });
+      if (!sinks.length) return;
+      const topY = C.padT + ti * C.trk, leftX = C.padL + ti * C.trk, stub = src.x + 12 + ti * 3;
+      const ys = sinks.map(s => s.y), ymax = Math.max(...ys), ymin = Math.min(...ys);
+      wire(`M${src.x} ${src.y} H${stub} V${topY} H${leftX} V${ymax}`, FB);
+      dot(src.x, src.y, FB);
+      sinks.forEach(s => { wire(`M${leftX} ${s.y} H${s.x}`, FB); dot(s.x, s.y, FB); });
+      if (sinks.length > 1) dot(leftX, ymin, FB);
+    });
+
+    // ---- text helper ----
+    const txt = (x, y, s, a = {}) => { const t = E("text", Object.assign({ x, y, "font-family": cssVar("--mono") }, a)); t.textContent = s; return t; };
+    const idLabel = (x, y, id) => {                     // clipped id label + full-name tooltip
+      const s = (id == null) ? "" : String(id);
+      const t = txt(x, y, s.length > 17 ? s.slice(0, 16) + "…" : s, { "font-size": 9.5, fill: cssVar("--muted") });
+      const tip = E("title"); tip.textContent = s; t.appendChild(tip);
+      return t;
+    };
+
+    // ---- cells ----
+    m.rows.forEach((r, i) => {
+      // LUT
+      if (r.lut) {
+        const x = lutX, y = cy(i) - C.lutH / 2, l = r.lut, g = E("g");
+        g.appendChild(E("rect", { x, y, width: C.lutW, height: C.lutH, rx: 6, fill: "#fff", stroke: BLUE, "stroke-width": 1.4 }));
+        g.appendChild(txt(x + C.lutW / 2, y + C.lutH / 2 - 2, l.comment || "LUT4", { "text-anchor": "middle", "font-size": 13, fill: INK, "font-weight": 600 }));
+        g.appendChild(txt(x + C.lutW / 2, y + C.lutH / 2 + 13, "0x" + (l.truth_table >>> 0).toString(16).padStart(4, "0"), { "text-anchor": "middle", "font-size": 10, fill: MUT }));
+        g.appendChild(idLabel(x + 4, y - 5, l.id));
+        (l.inputs || []).forEach((inn, k) => {
+          if (k > 3) return;
+          const py = lutInY(i, k);
+          g.appendChild(E("circle", { cx: x, cy: py, r: 2.3, fill: BLUE }));
+          if (isConst(inn)) {
+            g.appendChild(E("path", { d: `M${x} ${py} H${x - 14}`, stroke: MUT, "stroke-width": 1.3, fill: "none" }));
+            g.appendChild(E("path", { d: `M${x - 14} ${py - 4} V${py + 4}`, stroke: MUT, "stroke-width": 1.3 }));
+            g.appendChild(txt(x - 18, py + 3, inn === "const1" ? "1" : "0", { "text-anchor": "end", "font-size": 9, fill: MUT }));
+          } else if (inn && !m.drv[inn]) {                 // primary input (sw0, etc.) -> labeled stub
+            g.appendChild(E("path", { d: `M${x} ${py} H${x - 16}`, stroke: MUT, "stroke-width": 1.3, fill: "none" }));
+            g.appendChild(txt(x - 19, py + 3, inn, { "text-anchor": "end", "font-size": 8.5, fill: MUT }));
+          }
+        });
+        g.appendChild(E("circle", { cx: x + C.lutW, cy: cy(i), r: 2.3, fill: BLUE }));
+        cells.appendChild(g);
+      }
+      // CARRY
+      if (r.carry) {
+        const x = lutX, y = cy(i) - C.lutH / 2, c = r.carry, g = E("g");
+        g.appendChild(E("rect", { x, y, width: C.lutW, height: C.lutH, rx: 6, fill: "#fff", stroke: GREEN, "stroke-width": 1.4 }));
+        g.appendChild(txt(x + C.lutW / 2, y + C.lutH / 2 + 4, "CARRY", { "text-anchor": "middle", "font-size": 13, fill: INK, "font-weight": 600 }));
+        g.appendChild(idLabel(x + 4, y - 5, c.id || "carry"));
+        ["I0", "I1", "CI"].forEach((lab, k) => {
+          const py = y + (k + 0.5) * (C.lutH / 3);
+          g.appendChild(E("circle", { cx: x, cy: py, r: 2.3, fill: GREEN }));
+        });
+        g.appendChild(E("circle", { cx: x + C.lutW, cy: cy(i), r: 2.3, fill: GREEN }));
+        cells.appendChild(g);
+      }
+      // FF
+      if (r.ff) {
+        const x = ffX, y = cy(i) - C.ffH / 2, f = r.ff, g = E("g");
+        g.appendChild(E("rect", { x, y, width: C.ffW, height: C.ffH, rx: 5, fill: "#fff", stroke: AMBER, "stroke-width": 1.4 }));
+        g.appendChild(txt(x + C.ffW / 2, y + C.ffH / 2 - 3, "DFF", { "text-anchor": "middle", "font-size": 11, fill: INK, "font-weight": 600 }));
+        g.appendChild(txt(x + 7, y + 13, "D", { "font-size": 9.5, fill: MUT }));
+        g.appendChild(txt(x + C.ffW - 7, y + 13, "Q", { "font-size": 9.5, fill: MUT, "text-anchor": "end" }));
+        g.appendChild(idLabel(x + 4, y - 5, f.id));
+        g.appendChild(E("path", { d: `M${x} ${y + C.ffH - 12} l8 6 l-8 6 Z`, fill: "none", stroke: AMBER, "stroke-width": 1.1 }));
+        g.appendChild(E("circle", { cx: x, cy: cy(i), r: 2.3, fill: AMBER }));
+        g.appendChild(E("circle", { cx: x + C.ffW, cy: cy(i), r: 2.3, fill: AMBER }));
+        // D-side source with no producing cell: a tied constant, or a primary
+        // input feeding the flip-flop directly (e.g. sw[0] as a shift-register
+        // serial-in). Draw a stub so the input is visible.
+        const dn = f.d_net;
+        if (isConst(dn)) {
+          g.appendChild(E("path", { d: `M${x} ${cy(i)} H${x - 14}`, stroke: MUT, "stroke-width": 1.3, fill: "none" }));
+          g.appendChild(E("path", { d: `M${x - 14} ${cy(i) - 4} V${cy(i) + 4}`, stroke: MUT, "stroke-width": 1.3 }));
+          g.appendChild(txt(x - 18, cy(i) + 3, dn === "const1" ? "1" : "0", { "text-anchor": "end", "font-size": 9, fill: MUT }));
+        } else if (dn && !m.drv[dn]) {
+          g.appendChild(E("path", { d: `M${x} ${cy(i)} H${x - 18}`, stroke: MUT, "stroke-width": 1.3, fill: "none" }));
+          g.appendChild(txt(x - 21, cy(i) + 3, dn, { "text-anchor": "end", "font-size": 8.5, fill: MUT }));
+        }
+        cells.appendChild(g);
+      }
+    });
+
+    // LEDs / IO — IOs that resolve to the SAME slot (e.g. led[i] and hex[i]
+    // share a net via `assign hex = led`) fan out horizontally as one net
+    // feeding several indicators, instead of stacking on top of each other.
+    const slots = new Map();
+    m.ios.forEach(io => {
+      const p = outPos[io.net];
+      let x, y, stub = null, key;
+      if (p) {
+        x = p.x; y = p.y; key = "p:" + Math.round(y) + ":" + Math.round(x);
+      } else {
+        // wire-through: a primary input or constant tied straight to an output
+        // (e.g. `assign led = sw`). Give it a row and an input stub on the left.
+        y = cy(m.rows.length + (wtIndex[io.net] || 0));
+        x = lutX;
+        stub = isConst(io.net) ? (io.net === "const1" ? "1" : "0") : io.net;
+        key = "w:" + io.net;
+      }
+      if (!slots.has(key)) slots.set(key, { x, y, stub, items: [] });
+      slots.get(key).items.push(io);
+    });
+    slots.forEach(slot => {
+      const n = slot.items.length;
+      const lastX = ledX + (n - 1) * STEP;
+      if (slot.stub != null) {
+        wire(`M${slot.x - 18} ${slot.y} H${lastX - C.ledR - 2}`, FWD);   // input → output, no cell
+        cells.appendChild(txt(slot.x - 22, slot.y + 3, slot.stub, { "text-anchor": "end", "font-size": 9, fill: INK2 }));
+      } else {
+        wire(`M${slot.x} ${slot.y} H${lastX - C.ledR - 2}`, FWD);          // shared-net lead behind the LEDs
+        dot(slot.x, slot.y, FWD);
+      }
+      slot.items.forEach((io, j) => {
+        const x = ledX + j * STEP, y = slot.y, col = LEDC(io.color), g = E("g");
+        g.appendChild(E("circle", { cx: x, cy: y, r: C.ledR, fill: col, opacity: .92, filter: "url(#sch-glow)" }));
+        g.appendChild(E("circle", { cx: x - 3.5, cy: y - 3.5, r: 2.6, fill: "#fff", opacity: .55 }));
+        g.appendChild(txt(x, y + C.ledR + 11, io.name, { "text-anchor": "middle", "font-size": 9, fill: INK2 }));
+        cells.appendChild(g);
+      });
+    });
+
+    svg.appendChild(wires); svg.appendChild(dots); svg.appendChild(cells);
+    return svg;
+  }
+
+  // ---- public open/close --------------------------------------------------
+  window.openSchematic = function () {
+    const ov = document.getElementById("sch-overlay");
+    const stage = document.getElementById("sch-stage");
+    const sub = document.getElementById("sch-sub");
+    const exp = document.getElementById("sch-export");
+    const tab = document.getElementById("tab-schematic");
+    stage.innerHTML = "";
+    const nl = (window.__lastNetlist && window.__lastNetlist.luts) ? window.__lastNetlist : null;
+
+    if (!nl) {
+      sub.textContent = "";
+      exp.style.display = "none";
+      stage.innerHTML = `<div class="sch-empty">No synthesized netlist yet.<br>Press <b>⚡ Synthesize</b> first, then reopen this view.</div>`;
+    } else {
+      exp.style.display = "";
+      sub.textContent = `iCE40UP5K · ${(nl.luts || []).length} LUT · ${(nl.ffs || []).length} FF · ${(nl.carries || []).length} CARRY · ${(nl.ios || []).length} IO`;
+      try {
+        const svg = buildSVG(nl);
+        stage.appendChild(svg);
+        exp.onclick = () => {
+          const blob = new Blob([svg.outerHTML], { type: "image/svg+xml" });
+          const a = document.createElement("a");
+          a.href = URL.createObjectURL(blob); a.download = "schematic.svg";
+          document.body.appendChild(a); a.click(); a.remove();
+          setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+        };
+      } catch (e) {
+        stage.innerHTML = `<div class="sch-empty">Render error: ${e.message}</div>`;
+        exp.style.display = "none";
+      }
+    }
+    ov.classList.add("open");
+    if (tab) tab.classList.add("active");
+  };
+
+  window.closeSchematic = function () {
+    document.getElementById("sch-overlay").classList.remove("open");
+    const tab = document.getElementById("tab-schematic");
+    if (tab) tab.classList.remove("active");
+  };
+
+  document.addEventListener("keydown", e => { if (e.key === "Escape") window.closeSchematic(); });
+})();
+</script>
+</body>
+</html>
