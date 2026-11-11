@@ -200,22 +200,46 @@ select:hover { border-color: var(--blue); }
 .led-lbl { font-family: var(--mono); font-size: 7.5px; color: rgba(255,255,255,.6); }
 
 /* hex display — two digits, with a vertical stencil label to the right */
-.seg-wrap { display: flex; justify-content: center; align-items: flex-start; gap: 14px; }
+.seg-wrap { display: flex; justify-content: center; align-items: center; gap: 18px; }
 .seg-digit {
-  position: relative; width: 36px; height: 60px;
+  position: relative; width: 62px; height: 90px;
   background: #1a0505; border: 2px solid #3a0d0d; border-radius: 4px;
 }
 .seg { position: absolute; background: #2e0a0a; transition: background .08s, box-shadow .08s; }
 .seg.on { background: var(--led-on); box-shadow: 0 0 6px rgba(255,46,46,.9); }
-/* horizontal segments: 18px wide, 4px tall */
-.seg-a { top:6px;     left:9px;  width:18px; height:4px; }
-.seg-g { top:28px;    left:9px;  width:18px; height:4px; }
-.seg-d { top:50px;    left:9px;  width:18px; height:4px; }
-/* vertical segments: 4px wide, 18px tall — sit between the horizontals */
-.seg-f { top:10px;    left:6px;  width:4px;  height:18px; }
-.seg-b { top:10px;    left:26px; width:4px;  height:18px; }
-.seg-e { top:32px;    left:6px;  width:4px;  height:18px; }
-.seg-c { top:32px;    left:26px; width:4px;  height:18px; }
+/* one digit: horizontal segments 27x6, vertical 6x27, plus the decimal point */
+.seg-a { top:9px;   left:14px; width:27px; height:6px; }
+.seg-g { top:42px;  left:14px; width:27px; height:6px; }
+.seg-d { top:75px;  left:14px; width:27px; height:6px; }
+.seg-f { top:15px;  left:9px;  width:6px;  height:27px; }
+.seg-b { top:15px;  left:40px; width:6px;  height:27px; }
+.seg-e { top:48px;  left:9px;  width:6px;  height:27px; }
+.seg-c { top:48px;  left:40px; width:6px;  height:27px; }
+.seg-dp { top:74px; left:50px; width:7px;  height:7px; border-radius: 50%; }
+.seg-legend {
+  display: grid; grid-template-columns: auto auto; column-gap: 12px; row-gap: 2px;
+  font-family: var(--mono); font-size: 8.5px; color: rgba(255,255,255,.6);
+}
+.seg-legend b { color: rgba(255,255,255,.9); font-weight: 700; display: inline-block; min-width: 14px; }
+.pin-lbl { font-family: var(--mono); font-size: 7px; color: rgba(255,255,255,.4); margin-top: -2px; }
+.pcb-clk { font-weight: 400; letter-spacing: .06em; color: rgba(255,255,255,.55); }
+.info-note { font-size: 11px; color: var(--muted); margin-top: 6px; line-height: 1.5; }
+.info-note code { font-family: var(--mono); color: var(--ink2); }
+/* file tabs above the editor: the design (.v) and its constraints (.cst) */
+.file-tabs {
+  display: flex; align-items: flex-end; gap: 3px; padding: 6px 8px 0;
+  background: var(--frame2); border-bottom: 1px solid var(--frame); flex-shrink: 0;
+}
+button.file-tab {
+  font-family: var(--mono); font-size: 12px; font-weight: 400; color: var(--muted);
+  padding: 5px 13px; margin: 0; border: 1px solid var(--frame); border-bottom: none;
+  border-radius: 6px 6px 0 0; background: #e7eaef; box-shadow: none; cursor: pointer;
+}
+button.file-tab:hover { background: #f1f3f6; border-color: var(--frame); color: var(--ink2); }
+button.file-tab.active {
+  background: var(--panel2); color: var(--ink); font-weight: 600;
+  border-color: var(--blue); border-bottom: 1px solid var(--panel2); margin-bottom: -1px;
+}
 .seg-cap { text-align: center; font-family: var(--mono); font-size: 7.5px; color: rgba(255,255,255,.5); margin-top: 4px; }
 .pcb-stencil {
   font-family: var(--mono); font-size: 8.5px; font-weight: 700;
@@ -277,7 +301,7 @@ select:hover { border-color: var(--blue); }
 
 <header>
   <div class="logo">soft<span>fpga</span></div>
-  <span class="ver">v1.38</span>
+  <span class="ver">v2.12</span>
   <span style="font-size:11px;color:var(--muted)"><span class="status-dot" id="sdot"></span><span id="stxt">idle</span></span>
 </header>
 
@@ -287,29 +311,16 @@ select:hover { border-color: var(--blue); }
     <button id="ex-btn">📁 Examples ▾</button>
     <div class="ex-list" id="ex-list"></div>
   </div>
+  <button onclick="newFile()"><span class="tb-btn-icon">📄</span>New</button>
   <button onclick="openFile()"><span class="tb-btn-icon">📂</span>Open</button>
   <button onclick="saveFile()"><span class="tb-btn-icon">💾</span>Save</button>
-  <input type="file" id="file-input" accept=".v,.sv,.vh,.txt,.json" style="display:none">
+  <input type="file" id="file-input" accept=".v,.sv,.vh,.txt,.cst,.pcf" multiple style="display:none">
   <div class="tb-sep"></div>
   <button class="primary" id="compile-btn" onclick="doCompile()">⚡ Synthesize</button>
+  <button id="pnr-btn" onclick="doPnR()">📍 Place &amp; Route</button>
   <button id="run-btn" class="run-btn" onclick="toggleRun()">▶ Run</button>
-  <button onclick="stepSim()">⏭ Step</button>
-  <button onclick="resetSim()">↺ Reset</button>
-  <div class="tb-sep"></div>
-  <select id="clk-sel" onchange="updateClock()">
-    <option value="1000">1 Hz</option>
-    <option value="500">2 Hz</option>
-    <option value="200" selected>5 Hz</option>
-    <option value="100">10 Hz</option>
-    <option value="50">20 Hz</option>
-    <option value="16">60 Hz</option>
-    <option value="4">250 Hz</option>
-  </select>
-  <div class="tb-spacer"></div>
-  <button id="tab-verilog" onclick="setMode('verilog')">Verilog</button>
-  <button id="tab-json" onclick="setMode('json')">Netlist JSON</button>
   <button id="tab-schematic" onclick="openSchematic()">◫ Schematic</button>
-  <div class="tb-sep"></div>
+  <div class="tb-spacer"></div>
   <button onclick="showHelp()">❓ Help</button>
 </div>
 
@@ -317,9 +328,9 @@ select:hover { border-color: var(--blue); }
 
   <!-- LEFT: code editor + console -->
   <div class="col col-editor">
-    <div class="phead">
-      <span id="editor-label">Verilog source</span>
-      <input type="text" class="file-name-input" id="file-name" value="untitled.v" spellcheck="false" autocomplete="off">
+    <div class="file-tabs">
+      <button class="file-tab active" id="tab-verilog" onclick="setMode('verilog')" ondblclick="renameFile('verilog')" title="Design file — double-click to rename">untitled.v</button>
+      <button class="file-tab" id="tab-cst" onclick="setMode('cst')" ondblclick="renameFile('cst')" title="Constraints file (pin assignment) — double-click to rename">untitled.cst</button>
     </div>
     <div class="editor-wrap">
       <div class="line-nums" id="lnums"></div>
@@ -333,7 +344,7 @@ select:hover { border-color: var(--blue); }
         <button onclick="clearLog()" style="font-size:10px;padding:2px 8px">clear</button>
       </div>
       <div class="log-out" id="log-out">
-        <div class="dim">// softfpga — write Verilog, press ⚡ Synthesize, then ▶ Run</div>
+        <div class="dim">// softfpga — write the design (.v) and its pins (.cst), then ⚡ Synthesize → 📍 Place &amp; Route → ▶ Run</div>
       </div>
     </div>
   </div>
@@ -343,31 +354,28 @@ select:hover { border-color: var(--blue); }
     <div class="phead"><span>FPGA Board</span><span id="io-count" style="font-weight:400;text-transform:none;color:var(--muted)"></span></div>
     <div class="board-stage">
       <div class="pcb">
-        <div class="board-row-title">LEDs (led7 → led0)</div>
+        <div class="board-row-title">LEDs · pins 15 … 8</div>
         <div class="led-row" id="leds-display"></div>
 
-        <div class="board-row-title">Hex display</div>
+        <div class="board-row-title">7-segment display · same pins as the LEDs</div>
         <div class="seg-wrap">
-          <div>
-            <div class="seg-digit" id="sd0">
-              <div class="seg seg-a"></div><div class="seg seg-b"></div><div class="seg seg-c"></div>
-              <div class="seg seg-d"></div><div class="seg seg-e"></div><div class="seg seg-f"></div><div class="seg seg-g"></div>
-            </div>
-            <div class="seg-cap">led 7-4</div>
+          <div class="seg-digit" id="sd0">
+            <div class="seg seg-a"></div><div class="seg seg-b"></div><div class="seg seg-c"></div>
+            <div class="seg seg-d"></div><div class="seg seg-e"></div><div class="seg seg-f"></div><div class="seg seg-g"></div>
+            <div class="seg seg-dp"></div>
           </div>
-          <div>
-            <div class="seg-digit" id="sd1">
-              <div class="seg seg-a"></div><div class="seg seg-b"></div><div class="seg seg-c"></div>
-              <div class="seg seg-d"></div><div class="seg seg-e"></div><div class="seg seg-f"></div><div class="seg seg-g"></div>
-            </div>
-            <div class="seg-cap">led 3-0</div>
+          <div class="seg-legend">
+            <div><b>a</b> pin 8</div><div><b>e</b> pin 12</div>
+            <div><b>b</b> pin 9</div><div><b>f</b> pin 13</div>
+            <div><b>c</b> pin 10</div><div><b>g</b> pin 14</div>
+            <div><b>d</b> pin 11</div><div><b>dp</b> pin 15</div>
           </div>
         </div>
 
-        <div class="board-row-title">Switches (sw7 → sw0)</div>
+        <div class="board-row-title">Switches · pins 7 … 0</div>
         <div class="sw-row" id="sw-grid"></div>
 
-        <div class="pcb-stencil">iCE40UP5K · softfpga board</div>
+        <div class="pcb-stencil">iCE40UP5K · softfpga board<br><span class="pcb-clk">clock = pin 16 · 10 Hz</span></div>
       </div>
     </div>
   </div>
@@ -381,6 +389,14 @@ select:hover { border-color: var(--blue); }
         <div class="info-row"><span class="k">Chip</span><span class="v">iCE40UP5K</span></div>
         <div class="info-row"><span class="k">Logic cells</span><span class="v">5280 LUTs</span></div>
         <div class="info-row"><span class="k">Flip-flops</span><span class="v">5280 FFs</span></div>
+      </div>
+      <div class="info-card">
+        <h4>Board pins</h4>
+        <div class="info-row"><span class="k">Switches sw0–sw7</span><span class="v">0 – 7</span></div>
+        <div class="info-row"><span class="k">LEDs led0–led7</span><span class="v">8 – 15</span></div>
+        <div class="info-row"><span class="k">7-segment a–g, dp</span><span class="v">8 – 15</span></div>
+        <div class="info-row"><span class="k">Clock, 10 Hz</span><span class="v">16</span></div>
+        <div class="info-note">In the .cst file, one line per port bit:<br><code>IO_LOC "led[0]" 8;</code></div>
       </div>
       <div class="info-card">
         <h4>Resource Usage</h4>
@@ -397,8 +413,124 @@ select:hover { border-color: var(--blue); }
 
 <script type="module">
 // ══════════════════════════════════════════════════════════════
+//  VIRTUAL BOARD
+//  Every board peripheral sits on a numbered pin. A design reaches
+//  it through a constraint file, exactly like on a real FPGA.
+//    pins 0-7   switches sw0..sw7        (inputs)
+//    pins 8-15  LEDs led0..led7 + hex    (outputs; the hex display
+//               shows the same byte: pins 15-12 and 11-8)
+//    pin  16    clock                    (input)
+// ══════════════════════════════════════════════════════════════
+const BOARD = {
+  name: 'softfpga board',
+  clkPin: 16,
+  pinInfo(pin) {
+    if (pin >= 0 && pin <= 7)  return { kind: 'sw',  bit: pin,     dir: 'input',  label: 'switch sw' + pin };
+    if (pin >= 8 && pin <= 15) return { kind: 'led', bit: pin - 8, dir: 'output', label: 'LED led' + (pin - 8) };
+    if (pin === 16)            return { kind: 'clk', bit: 0,       dir: 'input',  label: 'clock' };
+    return null;
+  },
+  pinHelp: 'pins 0-7 = switches, 8-15 = LEDs + hex display, 16 = clock',
+};
+
+// ══════════════════════════════════════════════════════════════
+//  CONSTRAINTS  (the .cst file)
+//  One line per port bit:   IO_LOC "led[0]" 8;
+//  The iCE40 PCF form is read too:   set_io led[0] 8
+//  Comments: // ... or # ...
+// ══════════════════════════════════════════════════════════════
+function parseConstraints(text) {
+  const locs = [], errors = [];
+  String(text || '').split(/\r?\n/).forEach((raw, i) => {
+    const line = raw.replace(/\/\/.*$/, '').replace(/#.*$/, '').trim();
+    if (!line) return;
+    for (const stmt of line.split(';')) {
+      const s = stmt.trim();
+      if (!s) continue;
+      let name = null, pinTok = null, m;
+      if ((m = s.match(/^set_io\s+(.*)$/i))) {
+        // options (-nowarn, -pullup yes, -pullup_resistor 10k) are accepted and ignored
+        const tok = m[1].replace(/-pullup_resistor\s+\S+/gi, '').replace(/-pullup\s+\S+/gi, '').replace(/-nowarn/gi, '').trim().split(/\s+/);
+        if (tok.length === 2) { name = tok[0].replace(/^"|"$/g, ''); pinTok = tok[1]; }
+      } else if ((m = s.match(/^IO_LOC\s+"?([^"\s]+)"?\s+(\S+)$/i))) {
+        name = m[1]; pinTok = m[2].split(',')[0];
+      } else if (/^IO_PORT\s+/i.test(s)) {
+        continue;                                   // electrical attributes: accepted, not modeled
+      }
+      if (name === null) { errors.push(`line ${i + 1}: cannot read "${s}". Write: IO_LOC "port" pin;`); continue; }
+      if (!/^\d+$/.test(pinTok)) { errors.push(`line ${i + 1}: "${pinTok}" is not a pin number`); continue; }
+      locs.push({ name, pin: Number(pinTok), line: i + 1 });
+    }
+  });
+  return { locs, errors };
+}
+
+// ══════════════════════════════════════════════════════════════
+//  PLACE & ROUTE  (pin assignment check)
+//  Connects every top-level port bit to a board pin using the
+//  constraints. Fills netlist.ios / netlist.inputs / netlist.clk_net.
+//  Returns { ok, errors, warnings, report }.
+// ══════════════════════════════════════════════════════════════
+function placeAndRoute(netlist, constraintText, board) {
+  board = board || BOARD;
+  const cst = parseConstraints(constraintText);
+  const errors = cst.errors.map(e => 'constraints ' + e), warnings = [], report = [];
+  const ports = netlist.ports || [];
+  const byName = {};
+  for (const p of ports) { byName[p.name] = p; if (p.alt) byName[p.alt] = p; }
+  const pinOf = {}, usedBy = {};
+  for (const l of cst.locs) {
+    const p = byName[l.name];
+    if (!p) {
+      const bus = ports.filter(q => q.port === l.name);
+      errors.push(bus.length > 1
+        ? `constraints line ${l.line}: "${l.name}" is a ${bus.length}-bit bus — give each bit its own pin: ${bus[0].name}, ${bus[1].name}, ...`
+        : `constraints line ${l.line}: the design has no port named "${l.name}"`);
+      continue;
+    }
+    const info = board.pinInfo(l.pin);
+    if (!info) { errors.push(`constraints line ${l.line}: pin ${l.pin} does not exist on the board (${board.pinHelp})`); continue; }
+    if (pinOf[p.name] !== undefined) { errors.push(`constraints line ${l.line}: port "${p.name}" is already on pin ${pinOf[p.name]}`); continue; }
+    if (usedBy[l.pin] !== undefined) { errors.push(`constraints line ${l.line}: pin ${l.pin} is already used by "${usedBy[l.pin]}"`); continue; }
+    if (info.dir && info.dir !== p.dir) {
+      errors.push(`constraints line ${l.line}: "${p.name}" is an ${p.dir}, but pin ${l.pin} is the ${info.label} (${info.dir} only)`);
+      continue;
+    }
+    pinOf[p.name] = l.pin; usedBy[l.pin] = p.name;
+  }
+  for (const p of ports) {
+    if (pinOf[p.name] === undefined) errors.push(`${p.dir} port "${p.name}" has no pin. Add a line: IO_LOC "${p.name}" <pin>;`);
+  }
+  if (errors.length) return { ok: false, errors, warnings, report };
+
+  const colors = ['green', 'green', 'amber', 'amber', 'red', 'red', 'blue', 'blue'];
+  const ios = [], inputs = [];
+  let clkNet = null;
+  for (const p of ports) {
+    const pin = pinOf[p.name], info = board.pinInfo(pin);
+    report.push(`${p.name.padEnd(14)} ${p.dir.padEnd(7)} pin ${String(pin).padStart(2)}  ${info.label || ''}`);
+    if (p.dir === 'output') ios.push({ name: p.name, net: p.net, pin, kind: info.kind === 'led' ? 'led' : 'pin', bit: info.bit, color: colors[info.bit % colors.length] });
+    else {
+      inputs.push({ name: p.name, net: p.net, pin, kind: info.kind, bit: info.bit });
+      if (pin === board.clkPin) clkNet = p.net;
+    }
+  }
+  const clocked = (netlist.ffs || []).length > 0;
+  if (clocked && !clkNet) warnings.push(`the design has flip-flops but no port is on the clock pin (${board.clkPin}); Run and Step will not clock it`);
+  if (clkNet) {
+    const other = (netlist.ffs || []).filter(f => f.c_net && f.c_net !== clkNet).length;
+    if (other) warnings.push(`${other} flip-flop(s) are clocked by a signal other than the board clock (derived or gated clock)`);
+  }
+  netlist.ios = ios; netlist.inputs = inputs; netlist.clk_net = clkNet;
+  return { ok: true, errors, warnings, report };
+}
+
+// ══════════════════════════════════════════════════════════════
 //  iCE40 FABRIC EMULATOR CORE
-//  LUT4 = 16-bit truth table. D-FF. Up to 5280 LUTs (UP5K).
+//  LUT4 = 16-bit truth table, SB_CARRY, and the full SB_DFF family
+//  (clock enable, sync/async set and reset, either clock edge).
+//  Flip-flops are edge-driven: each one samples when ITS clock net
+//  has an edge, so derived clocks and buttons-as-clocks work too.
 // ══════════════════════════════════════════════════════════════
 class ICE40Emu {
   constructor(nl) {
@@ -406,13 +538,40 @@ class ICE40Emu {
     this.luts    = nl.luts    || [];
     this.ffs     = nl.ffs     || [];
     this.ios     = nl.ios     || [];
-    this.carries = nl.carries || [];   // SB_CARRY / carry-wrapper cells
-    this.nets    = { const0:0, const1:1 };
+    this.inputs  = nl.inputs  || [];
+    this.carries = nl.carries || [];
+    // Flip-flops without a clock net (hand-written JSON netlists) use one implicit global clock.
+    this.clkNet  = nl.clk_net || (this.ffs.some(f => !f.c_net) ? '__clk' : null);
     this.cycle   = 0;
-    for (const ff of this.ffs) this.nets[ff.q_net || ff.id+'_q'] = ff.init || 0;
+    this.order   = this._levelize();
+    this.reset();
   }
 
-  // Read a net by name; FF Q aliases (id+'_q') resolve too.
+  // Order LUTs and carries so that one pass settles all combinational logic.
+  _levelize() {
+    const cells = [];
+    for (const l of this.luts)    cells.push({ t: 0, c: l, out: l.out, ins: l.inputs });
+    for (const c of this.carries) cells.push({ t: 1, c: c, out: c.out, ins: [c.i0, c.i1, c.ci] });
+    const drv = {};
+    cells.forEach((x, i) => { drv[x.out] = i; });
+    const indeg = cells.map(() => 0), users = cells.map(() => []);
+    cells.forEach((x, i) => {
+      const seen = {};
+      for (const n of x.ins) {
+        const d = drv[n];
+        if (d === undefined || d === i || seen[d]) continue;
+        seen[d] = 1; indeg[i]++; users[d].push(i);
+      }
+    });
+    const q = [], order = [];
+    indeg.forEach((n, i) => { if (!n) q.push(i); });
+    while (q.length) { const i = q.shift(); order.push(cells[i]); for (const u of users[i]) if (--indeg[u] === 0) q.push(u); }
+    this.loop = order.length < cells.length;          // combinational loop: fall back to repeated passes
+    if (this.loop) cells.forEach((x, i) => { if (indeg[i] > 0) order.push(x); });
+    return order;
+  }
+
+  // Read a net by name.
   rd(name) {
     if (name == null) return 0;
     if (name === 'const0') return 0;
@@ -422,7 +581,6 @@ class ICE40Emu {
 
   evalLUT(lut) {
     // SB_LUT4 address: I0 is the LSB, I3 the MSB.
-    // address = I3<<3 | I2<<2 | I1<<1 | I0
     let a = 0;
     for (let i = 0; i < 4; i++) a |= this.rd(lut.inputs[i] || 'const0') << i;
     return (lut.truth_table >> a) & 1;
@@ -430,34 +588,77 @@ class ICE40Emu {
 
   // SB_CARRY: carry-out = majority(I0, I1, CI).
   evalCarry(c) {
-    const i0 = this.rd(c.i0), i1 = this.rd(c.i1), ci = this.rd(c.ci);
-    return (i0 + i1 + ci) >= 2 ? 1 : 0;
+    return (this.rd(c.i0) + this.rd(c.i1) + this.rd(c.ci)) >= 2 ? 1 : 0;
   }
 
-  tick() {
-    // 1. Settle combinational logic. Iterate enough times for the longest
-    //    LUT/carry chain to propagate (cheap; net count is the upper bound).
-    const passes = this.luts.length + this.carries.length + 1;
+  // Settle combinational logic.
+  settle() {
+    const passes = this.loop ? 8 : 1;
     for (let p = 0; p < passes; p++) {
-      for (const l of this.luts)    this.nets[l.out] = this.evalLUT(l);
-      for (const c of this.carries) this.nets[c.out] = this.evalCarry(c);
+      for (const x of this.order) this.nets[x.out] = x.t ? this.evalCarry(x.c) : this.evalLUT(x.c);
     }
-    // 2. Sample every FF's D BEFORE clocking, then apply the edge together.
-    const nextQ = {};
-    for (const ff of this.ffs) nextQ[ff.q_net || ff.id+'_q'] = this.rd(ff.d_net);
-    for (const k in nextQ) this.nets[k] = nextQ[k];
+  }
 
-    this.nets.const0 = 0; this.nets.const1 = 1;
+  _q(ff) { return ff.q_net || ff.id + '_q'; }
+  _c(ff) { return ff.c_net || '__clk'; }
+
+  // Settle, then fire every flip-flop whose clock just had its active edge;
+  // repeat until nothing changes (handles clocks made by other flip-flops).
+  propagate() {
+    for (let it = 0; it < 200; it++) {
+      this.settle();
+      let changed = false;
+      const fire = [];
+      this.ffs.forEach((ff, i) => {
+        const c = this.rd(this._c(ff)), pc = this.prevClk[i];
+        this.prevClk[i] = c;
+        if (ff.neg ? (pc === 1 && c === 0) : (pc === 0 && c === 1)) fire.push(ff);
+      });
+      // Sample every D BEFORE any Q changes, then apply the edge together.
+      const next = fire.map(ff => {
+        const q  = this.rd(this._q(ff));
+        const en = ff.e_net  ? this.rd(ff.e_net)  : 1;
+        const sr = ff.sr_net ? this.rd(ff.sr_net) : 0;
+        const d  = this.rd(ff.d_net);
+        if (ff.sr_async)          return sr ? ff.sr_val : (en ? d : q);
+        if (ff.e_net && ff.sr_net) return en ? (sr ? ff.sr_val : d) : q;   // SB_DFFESR/ESS: enable gates the sync reset
+        return sr ? ff.sr_val : (en ? d : q);
+      });
+      fire.forEach((ff, k) => { const qn = this._q(ff); if (this.rd(qn) !== next[k]) { this.nets[qn] = next[k]; changed = true; } });
+      // Asynchronous set / reset act immediately, without a clock.
+      for (const ff of this.ffs) {
+        if (ff.sr_async && ff.sr_net && this.rd(ff.sr_net)) {
+          const qn = this._q(ff);
+          if (this.rd(qn) !== ff.sr_val) { this.nets[qn] = ff.sr_val; changed = true; }
+        }
+      }
+      if (!changed) break;
+    }
+  }
+
+  // One full clock cycle: rising edge, then falling edge.
+  tick() {
+    if (this.clkNet) {
+      this.nets[this.clkNet] = 1; this.propagate();
+      this.nets[this.clkNet] = 0; this.propagate();
+    } else {
+      this.propagate();
+    }
     this.cycle++;
-    return nextQ;
   }
 
   getIO()       { return this.ios.map(io => ({ ...io, value: this.rd(io.net) })); }
-  setNet(k,v)   { this.nets[k] = v?1:0; }
-  reset()       {
+  // Drive an input net (a switch). Logic reacts immediately, like on real hardware.
+  setNet(k,v)   { this.nets[k] = v?1:0; this.propagate(); }
+  setNets(obj)  { for (const k in obj) this.nets[k] = obj[k]?1:0; this.propagate(); }
+  reset(keep)   {
     this.cycle = 0;
     this.nets = { const0:0, const1:1 };
-    for (const ff of this.ffs) this.nets[ff.q_net || ff.id+'_q'] = ff.init || 0;
+    if (keep) for (const k in keep) this.nets[k] = keep[k]?1:0;      // switch positions survive a reset
+    for (const ff of this.ffs) this.nets[this._q(ff)] = ff.init || 0;
+    this.settle();
+    this.prevClk = this.ffs.map(ff => this.rd(this._c(ff)));        // no edge at power-up
+    this.propagate();
   }
   util()        { return (this.luts.length/5280*100).toFixed(1); }
 }
@@ -465,13 +666,16 @@ class ICE40Emu {
 // ══════════════════════════════════════════════════════════════
 //  YOSYS NETLIST → EMULATOR NETLIST CONVERTER
 //  Parses Yosys JSON (write_json) output for iCE40.
-//  Handles: SB_LUT4 → lut, SB_DFF* → ff, top-level ports → ios
+//  Handles: SB_LUT4 → lut, SB_CARRY → carry, SB_DFF* → ff,
+//           top-level ports → ports (pins are assigned later, by Place & Route)
 // ══════════════════════════════════════════════════════════════
-function yosysJsonToNetlist(yj, ioAnnotations) {
-  // Find the user's top module — it has ports, not a library cell
-  // Prefer module named 'top', else pick the one with the most cells
+function yosysJsonToNetlist(yj) {
+  // Find the user's top module: the one Yosys marked as top, else one named
+  // 'top', else the module with the most cells.
   const allMods = Object.entries(yj.modules || {});
-  let topEntry = allMods.find(([n]) => n === 'top') ||
+  const isTop = m => m.attributes && parseInt(String(m.attributes.top || '0'), 2) === 1;
+  let topEntry = allMods.find(([, m]) => isTop(m)) ||
+                 allMods.find(([n]) => n === 'top') ||
                  allMods.find(([n]) => n === '\\top') ||
                  allMods.reduce((best, cur) =>
                    Object.keys(cur[1].cells||{}).length > Object.keys(best[1].cells||{}).length ? cur : best
@@ -484,6 +688,9 @@ function yosysJsonToNetlist(yj, ioAnnotations) {
   const netnames = mod.netnames || {};
 
   log(`Using module: ${modName} (${Object.keys(cells).length} cells)`, 'inf');
+
+  // Bit index of port bit i as written in the Verilog source ([7:0], [0:7], [11:4] ...).
+  const portIndex = (pd, i) => pd.upto ? (pd.offset || 0) + pd.bits.length - 1 - i : (pd.offset || 0) + i;
 
   // Build bit-number → net name map.
   // CRITICAL: a bit number is electrically unique. A netname that spans
@@ -503,12 +710,15 @@ function yosysJsonToNetlist(yj, ioAnnotations) {
       }
     }
   }
-  // Ports take priority — they are the user-visible names.
-  for (const [pname, pd] of Object.entries(ports)) {
-    for (let i = 0; i < (pd.bits||[]).length; i++) {
-      const b = pd.bits[i];
-      if (typeof b === 'number') {
-        bitName[b] = pd.bits.length === 1 ? pname : `${pname}[${i}]`;
+  // Ports take priority — they are the user-visible names. Inputs first, so a
+  // bare wire-through (`assign led = sw;`) keeps the name of its driver.
+  const portList = Object.entries(ports);
+  for (const dir of ['output', 'inout', 'input']) {
+    for (const [pname, pd] of portList) {
+      if (pd.direction !== dir) continue;
+      for (let i = 0; i < (pd.bits||[]).length; i++) {
+        const b = pd.bits[i];
+        if (typeof b === 'number') bitName[b] = pd.bits.length === 1 ? pname : `${pname}[${portIndex(pd, i)}]`;
       }
     }
   }
@@ -516,6 +726,7 @@ function yosysJsonToNetlist(yj, ioAnnotations) {
   function bname(bit) {
     if (bit === '0' || bit === 0) return 'const0';
     if (bit === '1' || bit === 1) return 'const1';
+    if (bit === 'x' || bit === 'z') return 'const0';
     // Fallback name is per-bit unique — never collapses distinct nets.
     if (typeof bit === 'number') return bitName[bit] || `net_${bit}`;
     return `net_${bit}`;
@@ -543,365 +754,570 @@ function yosysJsonToNetlist(yj, ioAnnotations) {
     return parseInt(s, 10) || 0;
   }
 
-  const luts = [], ffs = [], carries = [];
+  const luts = [], ffs = [], carries = [], unsupported = {};
+  const pin = (cell, p) => { const b = (cell.connections[p]||[])[0]; return b==null ? 'const0' : bname(b); };
 
-  // Collect LUTs — keyed by OUTPUT NET so downstream cells can read them.
   for (const [cname, cell] of Object.entries(cells)) {
-    if (cell.type !== 'SB_LUT4') continue;
-    const raw = cell.parameters?.LUT_INIT ?? cell.parameters?.lut_init ?? '0';
-    const tt  = parseLutInit(raw);
-    const ins = ['I0','I1','I2','I3'].map(p => {
-      const b = (cell.connections[p] || [])[0];
-      return b == null ? 'const0' : bname(b);
-    });
-    const outBit = (cell.connections.O || [])[0];
-    const outNet = outBit != null ? bname(outBit) : `lut_out_${cname}`;
-    luts.push({ id: cname, inputs: ins, truth_table: tt, out: outNet });
-  }
-
-  // Collect carry cells (SB_CARRY). CO = majority(I0, I1, CI).
-  for (const [cname, cell] of Object.entries(cells)) {
-    if (cell.type !== 'SB_CARRY') continue;
-    const pin = p => { const b = (cell.connections[p]||[])[0]; return b==null ? 'const0' : bname(b); };
-    const coBit = (cell.connections.CO || [])[0];
-    carries.push({
-      id: cname,
-      i0: pin('I0'), i1: pin('I1'), ci: pin('CI'),
-      out: coBit != null ? bname(coBit) : `carry_out_${cname}`,
-    });
-  }
-
-  // Collect FFs. D is stored as a NET NAME — tick() resolves it from this.nets,
-  // where LUT outputs, carry outputs and FF Q values all live.
-  for (const [cname, cell] of Object.entries(cells)) {
-    if (!cell.type.startsWith('SB_DFF')) continue;
-    const dBit = (cell.connections.D || [])[0];
-    const qBit = (cell.connections.Q || [])[0];
-    const dNet = dBit != null ? bname(dBit) : 'const0';
-    const qNet = qBit != null ? bname(qBit) : `ff_q_${cname}`;
-    ffs.push({ id: cname, d_net: dNet, q_net: qNet, init: 0 });
-  }
-
-  // Build IOs from output ports. Reserved-name board model:
-  //   led[7:0]  → the 8 LEDs
-  //   hex[7:0]  → the 2-digit hex display
-  // Each IO carries a `kind` so the UI knows where to route it.
-  const ios = [];
-  const colors = ['green','green','amber','amber','red','red','blue','blue'];
-  let ci = 0;
-  for (const [pname, pd] of Object.entries(ports)) {
-    if (pd.direction === 'output') {
-      const lname = pname.toLowerCase();
-      const kind  = lname.startsWith('hex') ? 'hex'
-                  : lname.startsWith('led') ? 'led'
-                  : 'led';   // unrecognized outputs default to LEDs
-      for (let i = 0; i < (pd.bits||[]).length; i++) {
-        const net = bname(pd.bits[i]);
-        ios.push({
-          name:  pd.bits.length === 1 ? pname : `${pname}[${i}]`,
-          net:   net,
-          kind:  kind,
-          bit:   pd.bits.length === 1 ? 0 : i,
-          color: colors[ci++ % colors.length]
-        });
+    const t = cell.type;
+    if (t === '$scopeinfo') continue;               // bookkeeping cell, not hardware
+    if (t === 'SB_LUT4') {
+      // LUTs — keyed by OUTPUT NET so downstream cells can read them.
+      const raw = cell.parameters?.LUT_INIT ?? cell.parameters?.lut_init ?? '0';
+      const outBit = (cell.connections.O || [])[0];
+      luts.push({
+        id: cname, inputs: ['I0','I1','I2','I3'].map(p => pin(cell, p)), truth_table: parseLutInit(raw),
+        out: outBit != null ? bname(outBit) : `lut_out_${cname}`,
+      });
+    } else if (t === 'SB_CARRY') {
+      // CO = majority(I0, I1, CI).
+      const coBit = (cell.connections.CO || [])[0];
+      carries.push({ id: cname, i0: pin(cell,'I0'), i1: pin(cell,'I1'), ci: pin(cell,'CI'),
+                     out: coBit != null ? bname(coBit) : `carry_out_${cname}` });
+    } else if (/^SB_DFF/.test(t)) {
+      // SB_DFF[N][E][SR|SS|R|S]:  N = falling edge, E = clock enable,
+      // SR/SS = synchronous reset/set, R/S = asynchronous reset/set.
+      const m = t.match(/^SB_DFF(N?)(E?)(SR|SS|R|S)?$/);
+      if (!m) { unsupported[t] = (unsupported[t]||0) + 1; continue; }
+      const qBit = (cell.connections.Q || [])[0];
+      const ff = { id: cname, type: t, d_net: pin(cell,'D'), q_net: qBit != null ? bname(qBit) : `ff_q_${cname}`,
+                   c_net: pin(cell,'C'), init: 0 };
+      if (m[1]) ff.neg = true;
+      if (m[2]) ff.e_net = pin(cell,'E');
+      if (m[3]) {
+        const set = m[3][0] === 'S' && m[3] !== 'SR';
+        ff.sr_net = pin(cell, set ? 'S' : 'R');
+        ff.sr_val = set ? 1 : 0;
+        if (m[3].length === 1) ff.sr_async = true;
       }
+      ffs.push(ff);
+    } else {
+      unsupported[t] = (unsupported[t]||0) + 1;
+    }
+  }
+  const bad = Object.keys(unsupported);
+  if (bad.length) throw new Error('softfpga does not model these cells yet: ' + bad.map(k => `${k} ×${unsupported[k]}`).join(', '));
+
+  // Top-level ports, one entry per bit. Place & Route gives each a pin.
+  const plist = [];
+  for (const [pname, pd] of portList) {
+    if (pd.direction !== 'input' && pd.direction !== 'output') throw new Error(`port "${pname}": inout ports are not supported`);
+    const w = (pd.bits||[]).length;
+    for (let i = 0; i < w; i++) {
+      const idx = portIndex(pd, i);
+      plist.push({
+        name: w === 1 ? pname : `${pname}[${idx}]`, alt: w === 1 ? `${pname}[${idx}]` : undefined,
+        port: pname, index: idx, dir: pd.direction, net: bname(pd.bits[i]),
+      });
     }
   }
 
-  // Fallback: use FF Q nets if no output ports were found.
-  if (!ios.length) {
-    ffs.slice(0, 8).forEach((ff, i) =>
-      ios.push({ name:`FF${i}`, net: ff.q_net, kind:'led', bit:i, color: colors[i%colors.length] })
-    );
-  }
-
-  // Expose non-clk input ports as sw_* nets.
-  // Must rewire EVERY consumer: LUT inputs, carry inputs, FF D inputs,
-  // AND output IO nets — the last case handles a bare wire-through
-  // (`assign led = sw;`), where an input net IS an output net with no
-  // cell in between. Without the IO rewire that signal never reaches the LED.
-  for (const [pname, pd] of Object.entries(ports)) {
-    const skip = ['clk','CLK','clk_i','rst','RST','reset'];
-    if (pd.direction === 'input' && !skip.includes(pname)) {
-      for (let i = 0; i < (pd.bits||[]).length; i++) {
-        const net    = bname(pd.bits[i]);
-        // Don't double the prefix if the port is already named sw* (e.g. sw_in).
-        const base   = /^sw/i.test(pname) ? pname : `sw_${pname}`;
-        const swName = pd.bits.length === 1 ? base : `${base}[${i}]`;
-        for (const l of luts) l.inputs = l.inputs.map(n => n===net ? swName : n);
-        for (const c of carries) {
-          if (c.i0===net) c.i0=swName;
-          if (c.i1===net) c.i1=swName;
-          if (c.ci===net) c.ci=swName;
-        }
-        for (const ff of ffs) if (ff.d_net===net) ff.d_net=swName;
-        for (const io of ios) if (io.net===net) io.net=swName;
-      }
-    }
-  }
-
-  log(`Converted: ${luts.length} LUTs · ${carries.length} carries · ${ffs.length} FFs · ${ios.length} IOs`, 'ok');
-  return { luts, ffs, ios, carries };
+  log(`Converted: ${luts.length} LUTs · ${carries.length} carries · ${ffs.length} FFs · ${plist.length} port bits`, 'ok');
+  return { top: modName, luts, ffs, carries, ports: plist, ios: [], inputs: [] };
 }
 
 // ══════════════════════════════════════════════════════════════
 //  YOSYS WASM RUNNER (YoWASP via jsDelivr)
 // ══════════════════════════════════════════════════════════════
-let yosysModule = null;
+// Synthesis runs exactly the way VeriSim does it (github.com/senolgulgonul/verisim):
+// the source is read by `read_verilog` inside the script, the top module is found
+// automatically (any module name works), invisible characters pasted from slides are
+// cleaned first, and a failure reports Yosys' own error lines.
+let yosysRun = null, synBusy = false, yosysReady = false;
+// Yosys is pinned to one release, the one softfpga was verified with. The unpinned
+// "latest" build changes without notice and has grown to 79 MB.
+const YOSYS_VERSION = '0.50.857';
+// The same script shape as VeriSim, with the iCE40 mapping in place of `synth`.
+const SYN_SCRIPT = 'synth_ice40 -nocarry -nobram -flatten; delete t:$scopeinfo; write_json out.json';
+
+function sanitize(s){                                 // fix invisible/smart chars from slides (NBSP, smart quotes, zero-width)
+  return s.replace(/[\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]/g,' ')
+          .replace(/[\u200B-\u200D\uFEFF]/g,'')
+          .replace(/[\u2018\u2019\u201A\u201B\u2032]/g,"'")
+          .replace(/[\u201C\u201D\u201E\u201F\u2033]/g,'"');
+}
+function synBytesToStr(x){ if(typeof x==='string') return x;
+  if (x == null) return '';
+  try{ return new TextDecoder().decode(x instanceof Uint8Array ? x : new Uint8Array(x)); }
+  catch(_){ try{ return new TextDecoder().decode(Uint8Array.from(Object.values(x))); }catch(__){ return String(x); } } }
+
+// One console line that is rewritten in place (download progress).
+let progEl = null;
+function progress(msg) {
+  const el = document.getElementById('log-out'); if (!el) return;
+  if (!progEl || progEl.parentNode !== el) { progEl = document.createElement('div'); progEl.className = 'inf'; el.appendChild(progEl); }
+  progEl.textContent = msg;
+  el.scrollTop = el.scrollHeight;
+}
+
+// ---- download meter -------------------------------------------------------
+// Counts the bytes of the Yosys files as they arrive, so the console can tell a
+// slow download from a stuck one. It only watches requests for the Yosys package
+// and hands every response on unchanged.
+const YOSYS_BYTES = 33.5e6;                 // unpacked size of the files release 0.50.857 fetches
+const dl = { bytes: 0, open: 0, seen: false, failed: null };
+function installFetchMeter() {
+  if (window.__sfFetchMeter || typeof window.fetch !== 'function' || typeof TransformStream === 'undefined') return;
+  window.__sfFetchMeter = true;
+  const orig = window.fetch.bind(window);
+  window.fetch = function(input, init) {
+    const p = orig(input, init);
+    let url = '';
+    try { url = String(input && input.url ? input.url : input); } catch (_) {}
+    if (!/@yowasp\/yosys/.test(url)) return p;
+    dl.seen = true; dl.open++;
+    return p.then(resp => {
+      try {
+        if (!resp.ok) dl.failed = `${resp.status} ${resp.statusText || ''} for ${url.split('/').pop()}`;
+        if (!resp.body) { dl.open--; return resp; }
+        const meter = new TransformStream({
+          transform(chunk, ctl) { dl.bytes += chunk.byteLength; ctl.enqueue(chunk); },
+          flush() { dl.open--; },
+        });
+        return new Response(resp.body.pipeThrough(meter), resp);
+      } catch (_) { dl.open--; return resp; }
+    }, err => { dl.open--; dl.failed = String(err && err.message || err); throw err; });
+  };
+}
+// ---- end of download meter -------------------------------------------------
+
+// <yosys-pack-loader>
+// Yosys comes from one file that sits next to index.html: yosys-<version>.js.
+// It holds the whole YoWASP build, gzip-compressed, as plain script data, so there
+// is no CDN, it works offline, and it works when index.html is opened from disk.
+const YOSYS_PACK_FILE = `yosys-${YOSYS_VERSION}.js`;
+
+function loadScript(src) {
+  return new Promise((resolve, reject) => {
+    const el = document.createElement('script');
+    el.src = src;
+    el.onload = () => resolve();
+    el.onerror = () => reject(new Error(`${src} was not found next to index.html`));
+    document.head.appendChild(el);
+  });
+}
+// base64(gzip(file)) → bytes
+async function unpackEntry(b64) {
+  const bin = atob(b64);
+  const gz = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) gz[i] = bin.charCodeAt(i);
+  const stream = new Blob([gz]).stream().pipeThrough(new DecompressionStream('gzip'));
+  return new Uint8Array(await new Response(stream).arrayBuffer());
+}
+// A module made from text becomes importable through a blob: URL.
+let moduleUrl = (code) => URL.createObjectURL(new Blob([code], { type: 'text/javascript' }));
+
+async function importPackedYosys() {
+  if (typeof DecompressionStream === 'undefined') throw new Error('this browser cannot unpack gzip data (DecompressionStream is missing)');
+  if (!window.__YOSYS_PACK) await loadScript(YOSYS_PACK_FILE);
+  const pack = window.__YOSYS_PACK;
+  if (!pack || !pack.files) throw new Error(`${YOSYS_PACK_FILE} did not load correctly`);
+  const dec = new TextDecoder();
+  const urls = {};
+  let bundle = null, resources = null;
+  for (const [name, b64] of Object.entries(pack.files)) {
+    const bytes = await unpackEntry(b64);
+    if (name === 'bundle.js') bundle = dec.decode(bytes);
+    else if (name === 'resources-yosys.js') resources = dec.decode(bytes);
+    else urls[name] = URL.createObjectURL(new Blob([bytes], { type: name.endsWith('.wasm') ? 'application/wasm' : 'text/plain' }));
+  }
+  for (const name of (pack.empty || [])) urls[name] = URL.createObjectURL(new Blob([''], { type: 'text/plain' }));
+  if (!bundle || !resources) throw new Error('the Yosys pack is incomplete');
+  // The YoWASP modules look for their data files next to themselves; point them at the unpacked copies.
+  let missing = null;
+  resources = resources.replace(/new URL\("\.\/([^"]+)", import\.meta\.url\)/g, (m, f) => {
+    if (!urls[f]) { missing = f; return m; }
+    return `new URL(${JSON.stringify(urls[f])})`;
+  });
+  if (missing) throw new Error(`the Yosys pack has no ${missing}`);
+  const hook = 'import("./resources-yosys.js")';
+  if (!bundle.includes(hook)) throw new Error('unexpected Yosys bundle layout');
+  bundle = bundle.replace(hook, `import(${JSON.stringify(moduleUrl(resources))})`);
+  window.__YOSYS_PACK = null;                        // free the packed copy (about 11 MB of text)
+  return import(moduleUrl(bundle));
+}
+// </yosys-pack-loader>
+
+// Fallback when the pack file is missing: the same release from the jsDelivr CDN.
+function importCdnYosys() {
+  installFetchMeter();
+  return import(`https://cdn.jsdelivr.net/npm/@yowasp/yosys@${YOSYS_VERSION}/gen/bundle.js`);
+}
+
+let yosysFromPack = false;
 async function loadYosys() {
-  if (yosysModule) return yosysModule;
-  log('Loading Yosys WASM from jsDelivr (~8 MB)...', 'inf');
+  if (yosysRun) return yosysRun;
   setStatus('compiling');
-  const { runYosys } = await import('https://cdn.jsdelivr.net/npm/@yowasp/yosys/gen/bundle.js');
-  yosysModule = runYosys;
-  log('Yosys WASM loaded ✓', 'ok');
-  return yosysModule;
+  let m;
+  try {
+    log(`Loading Yosys ${YOSYS_VERSION} from ${YOSYS_PACK_FILE}…`, 'inf');
+    m = await importPackedYosys();
+    yosysFromPack = true;
+  } catch (e) {
+    log(`Could not use ${YOSYS_PACK_FILE}: ${e.message}. Downloading Yosys ${YOSYS_VERSION} from the CDN instead (about 8 MB)…`, 'warn');
+    m = await importCdnYosys();
+  }
+  yosysRun = m.runYosys;
+  return yosysRun;
 }
 
 async function compileVerilog(src) {
-  const run = await loadYosys();
-
-  const filesIn = { 'top.v': new TextEncoder().encode(src) };
-  let filesOut = {};
-
-  function safeStr(x) {
-    if (typeof x === 'string') return x;
-    if (x instanceof Uint8Array) return new TextDecoder().decode(x);
-    if (x instanceof ArrayBuffer) return new TextDecoder().decode(x);
-    if (typeof x === 'number') return String.fromCharCode(x);
-    if (x && x.buffer) return new TextDecoder().decode(new Uint8Array(x.buffer, x.byteOffset, x.byteLength));
-    return String(x);
-  }
-
-  let stderrBuf = '', stdoutBuf = '';
-
+  if (synBusy) throw new Error('A synthesis is already running.');      // reentrancy guard
+  synBusy = true;
+  let logBuf = '';
   try {
-    // -q = quiet mode, suppresses verbose pass output
-    filesOut = await run(
-      ['top.v', '-q', '-p', 'synth_ice40 -nocarry -flatten -json top.json'],
-      filesIn,
-      {
-        stdout: (x) => { stdoutBuf += safeStr(x); },
-        stderr: (x) => { stderrBuf += safeStr(x); },
-      }
-    );
-  } catch(e) {
-    log('Yosys: ' + e.message, 'err');
-  }
-
-  // Show only warnings, errors, and the key stats lines
-  for (const line of (stderrBuf + stdoutBuf).split('\n')) {
-    const t = line.replace(/^null/,'').trim();
-    if (!t) continue;
-    if (t.includes('Warning') || t.includes('warning')) { log(t, 'warn'); continue; }
-    if (t.includes('ERROR')   || t.includes('error:'))  { log(t, 'err');  continue; }
-    // Show: version header, stats table, end summary
-    if (t.startsWith('Yosys') || t.startsWith('===') ||
-        t.startsWith('---') || t.match(/^\s*(SB_LUT4|SB_DFF|SB_CARRY|\d+ submodules)/) ||
-        t.includes('End of script') || t.includes('Number of LUT') ||
-        t.includes('ABC RESULTS')) {
-      log(t, 'dim');
+    const run = await loadYosys();
+    let out = null, runErr = null;
+    // The first synthesis of a session unpacks Yosys and the browser compiles it;
+    // later runs start at once. Show that something is happening.
+    const t0 = Date.now();
+    let pctShown = false;
+    const first = !yosysReady;
+    const fetchProgress = ({ totalLength, doneLength }) => {      // newer Yosys builds report bytes
+      const pct = totalLength ? Math.min(100, Math.floor(100 * doneLength / totalLength)) : 0;
+      pctShown = true;
+      progress(pct < 100 ? `Downloading Yosys: ${pct}% — first time only, cached afterwards` : 'Yosys downloaded, starting it…');
+    };
+    const ticker = first ? setInterval(() => {
+      const sec = Math.round((Date.now() - t0) / 1000);
+      setStatus('compiling', `starting Yosys… ${sec} s`);
+      if (pctShown) return;
+      if (yosysFromPack) { progress(`Starting Yosys (first synthesis only)… ${sec} s`); return; }
+      const mb = (dl.bytes / 1e6).toFixed(1), tot = (YOSYS_BYTES / 1e6).toFixed(0);
+      let msg;
+      if (dl.failed)                       msg = `Yosys download problem: ${dl.failed} … ${sec} s`;
+      else if (dl.seen && dl.open > 0)     msg = `Downloading Yosys: ${Math.min(99, Math.floor(100 * dl.bytes / YOSYS_BYTES))}%  (${mb} of ${tot} MB) … ${sec} s`;
+      else if (dl.seen && dl.bytes > 0)    msg = `Yosys downloaded (${mb} MB). The browser is compiling and starting it… ${sec} s`;
+      else                                 msg = `Fetching Yosys (first time only; cached afterwards)… ${sec} s`;
+      progress(msg);
+    }, 500) : null;
+    try {
+      out = await run(['-q', '-p', 'read_verilog design.v; ' + SYN_SCRIPT],
+        { 'design.v': new TextEncoder().encode(sanitize(src)) },
+        { stdout: x => { logBuf += synBytesToStr(x); }, stderr: x => { logBuf += synBytesToStr(x); }, fetchProgress });
+      yosysReady = true;
+    } catch (e) { runErr = e; if (e && e.name === 'Exit') yosysReady = true; }
+    finally {
+      if (ticker) clearInterval(ticker);
+      if (first && yosysReady) progress(`Yosys ready (${((Date.now() - t0) / 1000).toFixed(1)} s).`);
+      progEl = null;
     }
-  }
+    setStatus('compiling', 'synthesizing');
 
-  if (filesOut && filesOut['top.json']) {
-    let jsonStr = '';
-    const raw = filesOut['top.json'];
-    if (typeof raw === 'string') {
-      jsonStr = raw;
-    } else if (raw instanceof Uint8Array) {
-      jsonStr = new TextDecoder().decode(raw);
-    } else if (raw && typeof raw === 'object') {
-      // May be a plain object, array-like, or something else — try every way
-      try { jsonStr = new TextDecoder().decode(new Uint8Array(raw)); } catch(_) {}
-      if (!jsonStr.trim().startsWith('{')) {
-        try { jsonStr = new TextDecoder().decode(Uint8Array.from(Object.values(raw))); } catch(_) {}
-      }
-      if (!jsonStr.trim().startsWith('{')) {
-        try { jsonStr = String.fromCharCode(...Object.values(raw)); } catch(_) {}
-      }
+    const clean = logBuf.replace(/\x1b\[[0-9;]*m/g, '');               // strip terminal colours
+    for (const line of clean.split('\n')) {
+      const t = line.replace(/^null/, '').trim();
+      if (t && /warning/i.test(t) && !/error/i.test(t)) log(t, 'warn');
     }
-    if (jsonStr.trim().startsWith('{')) { window.__lastYosysJSON = jsonStr; return JSON.parse(jsonStr); }
+    const raw = out && out['out.json'];
+    if (!raw) {
+      // Prefer Yosys' own error lines; they name the file line and the problem.
+      const errLines = clean.split('\n').map(l => l.replace(/null/g, '').trim()).filter(l => /error/i.test(l)).slice(0, 8);
+      throw new Error(errLines.length ? errLines.join('\n') : ((runErr && runErr.message) || 'Synthesis failed — no netlist produced.'));
+    }
+    const jsonStr = synBytesToStr(raw);
+    window.__lastYosysJSON = jsonStr;
+    return JSON.parse(jsonStr);
+  } finally {
+    synBusy = false;
   }
-
-  throw new Error('Synthesis failed — no JSON produced. Check console for errors.');
 }
 
 // ══════════════════════════════════════════════════════════════
 //  EXAMPLE DESIGNS
 // ══════════════════════════════════════════════════════════════
+// Each example is two files: the design (name.v) and its pin assignment (name.cst).
+// Board pins: 0-7 = switches, 8-15 = LEDs and 7-segment (a b c d e f g dp), 16 = clock (10 Hz).
+const pinsOf = (name, first, n) => Array.from({ length: n }, (_, i) => `IO_LOC "${name}[${i}]" ${first + i};`).join('\n');
 const VERILOG_EXAMPLES = {
-  counter: `// 4-bit binary counter (counts 0–15)
-// led[3:0] shows the count; hex shows it as a hex digit
+  switches: { v: `// Switch passthrough — the switches drive the LEDs directly.
+// Flip a switch and its LED follows.
 module top (
-  input  clk,
-  output [7:0] led,
-  output [7:0] hex
-);
-  reg [3:0] count = 0;
-  always @(posedge clk)
-    count <= count + 1;
-  assign led = {4'b0, count};
-  assign hex = {4'b0, count};
-endmodule`,
-
-  blink: `// LED blink — one LED toggles every clock
-module top (
-  input  clk,
-  output [7:0] led,
-  output [7:0] hex
-);
-  reg state = 0;
-  always @(posedge clk)
-    state <= ~state;
-  assign led = {7'b0, state};
-  assign hex = {7'b0, state};
-endmodule`,
-
-  shift: `// 8-bit shift register
-// sw[0] feeds the serial input; led shows the state
-module top (
-  input  clk,
   input  [7:0] sw,
-  output [7:0] led,
-  output [7:0] hex
-);
-  reg [7:0] sr = 0;
-  always @(posedge clk)
-    sr <= {sr[6:0], sw[0]};
-  assign led = sr;
-  assign hex = sr;
-endmodule`,
-
-  pwm: `// PWM generator — sw[0] selects duty cycle
-// led[0] is the PWM output; hex shows the counter
-module top (
-  input  clk,
-  input  [7:0] sw,
-  output [7:0] led,
-  output [7:0] hex
-);
-  reg [3:0] cnt = 0;
-  wire [3:0] thresh = sw[0] ? 4'd12 : 4'd4;
-  always @(posedge clk)
-    cnt <= cnt + 1;
-  assign led = {7'b0, (cnt < thresh)};
-  assign hex = {4'b0, cnt};
-endmodule`,
-
-  adder: `// 4-bit adder — sw[3:0] + sw[7:4], result on led and hex
-module top (
-  input  clk,
-  input  [7:0] sw,
-  output [7:0] led,
-  output [7:0] hex
-);
-  wire [4:0] sum = sw[3:0] + sw[7:4];
-  assign led = {3'b0, sum};
-  assign hex = {3'b0, sum};
-endmodule`,
-
-  switches: `// Switch passthrough — the switches drive the LEDs directly
-// Flip a switch and its LED follows. The hex display shows the value.
-module top (
-  input  clk,
-  input  [7:0] sw,
-  output [7:0] led,
-  output [7:0] hex
+  output [7:0] led
 );
   assign led = sw;
-  assign hex = sw;
-endmodule`,
+endmodule`, cst: `// switches: pins 0-7
+${pinsOf('sw', 0, 8)}
 
-  gates: `// 1. PRIMITIVES — a half adder built from gate primitives
-// sw0 = A, sw1 = B.  led0 = Sum (A xor B), led1 = Carry (A and B).
+// LEDs: pins 8-15
+${pinsOf('led', 8, 8)}
+` },
+
+  gates: { v: `// 1. PRIMITIVES — a half adder built from gate primitives
+// a, b on two switches.  sum = a xor b,  carry = a and b.
 module top (
-  input  clk,
-  input  [7:0] sw,
-  output [7:0] led,
-  output [7:0] hex
+  input  a, b,
+  output sum, carry
 );
-  xor G0 (led[0], sw[0], sw[1]);   // Sum
-  and G1 (led[1], sw[0], sw[1]);   // Carry
-  assign led[7:2] = 0;
-  assign hex = led;
-endmodule`,
+  xor G0 (sum,   a, b);
+  and G1 (carry, a, b);
+endmodule`, cst: `IO_LOC "a" 0;
+IO_LOC "b" 1;
+IO_LOC "sum" 8;
+IO_LOC "carry" 9;
+` },
 
-  fulladder: `// 2. HIERARCHICAL MODELING — a full adder built from two half adders
-// sw0 = A, sw1 = B, sw2 = Carry-in.  led0 = Sum, led1 = Carry-out.
+  fulladder: { v: `// 2. HIERARCHICAL MODELING — a full adder built from two half adders
 module halfadder (output S, C, input A, B);
   xor G0 (S, A, B);
   and G1 (C, A, B);
 endmodule
 
 module top (
-  input  clk,
-  input  [7:0] sw,
-  output [7:0] led,
-  output [7:0] hex
+  input  a, b, cin,
+  output sum, cout
 );
   wire s1, c1, c2;
-  halfadder M0 (.S(s1),     .C(c1), .A(sw[0]), .B(sw[1]));
-  halfadder M1 (.S(led[0]), .C(c2), .A(s1),    .B(sw[2]));
-  or G1 (led[1], c1, c2);          // Carry-out
-  assign led[7:2] = 0;
-  assign hex = led;
-endmodule`,
+  halfadder M0 (.S(s1),  .C(c1), .A(a),  .B(b));
+  halfadder M1 (.S(sum), .C(c2), .A(s1), .B(cin));
+  or G1 (cout, c1, c2);
+endmodule`, cst: `IO_LOC "a" 0;
+IO_LOC "b" 1;
+IO_LOC "cin" 2;
+IO_LOC "sum" 8;
+IO_LOC "cout" 9;
+` },
 
-  dataflow: `// 3. DATAFLOW MODELING — continuous assignment, bitwise operators
-// led shows several bitwise ops on the two switch nibbles.
+  dataflow: { v: `// 3. DATAFLOW MODELING — continuous assignment, bitwise operators
+// Two 4-bit numbers on the switches; AND on the low LEDs, XOR on the high LEDs.
 module top (
-  input  clk,
-  input  [7:0] sw,
-  output [7:0] led,
-  output [7:0] hex
+  input  [3:0] a,
+  input  [3:0] b,
+  output [3:0] y_and,
+  output [3:0] y_xor
 );
-  wire [3:0] a = sw[3:0];
-  wire [3:0] b = sw[7:4];
-  assign led[3:0] = a & b;         // bitwise AND
-  assign led[7:4] = a ^ b;         // bitwise XOR
-  assign hex = led;
-endmodule`,
+  assign y_and = a & b;
+  assign y_xor = a ^ b;
+endmodule`, cst: `${pinsOf('a', 0, 4)}
+${pinsOf('b', 4, 4)}
+${pinsOf('y_and', 8, 4)}
+${pinsOf('y_xor', 12, 4)}
+` },
 
-  fsm: `// 4. BEHAVIORAL MODELING — an up/down counter FSM
-// sw0 = direction (0 = up, 1 = down).  Counts on every clock.
+  adder: { v: `// 4-bit adder — a + b, 5-bit result on the LEDs
+module top (
+  input  [3:0] a,
+  input  [3:0] b,
+  output [4:0] sum
+);
+  assign sum = a + b;
+endmodule`, cst: `${pinsOf('a', 0, 4)}
+${pinsOf('b', 4, 4)}
+${pinsOf('sum', 8, 5)}
+` },
+
+  sevenseg: { v: `// Hex to 7-segment decoder.
+// sw[3:0] selects a digit 0-F; the display shows it.
+// The 7-segment display shares pins 8-15 with the LEDs:
+//   seg[0]=a  seg[1]=b  seg[2]=c  seg[3]=d  seg[4]=e  seg[5]=f  seg[6]=g,  dp = decimal point
+// A segment lights when its pin is 1.
+module top (
+  input  [3:0] sw,
+  output reg [6:0] seg,
+  output dp
+);
+  always @(*) begin
+    case (sw)          //   gfedcba
+      4'h0: seg = 7'b0111111;
+      4'h1: seg = 7'b0000110;
+      4'h2: seg = 7'b1011011;
+      4'h3: seg = 7'b1001111;
+      4'h4: seg = 7'b1100110;
+      4'h5: seg = 7'b1101101;
+      4'h6: seg = 7'b1111101;
+      4'h7: seg = 7'b0000111;
+      4'h8: seg = 7'b1111111;
+      4'h9: seg = 7'b1101111;
+      4'hA: seg = 7'b1110111;
+      4'hB: seg = 7'b1111100;
+      4'hC: seg = 7'b0111001;
+      4'hD: seg = 7'b1011110;
+      4'hE: seg = 7'b1111001;
+      4'hF: seg = 7'b1110001;
+    endcase
+  end
+  assign dp = (sw > 4'd9);   // point lights for A-F
+endmodule`, cst: `${pinsOf('sw', 0, 4)}
+
+// segments a..g on pins 8-14, decimal point on pin 15
+${pinsOf('seg', 8, 7)}
+IO_LOC "dp" 15;
+` },
+
+  blink: { v: `// LED blink — one LED toggles every clock.
+// The board clock is 10 Hz, so the LED is on for 0.1 s and off for 0.1 s.
 module top (
   input  clk,
-  input  [7:0] sw,
-  output [7:0] led,
-  output [7:0] hex
+  output led
+);
+  reg state = 0;
+  always @(posedge clk)
+    state <= ~state;
+  assign led = state;
+endmodule`, cst: `IO_LOC "clk" 16;
+IO_LOC "led" 8;
+` },
+
+  counter: { v: `// 8-bit binary counter on the LEDs, one count per clock (10 per second)
+module top (
+  input  clk,
+  output [7:0] led
+);
+  reg [7:0] count = 0;
+  always @(posedge clk)
+    count <= count + 1;
+  assign led = count;
+endmodule`, cst: `IO_LOC "clk" 16;
+${pinsOf('led', 8, 8)}
+` },
+
+  shift: { v: `// 8-bit shift register
+// din (switch 0) feeds the serial input; the LEDs show the state
+module top (
+  input  clk,
+  input  din,
+  output [7:0] led
+);
+  reg [7:0] sr = 0;
+  always @(posedge clk)
+    sr <= {sr[6:0], din};
+  assign led = sr;
+endmodule`, cst: `IO_LOC "clk" 16;
+IO_LOC "din" 0;
+${pinsOf('led', 8, 8)}
+` },
+
+  pwm: { v: `// PWM — the period is 4 clock cycles; the duty switch sets how many of them the LED is on.
+//   duty = 0 (switch 0 off): 25 % duty — 1 cycle on, 3 cycles off
+//   duty = 1 (switch 0 on):  50 % duty — 2 cycles on, 2 cycles off
+// step shows the cycle counter 0-3 on the two upper LEDs.
+module top (
+  input  clk,
+  input  duty,
+  output pwm,
+  output [1:0] step
+);
+  reg [1:0] c = 0;                         // position inside the period: 0, 1, 2, 3
+  wire [1:0] on_time = duty ? 2'd2 : 2'd1; // cycles the LED stays on
+  always @(posedge clk)
+    c <= c + 1;
+  assign pwm  = (c < on_time);
+  assign step = c;
+endmodule`, cst: `IO_LOC "clk" 16;
+IO_LOC "duty" 0;
+IO_LOC "pwm" 8;
+${pinsOf('step', 14, 2)}
+` },
+
+  fsm: { v: `// 4. BEHAVIORAL MODELING — an up/down counter with enable and reset
+// en (switch 0) = count, down (switch 1) = direction, rst (switch 7) = clear
+module top (
+  input  clk,
+  input  en,
+  input  down,
+  input  rst,
+  output [7:0] led
 );
   reg [7:0] count = 0;
   always @(posedge clk) begin
-    if (sw[0])
-      count <= count - 1;          // count down
-    else
-      count <= count + 1;          // count up
+    if (rst)
+      count <= 0;
+    else if (en) begin
+      if (down)
+        count <= count - 1;          // count down
+      else
+        count <= count + 1;          // count up
+    end
   end
   assign led = count;
-  assign hex = count;
-endmodule`,
+endmodule`, cst: `IO_LOC "clk" 16;
+IO_LOC "en" 0;
+IO_LOC "down" 1;
+IO_LOC "rst" 7;
+${pinsOf('led', 8, 8)}
+` },
+
+  digits: { v: `// A counter shown as a digit: counts 0-F on the 7-segment display, one digit per second.
+// The board clock is 10 Hz, so a divider counts 10 clocks for each step.
+// hold (switch 0) freezes the count.
+module top (
+  input  clk,
+  input  hold,
+  output reg [6:0] seg,
+  output dp
+);
+  reg [3:0] div = 0;                 // clock divider: 0..9
+  reg [3:0] n = 0;                   // the digit
+  wire tick = (div == 4'd9);         // true once every 10 clocks
+  always @(posedge clk) begin
+    div <= tick ? 4'd0 : div + 1;
+    if (tick && !hold) n <= n + 1;
+  end
+
+  always @(*) begin
+    case (n)           //   gfedcba
+      4'h0: seg = 7'b0111111;
+      4'h1: seg = 7'b0000110;
+      4'h2: seg = 7'b1011011;
+      4'h3: seg = 7'b1001111;
+      4'h4: seg = 7'b1100110;
+      4'h5: seg = 7'b1101101;
+      4'h6: seg = 7'b1111101;
+      4'h7: seg = 7'b0000111;
+      4'h8: seg = 7'b1111111;
+      4'h9: seg = 7'b1101111;
+      4'hA: seg = 7'b1110111;
+      4'hB: seg = 7'b1111100;
+      4'hC: seg = 7'b0111001;
+      4'hD: seg = 7'b1011110;
+      4'hE: seg = 7'b1111001;
+      4'hF: seg = 7'b1110001;
+    endcase
+  end
+  assign dp = hold;
+endmodule`, cst: `IO_LOC "clk" 16;
+IO_LOC "hold" 0;
+${pinsOf('seg', 8, 7)}
+IO_LOC "dp" 15;
+` },
 };
 
-const JSON_EXAMPLES = {
-  counter: {"luts":[{"id":"lut_b0","inputs":["ff0_q","const0","const0","const0"],"truth_table":21845,"comment":"NOT(ff0)"},{"id":"lut_b1","inputs":["ff0_q","ff1_q","const0","const0"],"truth_table":6,"comment":"XOR"},{"id":"lut_b2","inputs":["ff0_q","ff1_q","ff2_q","const0"],"truth_table":20},{"id":"lut_b3","inputs":["ff0_q","ff1_q","ff2_q","ff3_q"],"truth_table":27030}],"ffs":[{"id":"ff0","d":"lut_b0"},{"id":"ff1","d":"lut_b1"},{"id":"ff2","d":"lut_b2"},{"id":"ff3","d":"lut_b3"}],"ios":[{"name":"LED0","net":"ff0_q","color":"green"},{"name":"LED1","net":"ff1_q","color":"green"},{"name":"LED2","net":"ff2_q","color":"green"},{"name":"LED3","net":"ff3_q","color":"amber"}]},
-  blink:   {"luts":[{"id":"lut_not","inputs":["ff0_q","const0","const0","const0"],"truth_table":21845}],"ffs":[{"id":"ff0","d":"lut_not"}],"ios":[{"name":"LED0","net":"ff0_q","color":"red"}]},
-  shift:   {"luts":[{"id":"lut_p0","inputs":["sw0","const0","const0","const0"],"truth_table":43690},{"id":"lut_p1","inputs":["ff0_q","const0","const0","const0"],"truth_table":43690},{"id":"lut_p2","inputs":["ff1_q","const0","const0","const0"],"truth_table":43690},{"id":"lut_p3","inputs":["ff2_q","const0","const0","const0"],"truth_table":43690}],"ffs":[{"id":"ff0","d":"lut_p0"},{"id":"ff1","d":"lut_p1"},{"id":"ff2","d":"lut_p2"},{"id":"ff3","d":"lut_p3"}],"ios":[{"name":"LED0","net":"ff0_q","color":"green"},{"name":"LED1","net":"ff1_q","color":"green"},{"name":"LED2","net":"ff2_q","color":"green"},{"name":"LED3","net":"ff3_q","color":"amber"}]},
-  pwm:     {"luts":[{"id":"lut_c0","inputs":["ff0_q","const0","const0","const0"],"truth_table":21845},{"id":"lut_c1","inputs":["ff0_q","ff1_q","const0","const0"],"truth_table":6},{"id":"lut_c2","inputs":["ff0_q","ff1_q","ff2_q","const0"],"truth_table":20},{"id":"lut_c3","inputs":["ff0_q","ff1_q","ff2_q","ff3_q"],"truth_table":27030},{"id":"lut_pwm","inputs":["ff3_q","ff2_q","sw0","const0"],"truth_table":12}],"ffs":[{"id":"ff0","d":"lut_c0"},{"id":"ff1","d":"lut_c1"},{"id":"ff2","d":"lut_c2"},{"id":"ff3","d":"lut_c3"},{"id":"ff_pwm","d":"lut_pwm"}],"ios":[{"name":"LED0","net":"ff0_q","color":"green"},{"name":"LED1","net":"ff1_q","color":"green"},{"name":"LED2","net":"ff2_q","color":"green"},{"name":"LED3","net":"ff3_q","color":"green"},{"name":"PWM","net":"ff_pwm_q","color":"amber"}]},
-};
 
-const SEG_MAP = {0:[1,1,1,1,1,1,0],1:[0,1,1,0,0,0,0],2:[1,1,0,1,1,0,1],3:[1,1,1,1,0,0,1],4:[0,1,1,0,0,1,1],5:[1,0,1,1,0,1,1],6:[1,0,1,1,1,1,1],7:[1,1,1,0,0,0,0],8:[1,1,1,1,1,1,1],9:[1,1,1,1,0,1,1],10:[1,1,1,0,1,1,1],11:[0,0,1,1,1,1,1],12:[1,0,0,1,1,1,0],13:[0,1,1,1,1,0,1],14:[1,0,0,1,1,1,1],15:[1,0,0,0,1,1,1]};
 
 // ══════════════════════════════════════════════════════════════
 //  STATE
 // ══════════════════════════════════════════════════════════════
+// The board clock on pin 16. Fixed, like the oscillator soldered on a real board.
+const CLOCK_HZ = 10;
 let emu = null, running = false, timer = null;
-let swState = {}, inspLUT = 0, mode = 'verilog';
-// Separate buffers per editor tab so switching never clobbers your work and
-// nothing is auto-injected. The Netlist JSON buffer is filled from the
-// synthesized netlist (window.__lastNetlist), not from any example.
-let buf = { verilog: '', json: '' };
-let fnBuf = { verilog: 'untitled.v', json: 'netlist.json' };
+let swState = {}, inspLUT = 0;
+// A design is two files, shown as tabs above the editor:
+//   verilog → <name>.v    the design
+//   cst     → <name>.cst  the constraints (which port goes to which board pin)
+let mode = 'verilog';                      // the tab that is open in the editor
+const CST_HINT = `// Board pins:  0-7 switches,  8-15 LEDs + 7-segment (a b c d e f g dp),  16 clock
+// One line per port bit:  IO_LOC "port" pin;
+`;
+let buf   = { verilog: '', cst: CST_HINT };
+let fnBuf = { verilog: 'untitled.v', cst: 'untitled.cst' };
+// The synthesized netlist (set by Synthesize). Place & Route connects it to the
+// board pins and creates `emu`; until then nothing is wired to the board.
+let synthNl = null;
+// Physical switch positions on the board, by switch number. They stay where
+// you left them when a new design is loaded.
+const swPos = [0,0,0,0,0,0,0,0];
+// The blue button is the next step of the flow: Synthesize → Place & Route → Run.
+function setNext(step) {
+  for (const [id, s] of [['compile-btn', 'synth'], ['pnr-btn', 'pnr'], ['run-btn', 'run']]) {
+    const b = document.getElementById(id);
+    if (b) b.classList.toggle('primary', s === step);
+  }
+}
+// Save what is in the editor into the buffer of the open tab.
+function syncBuf() {
+  const ed = document.getElementById('editor');
+  if (ed) buf[mode] = ed.value;
+}
 
 // ══════════════════════════════════════════════════════════════
 //  LOG
@@ -934,32 +1350,35 @@ function setStatus(s, msg) {
 //  MODE
 // ══════════════════════════════════════════════════════════════
 // Apply the tab/label UI for a given editor mode (no content change).
-function applyModeUI(m) {
-  { const t=document.getElementById('tab-verilog');   if(t) t.classList.toggle('active', m==='verilog'); }
-  { const t=document.getElementById('tab-json');       if(t) t.classList.toggle('active', m==='json'); }
-  { const t=document.getElementById('tab-schematic');  if(t) t.classList.remove('active'); }
-  { const el=document.getElementById('editor-label');  if(el) el.textContent = m==='verilog' ? 'Verilog source' : 'Netlist JSON'; }
-  { const vn=document.getElementById('v-notice');      if(vn) vn.style.display = m==='verilog' ? 'block' : 'none'; }
+// Draw the two file tabs (name + which one is open).
+function renderTabs() {
+  for (const m of ['verilog', 'cst']) {
+    const t = document.getElementById('tab-' + m); if (!t) continue;
+    t.textContent = fnBuf[m];
+    t.classList.toggle('active', m === mode);
+  }
 }
 
+// Open a file tab in the editor.
 window.setMode = function(m) {
   const ed = document.getElementById('editor');
-  const fn = document.getElementById('file-name');
-  if (ed) buf[mode] = ed.value;            // save the outgoing tab's content
-  if (fn) fnBuf[mode] = fn.value;
+  syncBuf();                                // keep the outgoing tab's text
   mode = m;
-  applyModeUI(m);
-  buildExTabs();
-  // Netlist JSON reflects the synthesized netlist when one exists; otherwise it
-  // shows whatever JSON you've typed (empty until you synthesize or author one).
-  // Nothing is auto-loaded — no example is ever forced in.
-  if (m === 'json' && window.__lastNetlist) {
-    buf.json = JSON.stringify(window.__lastNetlist, null, 2);
-    fnBuf.json = 'netlist.json';
-  }
-  if (ed) ed.value = (m === 'json') ? buf.json : buf.verilog;
-  if (fn) fn.value = fnBuf[m];
+  if (ed) ed.value = buf[m];
+  renderTabs();
   updateLineNums();
+}
+
+// Double-click a tab to rename its file. The extension is kept.
+window.renameFile = function(m) {
+  const ext = m === 'cst' ? '.cst' : '.v';
+  let n = window.prompt('File name', fnBuf[m]);
+  if (n == null) return;
+  n = n.trim().replace(/[\\/:*?"<>|]/g, '');
+  if (!n) return;
+  if (!new RegExp(ext.replace('.', '\\.') + '$', 'i').test(n)) n = n.replace(/\.[^.]*$/, '') + ext;
+  fnBuf[m] = n;
+  renderTabs();
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -1038,108 +1457,113 @@ function lutComment(tt, inputs) {
 // ══════════════════════════════════════════════════════════════
 //  COMPILE
 // ══════════════════════════════════════════════════════════════
-window.doCompile = async function() {
-  const src = document.getElementById('editor').value.trim();
-  if (!src) return;
+// Bring a freshly created emulator onto the board.
+function attachEmu(netlist) {
+  emu = new ICE40Emu(netlist);
+  window.__lastNetlist = netlist;
+  swState = {};
+  for (const inp of emu.inputs) if (inp.kind === 'sw') swState[inp.net] = swPos[inp.bit] || 0;
+  emu.reset(swState);
+  setCycle(0);
+  updateStats(); renderSwitches(); renderLEDs(); renderNets();
+  renderLUTSel(); inspectLUT(0);
+}
+
+// Take the design off the board (after a new synthesis or a failed Place & Route).
+function detachEmu() {
   stopRun();
+  emu = null; swState = {};
+  setCycle(0);
+  { const nt = document.getElementById('net-tbl'); if (nt) nt.innerHTML = ''; }
+  updateStats(); renderSwitches(); renderLEDs();
+}
+
+window.doCompile = async function() {
+  syncBuf();
+  const src = buf.verilog.trim();
+  if (!src) { log(`${fnBuf.verilog} is empty — write a design or pick an example.`, 'warn'); return; }
+  detachEmu();
+  synthNl = null; window.__lastNetlist = null;
   setStatus('compiling');
   document.getElementById('compile-btn').disabled = true;
 
   try {
-    let netlist;
-    if (mode === 'verilog') {
-      log('── Compiling Verilog with Yosys ──', 'inf');
-      const yj = await compileVerilog(src);
-      log(`Synthesis complete: ${Object.keys(yj.modules).length} modules`, 'ok');
-      netlist = yosysJsonToNetlist(yj, {});
-      log(`Mapped: ${netlist.luts.length} LUTs · ${netlist.ffs.length} FFs · ${netlist.ios.length} IOs`, 'ok');
-
-      // Debug: show what nets the IOs resolved to
-      for (const io of netlist.ios) {
-        const v = 'net: ' + io.net;
-        log(`  IO ${io.name} → ${v}`, 'dim');
-      }
-      // Debug: show available FF Q nets
-      log('  FF Q nets: ' + netlist.ffs.map(f=>f.q_net||f.id+'_q').join(', '), 'dim');
-
-    } else {
-      let jsrc = src.replace(/:\s*0x([0-9a-fA-F]+)/g, (_,h)=>': '+parseInt(h,16));
-      netlist = JSON.parse(jsrc);
-      // Normalize legacy JSON schema → unified net-keyed schema.
-      // Legacy FFs use {id, d:<lut-id>}; legacy LUTs have no `out`.
-      // Give each FF a Q net (id+'_q') and rewrite d:<lut-id> → d_net:<lut-out-net>.
-      const lutById = {};
-      for (const l of (netlist.luts||[])) {
-        if (!l.out) l.out = l.id + '_o';   // synthesize an output net
-        lutById[l.id] = l;
-      }
-      for (const ff of (netlist.ffs||[])) {
-        if (!ff.q_net) ff.q_net = ff.id + '_q';
-        if (!ff.d_net) {
-          // ff.d may be a LUT id (legacy) or already a net name.
-          ff.d_net = lutById[ff.d] ? lutById[ff.d].out : (ff.d || 'const0');
-        }
-      }
-      netlist.carries = netlist.carries || [];
-      // Tag IOs with kind/bit so the board renderer treats them consistently.
-      for (const io of (netlist.ios||[])) {
-        if (!io.kind) {
-          const ln = (io.name||'').toLowerCase();
-          io.kind = ln.startsWith('hex') ? 'hex' : 'led';
-        }
-        if (io.bit == null) {
-          const m = (io.name||'').match(/\[(\d+)\]$/) || (io.name||'').match(/(\d+)$/);
-          io.bit = m ? +m[1] : 0;
-        }
-      }
-      log(`Loaded JSON: ${netlist.luts.length} LUTs · ${netlist.ffs.length} FFs · ${netlist.ios.length} IOs`, 'ok');
-    }
-    // Name each LUT by its function (NOT/XOR/AND/…) where no comment exists,
-    // so the netlist JSON and schematic show what every LUT does.
+    log(`── Synthesizing ${fnBuf.verilog} with Yosys ──`, 'inf');
+    const yj = await compileVerilog(src);
+    const netlist = yosysJsonToNetlist(yj);
+    // Name each LUT by its function (NOT/XOR/AND/…) so the schematic shows what every LUT does.
     for (const l of (netlist.luts || [])) {
       if (!l.comment) { const c = lutComment(l.truth_table, l.inputs); if (c) l.comment = c; }
     }
-    emu = new ICE40Emu(netlist);
+    if (netlist.luts.length > 5280) throw new Error(`LUT count ${netlist.luts.length} > 5280 (iCE40UP5K)`);
+    synthNl = netlist;
     window.__lastNetlist = netlist;
-    swState = {};
-    setStatus('done', 'compiled');
+    setStatus('done', 'synthesized');
     setTimeout(()=>setStatus('','idle'), 1500);
-    updateStats(); renderSwitches(netlist); renderLEDs(); renderNets();
-    renderLUTSel(); inspectLUT(0);
-    log(`Utilisation: ${emu.util()}% of iCE40UP5K (${emu.luts.length}/5280 LUTs)`, 'inf');
+    updateStats(); renderLEDs();
+    log(`Utilisation: ${(netlist.luts.length/5280*100).toFixed(1)}% of iCE40UP5K (${netlist.luts.length}/5280 LUTs, ${netlist.ffs.length} FFs)`, 'inf');
+    if (!netlist.luts.length && !netlist.ffs.length) log('The design needs no logic cells: its outputs are wired straight to inputs or constants.', 'dim');
+    // The ports are not connected to anything yet.
+    const ins  = netlist.ports.filter(p => p.dir === 'input').map(p => p.name);
+    const outs = netlist.ports.filter(p => p.dir === 'output').map(p => p.name);
+    log(`Ports to place: ${ins.length} input${ins.length===1?'':'s'} (${ins.join(', ') || '—'}) · ${outs.length} output${outs.length===1?'':'s'} (${outs.join(', ') || '—'})`, 'dim');
+    log(`Synthesis done. Next: give every port a pin in ${fnBuf.cst}, then press 📍 Place & Route.`, 'ok');
+    setNext('pnr');
   } catch(e) {
-    log('✗ ' + e.message, 'err');
+    synthNl = null;
+    setNext('synth');
+    for (const line of String(e.message).split('\n')) log('✗ ' + line, 'err');
     setStatus('error', 'error');
   }
   document.getElementById('compile-btn').disabled = false;
 }
 
 // ══════════════════════════════════════════════════════════════
+//  PLACE & ROUTE
+//  Checks the constraints and connects each port to its board pin.
+// ══════════════════════════════════════════════════════════════
+window.doPnR = function() {
+  syncBuf();
+  if (!synthNl) { log('Nothing to place yet — press ⚡ Synthesize first.', 'warn'); return; }
+  detachEmu();
+  setNext('pnr');
+  log('── Place & Route ──', 'inf');
+  log(`reading ${fnBuf.cst}`, 'dim');
+  if (!buf.cst.replace(/\/\/.*$/gm, '').replace(/#.*$/gm, '').trim()) {
+    log(`✗ ${fnBuf.cst} has no constraints. Give every port a pin, one per line:  IO_LOC "port" pin;`, 'err');
+    log('  ' + BOARD.pinHelp, 'dim');
+    setStatus('error', 'P&R failed');
+    return;
+  }
+  const r = placeAndRoute(synthNl, buf.cst);
+  if (!r.ok) {
+    for (const e of r.errors) log('✗ ' + e, 'err');
+    log(`Place & Route failed with ${r.errors.length} error${r.errors.length===1?'':'s'}. Board: ${BOARD.pinHelp}.`, 'err');
+    setStatus('error', 'P&R failed');
+    return;
+  }
+  for (const line of r.report) log('  ' + line, 'dim');
+  for (const w of r.warnings) log('⚠ ' + w, 'warn');
+  try {
+    attachEmu(synthNl);
+  } catch (e) {
+    log('✗ ' + e.message, 'err'); setStatus('error', 'error'); return;
+  }
+  setStatus('done', 'placed');
+  setTimeout(()=>setStatus('','idle'), 1500);
+  setNext('run');
+  log('Place & Route done — the design is on the board. Press ▶ Run.', 'ok');
+}
+
+// ══════════════════════════════════════════════════════════════
 //  SIM CONTROL
 // ══════════════════════════════════════════════════════════════
 window.stepSim = function() {
-  if (!emu) { log('Compile first', 'warn'); return; }
+  if (!emu) { log(synthNl ? 'Not on the board yet — press 📍 Place & Route first.' : 'Press ⚡ Synthesize first.', 'warn'); if (running) stopRun(); return; }
   emu.tick();
   const c = emu.cycle;
   setCycle(c);
   renderLEDs(); renderNets(); inspectLUT(inspLUT);
-  if (c<=5||c%16===0) {
-    // Print Q with bit 7 leftmost, indexed by IO bit position.
-    const ioByBit = {};
-    for (const io of emu.getIO()) {
-      const m = io.name.match(/\[(\d+)\]$/);
-      if (m) ioByBit[+m[1]] = io.value;
-    }
-    let bits;
-    if (Object.keys(ioByBit).length) {
-      bits = [];
-      for (let i = 7; i >= 0; i--) bits.push(ioByBit[i] ? 1 : 0);
-      bits = bits.join('');
-    } else {
-      bits = emu.ffs.map(f=>emu.rd(f.q_net||f.id+'_q')).join('');
-    }
-    log(`cy${String(c).padStart(5)} │ Q[${bits}]`);
-  }
 }
 
 function stopRun() {
@@ -1152,33 +1576,32 @@ function stopRun() {
 }
 
 window.toggleRun = function() {
-  if (!emu) { doCompile(); return; }
+  if (!emu) { log(synthNl ? 'Not on the board yet — press 📍 Place & Route first.' : 'Press ⚡ Synthesize first.', 'warn'); return; }
   running = !running;
   const btn = document.getElementById('run-btn');
   btn.textContent = running ? '⏸ Pause' : '▶ Run';
   btn.classList.toggle('active', running);
   document.getElementById('sdot').classList.toggle('running', running);
   document.getElementById('stxt').textContent = running ? 'running' : 'paused';
-  if (running) { const spd=parseInt(document.getElementById('clk-sel').value); timer=setInterval(stepSim,spd); }
+  if (running) timer = setInterval(stepSim, 1000 / CLOCK_HZ);
   else clearInterval(timer);
 }
 
 window.resetSim = function() {
   if (!emu) return; stopRun();
-  emu.reset();
-  for (const [k,v] of Object.entries(swState)) emu.nets[k]=v;
+  emu.reset(swState);                      // flip-flops back to 0; switches stay where they are
   setCycle(0);
   renderLEDs(); renderNets(); inspectLUT(inspLUT);
   log('— reset —', 'dim');
 }
 
-window.updateClock = function() {
-  if (running) { clearInterval(timer); const spd=parseInt(document.getElementById('clk-sel').value); timer=setInterval(stepSim,spd); }
-}
 
 // ══════════════════════════════════════════════════════════════
 //  RENDER
 // ══════════════════════════════════════════════════════════════
+// Board pins 8-15: each drives one LED and one segment of the 7-segment display.
+const SEG_NAMES = ['seg-a','seg-b','seg-c','seg-d','seg-e','seg-f','seg-g','seg-dp'];
+
 function renderLEDs() {
   const el = document.getElementById('leds-display'); if(!el) return;
   // The board always shows 8 LED slots (led7 left → led0 right), fixed.
@@ -1188,81 +1611,56 @@ function renderLEDs() {
       const c=document.createElement('div'); c.className='led-cell';
       const l=document.createElement('div'); l.className='led'; l.id='led_bit'+bit;
       const lb=document.createElement('div'); lb.className='led-lbl'; lb.textContent='led'+bit;
-      c.appendChild(l); c.appendChild(lb); el.appendChild(c);
+      const pn=document.createElement('div'); pn.className='pin-lbl'; pn.textContent='pin '+(8+bit);
+      c.appendChild(l); c.appendChild(lb); c.appendChild(pn); el.appendChild(c);
     }
   }
-  // Map current design's led IOs onto the 8 fixed slots by bit index.
-  const litByBit = {};
+  // Which LED pins does the placed design drive, and with what?
+  const litByBit = {}, nameByBit = {};
   if (emu) {
     for (const io of emu.getIO()) {
-      if ((io.kind||'led')==='led') litByBit[io.bit||0] = io.value;
+      if (io.kind==='led') { litByBit[io.bit] = io.value; nameByBit[io.bit] = io.name; }
     }
   }
+  const sd = document.getElementById('sd0');
   for (let bit = 0; bit < 8; bit++) {
     const l=document.getElementById('led_bit'+bit);
-    if (l) l.className = 'led' + (litByBit[bit] ? ' on' : '');
+    if (l) { l.className = 'led' + (litByBit[bit] ? ' on' : ''); l.title = nameByBit[bit] ? `pin ${8+bit} ← ${nameByBit[bit]}` : `pin ${8+bit} — not connected`; }
+    // The same pin lights one segment: a b c d e f g dp = pins 8..15.
+    const s = sd && sd.querySelector('.'+SEG_NAMES[bit]);
+    if (s) s.classList.toggle('on', !!litByBit[bit]);
   }
-  // Hex display — driven only by `hex`-kind IOs, no fallback.
-  let hexV = 0, hasHex = false;
-  if (emu) {
-    for (const io of emu.getIO()) {
-      if (io.kind==='hex') { hasHex = true; if (io.value) hexV |= 1 << (io.bit||0); }
-    }
-  }
-  if (hasHex) { renderSeg(0,(hexV>>4)&0xF,true); renderSeg(1,hexV&0xF,true); }
-  else        { renderSeg(0,0,false); renderSeg(1,0,false); }
+  const cnt = document.getElementById('io-count');
+  if (cnt) cnt.textContent = emu ? `${emu.inputs.length} in · ${emu.ios.length} out placed` : (synthNl ? 'synthesized, not placed' : '');
 }
 
-function renderSeg(idx,val,lit){
-  if (lit === undefined) lit = true;
-  const segs = lit ? (SEG_MAP[val]||[0,0,0,0,0,0,0]) : [0,0,0,0,0,0,0];
-  const names=['seg-a','seg-b','seg-c','seg-d','seg-e','seg-f','seg-g'];
-  const d=document.getElementById('sd'+idx); if(!d) return;
-  segs.forEach((on,i)=>{ const s=d.querySelector('.'+names[i]); if(s)s.classList.toggle('on',!!on); });
-}
-
-function renderSwitches(nl) {
+function renderSwitches() {
   const el=document.getElementById('sw-grid'); if(!el) return;
-  // Which sw nets does this design actually consume?
-  const used=new Set();
-  const add = n => { if (n && typeof n==='string' && n.startsWith('sw')) used.add(n); };
-  for (const l of (nl.luts||[])) for (const inp of (l.inputs||[])) add(inp);
-  for (const c of (nl.carries||[])) { add(c.i0); add(c.i1); add(c.ci); }
-  for (const ff of (nl.ffs||[])) add(ff.d_net);
-  // Also scan output IO nets — a bare wire-through (`assign led = sw`) puts
-  // the sw net directly on an LED IO with no cell in between.
-  for (const io of (nl.ios||[])) add(io.net);
-
-  // Map a bit index → the actual net name the design uses for it.
-  // Accepts sw[N], swN, or sw_NAME (single-bit → bit 0).
-  const netForBit = {};
-  for (const n of used) {
-    let m = n.match(/\[(\d+)\]$/) || n.match(/(\d+)$/);
-    netForBit[m ? +m[1] : 0] = n;
-  }
+  // Which net is each switch wired to (by Place & Route)?
+  const netForBit = {}, nameForBit = {};
+  if (emu) for (const inp of emu.inputs) if (inp.kind === 'sw') { netForBit[inp.bit] = inp.net; nameForBit[inp.bit] = inp.name; }
 
   // Board always shows 8 switch slots, sw7 (left) → sw0 (right).
   el.innerHTML='';
   for (let bit = 7; bit >= 0; bit--) {
-    const net = netForBit[bit];                    // may be undefined (unused)
+    const net = netForBit[bit];                    // undefined when nothing is placed on this pin
     const c=document.createElement('div'); c.className='sw-cell';
     const b=document.createElement('button'); b.className='sw-btn';
     const lb=document.createElement('div'); lb.className='sw-lbl'; lb.textContent='sw'+bit;
-    if (net) {
-      swState[net] = swState[net] || 0;
-      b.classList.toggle('on', !!swState[net]);
-      b.title = net;
-      b.addEventListener('click', () => {
-        swState[net] ^= 1;
-        b.classList.toggle('on', !!swState[net]);
-        if (emu) { emu.setNet(net, swState[net]); renderLEDs(); renderNets(); }
-      });
-    } else {
-      b.disabled = true;                           // not used by this design
-      b.style.opacity = '.35';
-      b.title = 'sw'+bit+' — not used by this design';
-    }
-    c.appendChild(b); c.appendChild(lb); el.appendChild(c);
+    const pn=document.createElement('div'); pn.className='pin-lbl'; pn.textContent='pin '+bit;
+    b.classList.toggle('on', !!swPos[bit]);
+    b.title = net ? `pin ${bit} → ${nameForBit[bit]}` : `pin ${bit} — not connected`;
+    if (!net) b.style.opacity = '.45';
+    b.addEventListener('click', () => {
+      swPos[bit] ^= 1;
+      b.classList.toggle('on', !!swPos[bit]);
+      if (net && emu) {
+        swState[net] = swPos[bit];
+        emu.setNet(net, swPos[bit]);               // logic reacts at once, like on real hardware
+        renderLEDs(); renderNets(); inspectLUT(inspLUT);
+      }
+    });
+    c.appendChild(b); c.appendChild(lb); c.appendChild(pn); el.appendChild(c);
   }
 }
 
@@ -1279,13 +1677,14 @@ function renderNets() {
 }
 
 function updateStats() {
-  if (!emu) return;
-  const u=parseFloat(emu.util());
+  const nl = emu || synthNl;
+  const nL = nl ? (nl.luts||[]).length : 0, nF = nl ? (nl.ffs||[]).length : 0;
+  const u = nL/5280*100;
   const set=(id,v)=>{ const e=document.getElementById(id); if(e) e.textContent=v; };
-  set('st-luts',emu.luts.length); set('st-ffs',emu.ffs.length); set('st-util',u+'%');
-  set('sb-luts',emu.luts.length); set('sb-ffs',emu.ffs.length); set('sb-util',u+'%');
-  set('info-luts',emu.luts.length); set('info-ffs',emu.ffs.length);
-  set('util-pct',`${emu.luts.length} / 5280`);
+  set('st-luts',nL); set('st-ffs',nF); set('st-util',u.toFixed(1)+'%');
+  set('sb-luts',nL); set('sb-ffs',nF); set('sb-util',u.toFixed(1)+'%');
+  set('info-luts',nL); set('info-ffs',nF);
+  set('util-pct',`${nL} / 5280`);
   const fill=document.getElementById('util-fill');
   if(fill){ fill.style.width=u+'%'; fill.className='util-fill'+(u>80?' danger':u>50?' warn':''); }
 }
@@ -1358,22 +1757,28 @@ document.addEventListener('click', (e) => {
 });
 
 function loadExample(name) {
-  const src = VERILOG_EXAMPLES[name];
-  if (!src) return;
-  // Selecting an example starts a fresh Verilog design: load the source and
-  // clear the netlist view — it stays empty until you press ⚡ Synthesize.
-  buf.verilog = src;
-  fnBuf.verilog = name + '.v';
-  buf.json = '';
+  const ex = VERILOG_EXAMPLES[name];
+  if (!ex) return;
+  // An example is a fresh design: two files, name.v and name.cst.
+  // Nothing is on the board until you synthesize and place it.
+  detachEmu();
+  synthNl = null;
   window.__lastNetlist = null;
+  buf   = { verilog: ex.v, cst: ex.cst };
+  fnBuf = { verilog: name + '.v', cst: name + '.cst' };
   mode = 'verilog';
-  applyModeUI('verilog');
-  const ed = document.getElementById('editor'); if (ed) ed.value = src;
-  const fn = document.getElementById('file-name'); if (fn) fn.value = name + '.v';
+  const ed = document.getElementById('editor'); if (ed) ed.value = ex.v;
+  renderTabs();
   updateLineNums();
+  setNext('synth');
+  log(`Loaded ${name}.v and ${name}.cst. Press ⚡ Synthesize, then 📍 Place & Route, then ▶ Run.`, 'dim');
 }
 
-window.onEdit = function() { updateLineNums(); }
+window.onEdit = function() {
+  updateLineNums();
+  if (mode === 'verilog') setNext('synth');
+  else if (synthNl) setNext('pnr');
+}
 
 function updateLineNums() {
   const lines=document.getElementById('editor').value.split('\n').length;
@@ -1384,55 +1789,79 @@ function updateLineNums() {
 // ══════════════════════════════════════════════════════════════
 //  FILE OPEN / SAVE  (local disk, fully client-side)
 // ══════════════════════════════════════════════════════════════
+// New: an empty design — two blank files.
+window.newFile = function() {
+  syncBuf();
+  const dirty = buf.verilog.trim() || (buf.cst.trim() && buf.cst !== CST_HINT);
+  if (dirty && !window.confirm('Start a new design? Text that is not saved will be lost.')) return;
+  detachEmu();
+  synthNl = null; window.__lastNetlist = null;
+  buf   = { verilog: '', cst: CST_HINT };
+  fnBuf = { verilog: 'untitled.v', cst: 'untitled.cst' };
+  mode = 'verilog';
+  const ed = document.getElementById('editor'); if (ed) ed.value = '';
+  renderTabs(); updateLineNums(); setNext('synth');
+  log('New design: untitled.v and untitled.cst', 'dim');
+}
+
+// Open: pick a .v file, a .cst file, or both at once. Each goes to its own tab.
 window.openFile = function() {
   const inp = document.getElementById('file-input');
   inp.value = '';                         // allow re-opening the same file
   inp.onchange = () => {
-    const f = inp.files && inp.files[0];
-    if (!f) return;
-    const r = new FileReader();
-    r.onload = () => {
-      const isJson = /\.json$/i.test(f.name);
-      mode = isJson ? 'json' : 'verilog';
-      buf[mode] = r.result;
-      fnBuf[mode] = f.name;
-      if (!isJson) { buf.json = ''; window.__lastNetlist = null; }  // opening Verilog = new design
-      applyModeUI(mode);
-      buildExTabs();
-      const ed = document.getElementById('editor'); if (ed) ed.value = r.result;
-      const fn = document.getElementById('file-name'); if (fn) fn.value = f.name;
-      updateLineNums();
-      log(`Opened ${f.name} (${f.size} bytes)`, 'ok');
+    const list = [...(inp.files || [])];
+    if (!list.length) return;
+    syncBuf();
+    let pending = list.length, last = null;
+    const done = () => {
+      if (--pending) return;
+      if (last) mode = last;
+      const ed = document.getElementById('editor'); if (ed) ed.value = buf[mode];
+      renderTabs(); updateLineNums();
+      setNext(synthNl ? 'pnr' : 'synth');
     };
-    r.onerror = () => log(`Could not read ${f.name}`, 'err');
-    r.readAsText(f);
+    for (const f of list) {
+      const r = new FileReader();
+      r.onload = () => {
+        const m = /\.(cst|pcf)$/i.test(f.name) ? 'cst' : 'verilog';
+        buf[m] = String(r.result);
+        fnBuf[m] = m === 'cst' ? f.name.replace(/\.pcf$/i, '.cst') : f.name;
+        if (m === 'verilog') { synthNl = null; window.__lastNetlist = null; detachEmu(); }  // a new design
+        else if (emu) { detachEmu(); }                                                     // new pins: place again
+        last = m;
+        log(`Opened ${f.name} (${f.size} bytes)`, 'ok');
+        done();
+      };
+      r.onerror = () => { log(`Could not read ${f.name}`, 'err'); done(); };
+      r.readAsText(f);
+    }
   };
   inp.click();
 }
 
+// Save: writes the file of the open tab.
 window.saveFile = async function() {
-  const text = document.getElementById('editor').value;
-  const fnEl = document.getElementById('file-name');
-  let name = (fnEl.value || '').trim() || 'untitled';
-  // Ensure the extension matches the current mode.
-  const wantExt = mode === 'json' ? '.json' : '.v';
+  syncBuf();
+  const text = buf[mode];
+  const wantExt = mode === 'cst' ? '.cst' : '.v';
+  let name = (fnBuf[mode] || '').trim() || 'untitled';
   if (!new RegExp(wantExt.replace('.','\\.')+'$','i').test(name)) {
     name = name.replace(/\.[^.]*$/, '') + wantExt;
   }
-  fnEl.value = name;
+  fnBuf[mode] = name; renderTabs();
 
   // Preferred: native Save-As dialog (Chromium browsers, https/localhost).
   if (window.showSaveFilePicker) {
     try {
       const handle = await window.showSaveFilePicker({
         suggestedName: name,
-        types: [{ description: 'Source file', accept: { 'text/plain': [wantExt] } }]
+        types: [{ description: mode === 'cst' ? 'Constraints file' : 'Verilog source', accept: { 'text/plain': [wantExt] } }]
       });
       const w = await handle.createWritable();
       await w.write(text);
       await w.close();
-      fnEl.value = handle.name || name;
-      log(`Saved ${fnEl.value}`, 'ok');
+      fnBuf[mode] = handle.name || name; renderTabs();
+      log(`Saved ${fnBuf[mode]}`, 'ok');
       return;
     } catch (e) {
       if (e && e.name === 'AbortError') return;   // user cancelled — do nothing
@@ -1466,9 +1895,12 @@ window.showHelp = function() {
 // ══════════════════════════════════════════════════════════════
 //  BOOT
 // ══════════════════════════════════════════════════════════════
+buildExTabs();
 setMode('verilog');
-renderLEDs();           // draw the 8 LED slots + blank hex immediately
-renderSwitches({});     // draw the 8 switch slots (all inert until a design uses them)
+setNext('synth');
+renderLEDs();           // draw the 8 LED slots + the blank 7-segment display immediately
+renderSwitches();       // draw the 8 switch slots (inert until a design is placed on them)
+updateStats();
 
 </script>
 
@@ -1495,7 +1927,8 @@ renderSwitches({});     // draw the 8 switch slots (all inert until a design use
   #sch-card {
     background: var(--panel2); border: 1px solid var(--frame);
     border-radius: 7px; box-shadow: 0 18px 50px rgba(0,0,0,.35);
-    max-width: 94vw; max-height: 92vh; display: flex; flex-direction: column;
+    max-width: 96vw; max-height: 94vh; display: flex; flex-direction: column;
+    resize: both; overflow: hidden; min-width: 360px; min-height: 200px;
   }
   #sch-head {
     display: flex; align-items: center; gap: 12px;
@@ -1508,7 +1941,7 @@ renderSwitches({});     // draw the 8 switch slots (all inert until a design use
   }
   #sch-head .sch-sub { font-family: var(--mono); font-size: 11px; color: var(--muted); flex: 1; }
   #sch-stage {
-    overflow: auto; padding: 6px;
+    overflow: auto; padding: 6px; flex: 1; min-height: 0;
     background:
       radial-gradient(circle at center, #e6e8ec 1px, transparent 1px) 0 0/22px 22px,
       var(--panel2);
@@ -1540,7 +1973,12 @@ renderSwitches({});     // draw the 8 switch slots (all inert until a design use
 
   // ---- model: normalized schema (lut.out / ff.q_net / ff.d_net) ----------
   function model(nl) {
-    const luts = nl.luts || [], ffs = nl.ffs || [], ios = nl.ios || [], carries = nl.carries || [];
+    const luts = nl.luts || [], ffs = nl.ffs || [], carries = nl.carries || [];
+    // Placed designs carry their pins in nl.ios; before Place & Route use the output ports.
+    const pinOf = Object.fromEntries((nl.ios || []).map(io => [io.name, io.pin]));
+    const ios = nl.ports
+      ? nl.ports.filter(p => p.dir === "output").map(p => ({ name: pinOf[p.name] !== undefined ? `${p.name} · pin ${pinOf[p.name]}` : p.name, net: p.net, color: "red" }))
+      : (nl.ios || []);
     const outNet = l => (l.out != null ? l.out : l.id);
     const qNet   = f => (f.q_net || f.id + "_q");
 
@@ -1582,7 +2020,8 @@ renderSwitches({});     // draw the 8 switch slots (all inert until a design use
     const lutX = C.padL + leftCh + 28;
     const ffX  = lutX + C.lutW + C.gap;
     const ledX = ffX + C.ffW + C.gap;
-    const STEP = 44;                                    // horizontal spacing for IOs sharing a net
+    const lblW = Math.max(0, ...m.ios.map(io => String(io.name).length)) * 5.6;   // widest output label, in px
+    const STEP = Math.max(44, lblW + 14);                                    // horizontal spacing for IOs sharing a net
     const ioByNet = {};
     m.ios.forEach(io => { (ioByNet[io.net] = ioByNet[io.net] || []).push(io); });
     const maxIO = Math.max(1, ...Object.values(ioByNet).map(a => a.length));
@@ -1592,7 +2031,7 @@ renderSwitches({});     // draw the 8 switch slots (all inert until a design use
     const wtIndex = Object.fromEntries(wtNets.map((n, i) => [n, i]));
     const y0   = C.padT + topCh + 28;
     const cy   = i => y0 + i * C.rowH + C.lutH / 2;
-    const W = ledX + (maxIO - 1) * STEP + C.ledR + 26, H = y0 + (m.rows.length + wtNets.length) * C.rowH + 10;
+    const W = ledX + (maxIO - 1) * STEP + Math.max(C.ledR + 26, lblW / 2 + 18), H = y0 + (m.rows.length + wtNets.length) * C.rowH + 10;
 
     const svg = E("svg", { viewBox: `0 0 ${W} ${H}`, width: W, height: H });
     const defs = E("defs");
@@ -1779,7 +2218,7 @@ renderSwitches({});     // draw the 8 switch slots (all inert until a design use
       stage.innerHTML = `<div class="sch-empty">No synthesized netlist yet.<br>Press <b>⚡ Synthesize</b> first, then reopen this view.</div>`;
     } else {
       exp.style.display = "";
-      sub.textContent = `iCE40UP5K · ${(nl.luts || []).length} LUT · ${(nl.ffs || []).length} FF · ${(nl.carries || []).length} CARRY · ${(nl.ios || []).length} IO`;
+      sub.textContent = `iCE40UP5K · ${(nl.luts || []).length} LUT · ${(nl.ffs || []).length} FF · ${(nl.carries || []).length} CARRY · ${(nl.ports || nl.ios || []).length} IO`;
       try {
         const svg = buildSVG(nl);
         stage.appendChild(svg);

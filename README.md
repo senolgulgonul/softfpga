@@ -1,9 +1,9 @@
 # softfpga — iCE40 FPGA Emulator
 
 > A browser-based emulator for iCE40 FPGAs. Write Verilog, synthesize with Yosys,
-> and watch it run on a virtual board — no install, no server, no toolchain.
+> assign pins, and watch it run on a virtual board — no install, no server, no toolchain.
 
-**Live demo:** https://senolgulgonul.github.io/softfpga/
+**Live demo:** <https://senolgulgonul.github.io/softfpga/>
 
 ---
 
@@ -11,125 +11,129 @@
 
 softfpga compiles real Verilog to an iCE40 logic netlist and simulates it
 cycle-by-cycle in your browser. Synthesis is done by Yosys (compiled to
-WebAssembly); simulation is a small LUT/flip-flop engine. The result is wired
-to a fixed virtual board with LEDs, a hex display, and switches.
+WebAssembly); simulation is a small LUT/flip-flop engine. You connect the design
+to a virtual board with a constraint file, the same way you would on real hardware.
 
-- **Verilog mode** — real Verilog, synthesized in-browser by Yosys WASM
-- **JSON mode** — hand-written LUT/FF netlists for instant simulation, zero dependencies
-- **iCE40UP5K model** — LUT4 + D-flip-flop fabric, up to 5,280 LUTs
-- **Virtual FPGA board** — a fixed board with 8 LEDs, a 2-digit hex display, and 8 switches
-- **Open / save** — load and save Verilog files from your local disk
-- **Netlist dump** — export the Yosys netlist and the converted netlist for inspection
+The flow is the real FPGA flow:
+
+1. **Synthesize** — Verilog becomes LUTs and flip-flops.
+2. **Place & Route** — every port of the design gets a board pin, from your constraints.
+3. **Run** — the design is on the board; the clock ticks, LEDs light, switches work.
 
 ---
 
-## The virtual board: reserved IO names
+## The virtual board
 
-A real FPGA needs a *constraint file* (a `.pcf`) that maps each top-level
-signal to a physical pin. softfpga removes that step entirely. Instead, the
-board is **fixed**, and you connect to its peripherals simply by **naming your
-Verilog ports with reserved names**. The port name *is* the pin assignment.
+Every peripheral sits on a numbered pin.
 
-| Verilog port              | Connects to            | Notes                                  |
-|---------------------------|------------------------|----------------------------------------|
-| `input clk`               | the clock              | advances one tick per simulated cycle  |
-| `input [7:0] sw`          | 8 toggle switches      | click a switch in the UI to set its bit |
-| `output [7:0] led`        | 8 LEDs                 | bit 0 = `led[0]`, shown rightmost      |
-| `output [7:0] hex`        | 2-digit hex display    | shows the 8-bit value as two hex digits |
+| Pins   | Connected to                                | Direction |
+| ------ | ------------------------------------------- | --------- |
+| 0 – 7  | switches `sw0` … `sw7`                      | input     |
+| 8 – 15 | LEDs `led0` … `led7` **and** the 7-segment display | output |
+| 16     | clock, 10 Hz                                | input     |
 
-Rules:
+Pins 8–15 each drive one LED and one segment of the single 7-segment digit:
 
-- Names are matched by **prefix**: any output beginning with `led` drives LEDs,
-  any beginning with `hex` drives the hex display, any input beginning with
-  `sw` becomes switches.
-- The **hex display is driven only by a `hex` port.** A design with no `hex`
-  output leaves the display blank — there is no fallback to the LED value.
-- LEDs are shown **MSB-left, LSB-right**, so the row reads like a binary number.
-- An output port that isn't recognized as `hex` defaults to driving LEDs.
+| Pin     | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 |
+| ------- | - | - | -- | -- | -- | -- | -- | -- |
+| LED     | led0 | led1 | led2 | led3 | led4 | led5 | led6 | led7 |
+| Segment | a | b | c | d | e | f | g | dp |
 
-This is why **no place & route is needed.** A normal FPGA flow is
-*synthesis → place & route → bitstream*, where place & route assigns physical
-locations and pins. softfpga does real synthesis but replaces place & route
-with the naming convention above. You trade physical realism (signal timing,
-pin locations, routing) for a zero-configuration experience — the right
-trade-off for learning and experimenting with digital logic.
+The clock is fixed at 10 Hz, like the oscillator soldered on a real board; there is
+no speed selector. A design that needs a slower rate divides it (see `digits`).
+
+A pin at 1 lights its LED and its segment. The display is not decoded for you:
+to show a digit, write a hex-to-7-segment decoder (see the `sevenseg` example).
+
+---
+
+## Two files per design
+
+A design is two files, shown as tabs above the editor:
+
+| File          | Contents                                              |
+| ------------- | ----------------------------------------------------- |
+| `switches.v`   | the Verilog design; the top module can have any name  |
+| `switches.cst` | the constraints: which port goes to which board pin   |
+
+Click a tab to edit that file; double-click it to rename the file.
+
+## Constraints (.cst)
+
+Port names are free. Nothing is connected to the board until the `.cst` file
+says so, one line per port bit:
+
+```
+// clock
+IO_LOC "clk" 16;
+
+// switches
+IO_LOC "sw[0]" 0;
+IO_LOC "sw[1]" 1;
+
+// LEDs
+IO_LOC "led[0]" 8;
+IO_LOC "led[1]" 9;
+```
+
+This is the syntax of Gowin EDA's physical constraints file, so the habit
+carries over to a real board. The iCE40 PCF form (`set_io led[0] 8`) is read too.
+Comments start with `//` or `#`.
+
+**Place & Route** reads the `.cst` file and reports, with the line number:
+
+- a port with no pin, or a pin with two ports
+- a port name that is not in the design
+- a bus constrained without a bit index (`led` instead of `led[0]`)
+- a pin that does not exist on the board
+- an output on a switch pin, or an input on an LED pin
+
+If the clock port is not on pin 16, the design is still placed, with a warning.
+A clock on a switch pin works: each flip of the switch is a clock edge.
 
 ---
 
 ## How to use it
 
-All actions live in the toolbar across the top of the window.
+The toolbar follows the order of the work:
 
-1. Make sure the **Verilog** mode button (top-right) is selected.
-2. Click **📁 Examples** and pick a design (counter, blink, shift, pwm, adder),
-   or write your own in the editor.
-3. Press **⚡ Synthesize**. On first use this downloads Yosys WASM (~8 MB from a
-   CDN, cached afterwards), then synthesizes your design. The console below the
-   editor reports the LUT / flip-flop / IO counts.
-4. Press **▶ Run** to start the clock, or **⏭ Step** to advance one cycle at a
-   time. **↺ Reset** clears all flip-flops back to zero.
-5. Use the **clock speed** dropdown to slow fast designs down enough to watch.
-6. For designs with switches, click the switch toggles on the board to set
-   input bits, then Run or Step to see the effect.
+**Examples · New · Open · Save │ Synthesize · Place & Route · Run · Schematic ··· Help**
 
-The typical loop is just **Synthesize → Run**. Edit, Synthesize again, Run again.
+1. Pick a design from **Examples**, or press **New** and write your own. **Open**
+   takes a `.v` file, a `.cst` file, or both at once.
+2. Press **⚡ Synthesize**. The first synthesis of a session unpacks Yosys from
+   `yosys-0.50.857.js` and starts it, which takes a few seconds; after that
+   synthesis is immediate. The console then lists the ports that need a pin.
+3. Open the `.cst` tab and give every port a pin. (Examples come with theirs.)
+4. Press **📍 Place & Route**. The console prints the pin report or the errors.
+5. Press **▶ Run** to start the 10 Hz clock; press it again to pause.
+   Place & Route again to start from power-up.
+6. Click the switches on the board. Combinational logic reacts at once, without a clock.
 
-The window has three areas: the **Verilog editor** with a console on the left,
-the **virtual FPGA board** in the middle (always visible — LEDs on top, hex
-display, switches below), and an **Information** panel on the right showing the
-device and resource usage. The **❓ Help** button opens this documentation.
+The blue button is always the next step: Synthesize, then Place & Route, then
+Run. Editing a file moves it back to the step that has to be redone.
 
-### Opening and saving files
-
-The toolbar's file buttons let you work with Verilog files on your own disk:
-
-- **📂 Open** — load a Verilog (`.v`, `.sv`, `.vh`) or netlist (`.json`) file
-  into the editor. The mode switches automatically to match the file type.
-- **💾 Save** — write the editor contents back to a file. Edit the filename in
-  the field next to the editor title first to choose the name. On Chromium
-  browsers (Chrome, Edge) served over `https`/`localhost`, this opens a native
-  *Save As* dialog; elsewhere it downloads the file to your download folder.
-
-Everything is fully client-side — no upload, no server. The Save extension is
-corrected automatically to `.v` or `.json` to match the current mode.
-
-### Writing your own design
-
-```verilog
-// An 8-bit counter shown on the LEDs and the hex display
-module top (
-  input  clk,
-  output [7:0] led,
-  output [7:0] hex
-);
-  reg [7:0] count = 0;
-  always @(posedge clk)
-    count <= count + 1;
-  assign led = count;
-  assign hex = count;
-endmodule
-```
-
-The top module must be named `top`. Declare only the reserved ports you need.
-Keep designs synchronous (`always @(posedge clk)`) — that is what the
-flip-flop-based simulation models.
+**Schematic** shows the synthesized circuit: LUTs, flip-flops and the ports
+(with their pins once placed). **Save** writes the file of the open tab.
 
 ---
 
 ## Built-in examples
 
-| Example  | Demonstrates                                              |
-|----------|-----------------------------------------------------------|
-| counter  | An 8-bit synchronous counter on LEDs and hex              |
-| blink    | A single flip-flop toggling every clock                   |
-| shift    | An 8-bit shift register; `sw[0]` is the serial input      |
-| pwm      | A PWM generator; `sw[0]` selects the duty cycle           |
-| adder    | A 4-bit adder: `sw[3:0] + sw[7:4]`, result on LEDs and hex |
-| switches | Switch passthrough: `sw` drives the LEDs and hex directly |
-| gates    | Primitives — a half adder from `xor` / `and` gates       |
-| fulladder| Hierarchical modeling — a full adder from two half adders |
-| dataflow | Dataflow modeling — continuous assignment, bitwise operators |
-| fsm      | Behavioral modeling — an up/down counter (`sw[0]` sets direction) |
+| Example   | Demonstrates                                                     |
+| --------- | ---------------------------------------------------------------- |
+| switches  | Switch passthrough: the switches drive the LEDs                  |
+| gates     | Primitives — a half adder from `xor` / `and` gates               |
+| fulladder | Hierarchical modeling — a full adder from two half adders        |
+| dataflow  | Dataflow modeling — continuous assignment, bitwise operators     |
+| adder     | A 4-bit adder, 5-bit result on the LEDs                          |
+| sevenseg  | Hex to 7-segment decoder: switches select the digit              |
+| blink     | A single flip-flop toggling every clock                          |
+| counter   | An 8-bit synchronous counter on the LEDs                         |
+| shift     | An 8-bit shift register with a serial input                      |
+| pwm       | PWM with a 4-cycle period: 25 % or 50 % duty, set by a switch    |
+| fsm       | Behavioral modeling — up/down counter with enable and reset      |
+| digits    | Clock divider + counter: one digit per second on the 7-segment   |
 
 ---
 
@@ -138,20 +142,21 @@ flip-flop-based simulation models.
 ```
 Verilog source
   │
-  ▼  Yosys WASM  (@yowasp/yosys, runs in the browser)
-  │  synth_ice40 -nocarry -flatten -json   →   Yosys netlist JSON
+  ▼  Yosys WASM  (@yowasp/yosys 0.50.857, runs in the browser; same call as VeriSim)
+  │  read_verilog design.v; synth_ice40 -nocarry -nobram -flatten; write_json
   │
   ▼  yosysJsonToNetlist()
-  │  maps SB_LUT4 and SB_DFF cells; resolves nets; tags IO by reserved name
+  │  maps SB_LUT4, SB_CARRY and the SB_DFF family; lists the top-level ports
   │
-  ▼  ICE40Emu.tick()  — once per clock cycle:
-     1. settle all combinational logic (LUT truth tables)
-     2. sample every flip-flop's D input, then apply the clock edge
-     3. read the IO nets and update LEDs / hex display
+  ▼  placeAndRoute()
+  │  reads the .cst file, checks it, connects each port to its board pin
+  │
+  ▼  ICE40Emu.tick()  — one clock cycle:
+     clock rises → settle logic → flip-flops whose clock had an edge sample → settle
+     clock falls → the same again (for falling-edge flip-flops)
 ```
 
-The whole simulation core is a LUT4 evaluator and a flip-flop update. A LUT4
-is a 16-bit truth table indexed by its four inputs:
+A LUT4 is a 16-bit truth table indexed by its four inputs:
 
 ```js
 evalLUT(lut) {
@@ -162,8 +167,39 @@ evalLUT(lut) {
 }
 ```
 
-`synth_ice40` is run with `-nocarry` so adders map onto plain LUTs, which keeps
-the simulation engine simple.
+Flip-flops are modeled as the real iCE40 cells: clock enable (`SB_DFFE`),
+synchronous set/reset (`SB_DFFSR`, `SB_DFFSS`), asynchronous set/reset
+(`SB_DFFR`, `SB_DFFS`), their enable variants, and falling-edge versions
+(`SB_DFFN*`). Each flip-flop samples on an edge of its own clock net, so clocks
+made by other flip-flops (dividers, ripple counters) work.
+
+---
+
+## Changes in v2
+
+- **Constraints and Place & Route.** The reserved port names (`clk`, `sw`, `led`,
+  `hex`) are gone. Ports get their pins from a `.cst` file.
+- **Two file tabs** (`name.v`, `name.cst`) with New, Open and Save. The Verilog /
+  Netlist JSON mode buttons, Step, Reset and the clock speed selector are removed.
+- **Fixed 10 Hz board clock** on pin 16.
+- **One 7-segment digit** on pins 8–15, shared with the LEDs, driven segment by
+  segment. The separate decoded `hex` port no longer exists.
+- **Flip-flop enable, set and reset are simulated.** v1 read only `D` and `Q`, so
+  a design such as `if (en) q <= d;` behaved as if `en` were always 1.
+- **Any top module name**, and the synthesis call is the one VeriSim uses.
+- **Switches act immediately**; combinational designs no longer need the clock.
+- **Derived and falling-edge clocks** are simulated.
+
+The hand-written JSON netlist mode of v1 is removed.
+
+---
+
+## Verification
+
+The engine was checked against CXXRTL, Yosys' own C++ simulator, running the
+original Verilog: 23 designs, pseudo-random inputs, every output compared after
+every clock cycle. The set covers counters, shift registers, state machines, UART
+transmit and receive, memories, arithmetic, asynchronous resets and a small CPU.
 
 ---
 
@@ -171,92 +207,65 @@ the simulation engine simple.
 
 ```
 softfpga/
-├── index.html      ← the entire app: HTML, CSS, JS in one file, no build step
+├── index.html          ← the app: HTML, CSS, JS in one file, no build step
+├── yosys-0.50.857.js   ← Yosys (YoWASP build), packed; loaded when Synthesize is pressed
 ├── README.md
-├── _headers        ← Cross-origin headers (Cloudflare Pages)
-├── netlify.toml    ← Cross-origin headers (Netlify)
-└── vercel.json     ← Cross-origin headers (Vercel)
+├── _headers            ← Cross-origin headers (Cloudflare Pages)
+├── netlify.toml        ← Cross-origin headers (Netlify)
+└── vercel.json         ← Cross-origin headers (Vercel)
 ```
 
-`index.html` is fully self-contained. The only external dependency is the
-Yosys WASM module, loaded from a CDN on first compile in Verilog mode.
-JSON mode is fully offline.
+Nothing is loaded from the internet. Yosys sits next to `index.html` as one
+11 MB file holding the YoWASP build of Yosys 0.50.857, gzip-compressed. Because
+it is a plain script, softfpga works offline and also when `index.html` is opened
+straight from disk. The release is fixed on purpose: the latest YoWASP build has
+grown to 79 MB and changes without notice, and 0.50.857 is the one the engine was
+verified with.
 
----
-
-## Deploy
-
-### GitHub Pages
-
-```bash
-git clone https://github.com/senolgulgonul/softfpga
-cd softfpga
-# edit files, then:
-git add . && git commit -m "update" && git push
-# Settings → Pages → Source: main / root → Save
-```
-
-### Cloudflare Pages / Netlify / Vercel
-
-The repo includes `_headers`, `netlify.toml`, and `vercel.json` which set the
-`Cross-Origin-Opener-Policy` and `Cross-Origin-Embedder-Policy` headers used
-for optimal Yosys WASM performance. Connect the repo, set the output directory
-to `.` with no build command, and deploy.
+Keep the two files together. If `yosys-0.50.857.js` is missing, softfpga says so
+in the console and downloads the same release from the jsDelivr CDN instead.
 
 ---
 
 ## Limitations
 
-softfpga models the **chip's logic fabric** faithfully (real LUT4s, real
-flip-flops, real Yosys synthesis), but the **board peripherals are a fixed
-simplification**. A real iCE40UP5K has 39 general-purpose IO pins and no
-built-in LEDs or displays — what those pins connect to depends on the physical
-board. softfpga instead provides one fixed board (8 LEDs, hex display, 8
-switches) addressed by reserved names.
+softfpga models the **chip's logic fabric** (real LUT4s, real flip-flops, real
+Yosys synthesis). The board is a teaching board, not a commercial one, and its
+pin numbers are not the pins of an iCE40 package.
 
-Not modeled: signal timing and propagation delay, place & route, block RAM,
-DSP/multiplier blocks, the hardened RGB LED driver, PLLs, and bitstream
-generation. For a tool aimed at learning logic design, none of these are
-needed — the logic itself runs correctly.
+Not modeled: signal timing and propagation delay, physical placement and routing,
+block RAM, DSP blocks, PLLs, tri-state and bidirectional pins, latches, and
+bitstream generation. Memories are built from flip-flops, so keep them small.
+The board clock is 10 Hz; designs that divide a MHz clock need a smaller divider here.
 
 ---
 
 ## Roadmap
 
-- [x] JSON netlist emulation
 - [x] Yosys WASM Verilog synthesis
-- [x] LUT4 + D-flip-flop fabric (up to 5280 LUTs)
-- [x] Fixed virtual board: 8 LEDs, hex display, 8 switches
-- [x] Reserved-name IO model (no constraint file needed)
-- [x] Netlist dump for inspection
-- [x] Open / save .v files from local disk
-- [x] Gowin-style light theme UI with a virtual FPGA board
-- [ ] Clock prescaler for visually slowing fast designs
+- [x] LUT4 + full SB_DFF family (up to 5280 LUTs)
+- [x] Constraint file and Place & Route step
+- [x] Virtual board: 8 switches, 8 LEDs, 7-segment digit, clock
+- [x] Schematic of the synthesized circuit
+- [x] Two-file designs (`.v` + `.cst`): new, open, save
+- [ ] UART terminal on two board pins
+- [ ] Logic analyzer on the board pins
+- [ ] Real-time clock (MHz range)
 - [ ] Block RAM emulation
-- [ ] UART terminal peripheral
-- [ ] Waveform (VCD) export
 
 ---
 
 ## How to cite
 
-If you use softfpga in academic work, teaching material, or a publication,
-please cite it. Update the year and URL as appropriate.
+> Gülgönül, S. (2026). *softfpga: A browser-based iCE40 FPGA emulator.* <https://github.com/senolgulgonul/softfpga>
 
-**Plain text:**
-
-> Gülgönül, S. (2026). *softfpga: A browser-based iCE40 FPGA emulator.*
-> https://github.com/senolgulgonul/softfpga
-
-**BibTeX:**
-
-```bibtex
+```
 @software{softfpga,
   author  = {G\"ulg\"on\"ul, \c{S}enol},
   title   = {softfpga: A browser-based iCE40 FPGA emulator},
   year    = {2026},
   url     = {https://github.com/senolgulgonul/softfpga},
-  version = {1.29}
+  version = {2.12}
 }
 ```
 
