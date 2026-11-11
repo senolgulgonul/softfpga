@@ -118,6 +118,33 @@ Run. Editing a file moves it back to the step that has to be redone.
 
 ---
 
+## Logic analyzer
+
+The bottom panel has two tabs, **Console** and **Logic analyzer**. The analyzer
+records every placed pin once per clock cycle while the design runs and draws the
+waveforms: the clock first, then the inputs (green), then the outputs (blue), each
+with its pin number.
+
+- The first sample is the state at power-up, before the first clock edge.
+- The **Pins** row lists every port that has a pin in the `.cst` file. All start
+  switched off, like probes that are not connected yet: click the pins you want
+  to watch, click again to hide one. Every pin is recorded whether shown or not,
+  so a pin picked later shows its whole history. To watch an internal signal,
+  make it an output and give it a pin.
+- **Mouse wheel** zooms (8 to 1024 cycles; the **−** and **+** buttons do the same).
+  **Drag** pans back through the last 4096 cycles. **Double-click** resets the view.
+  While the view shows the newest cycle it follows the clock; scrolled back, it stays put.
+- Point at a cycle to read the value of every pin in that cycle. Multi-bit ports
+  are also shown as one hex number, for example `step=0x3`.
+- Place & Route starts a new recording.
+- Drag the bar between the editor and the bottom panel up or down to give the
+  waveforms more room; each tab keeps its own height, and a double-click on the
+  bar restores the default. With more pins than fit, the plot scrolls.
+
+If an error is reported while the analyzer is open, the panel switches back to the Console.
+
+---
+
 ## Built-in examples
 
 | Example   | Demonstrates                                                     |
@@ -249,7 +276,8 @@ The board clock is 10 Hz; designs that divide a MHz clock need a smaller divider
 - [x] Schematic of the synthesized circuit
 - [x] Two-file designs (`.v` + `.cst`): new, open, save
 - [ ] UART terminal on two board pins
-- [ ] Logic analyzer on the board pins
+- [ ] Waveform (VCD) export
+- [x] Logic analyzer on the board pins
 - [ ] Real-time clock (MHz range)
 - [ ] Block RAM emulation
 
@@ -265,7 +293,7 @@ The board clock is 10 Hz; designs that divide a MHz clock need a smaller divider
   title   = {softfpga: A browser-based iCE40 FPGA emulator},
   year    = {2026},
   url     = {https://github.com/senolgulgonul/softfpga},
-  version = {2.12}
+  version = {2.17}
 }
 ```
 

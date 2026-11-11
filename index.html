@@ -225,6 +225,66 @@ select:hover { border-color: var(--blue); }
 .pcb-clk { font-weight: 400; letter-spacing: .06em; color: rgba(255,255,255,.55); }
 .info-note { font-size: 11px; color: var(--muted); margin-top: 6px; line-height: 1.5; }
 .info-note code { font-family: var(--mono); color: var(--ink2); }
+/* splitter between the editor and the bottom panel */
+.h-split {
+  height: 6px; flex-shrink: 0; cursor: row-resize; background: var(--frame2);
+  border-top: 1px solid var(--frame); border-bottom: 1px solid var(--frame); position: relative;
+}
+.h-split::after {
+  content: ''; position: absolute; left: 50%; top: 1px; width: 34px; height: 2px; margin-left: -17px;
+  border-radius: 1px; background: #aeb4bf;
+}
+.h-split:hover, body.row-resizing .h-split { background: var(--blue-dim); }
+.h-split:hover::after, body.row-resizing .h-split::after { background: var(--blue); }
+body.row-resizing { cursor: row-resize; user-select: none; }
+.console-box { border-top: none; }
+/* bottom panel tabs and the logic analyzer */
+.console-box.tall { height: 46%; min-height: 270px; }
+.btabs { display: flex; gap: 2px; }
+button.btab {
+  font: inherit; text-transform: uppercase; letter-spacing: .04em; color: var(--muted);
+  padding: 2px 9px; margin: 0; border: 1px solid transparent; border-radius: 3px; background: none; box-shadow: none;
+}
+button.btab:hover { background: var(--panel); border-color: var(--frame); }
+button.btab.active { color: var(--ink2); background: var(--panel2); border-color: var(--frame); }
+.la-pane { flex: 1; min-height: 0; display: flex; flex-direction: column; background: var(--panel2); }
+.la-bar {
+  display: flex; align-items: center; gap: 6px; padding: 4px 8px; flex-shrink: 0;
+  border-bottom: 1px solid var(--frame2); font-family: var(--mono); font-size: 11px; color: var(--ink2);
+}
+.la-bar button { font-size: 11px; padding: 1px 8px; min-width: 24px; }
+.la-span { min-width: 74px; color: var(--muted); white-space: nowrap; }
+.la-hint { color: #aab; white-space: nowrap; }
+.la-pins {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 3px; padding: 4px 8px; flex-shrink: 0;
+  border-bottom: 1px solid var(--frame2); font-family: var(--mono); font-size: 10.5px;
+}
+.la-pins:empty { display: none; }
+.la-pins-label { color: var(--muted); margin-right: 3px; }
+button.la-chip {
+  font-family: var(--mono); font-size: 10.5px; font-weight: 600; padding: 1px 7px; margin: 0;
+  border: 1px solid var(--blue); border-radius: 9px; background: var(--blue-dim); color: var(--blue-deep); box-shadow: none;
+}
+button.la-chip.la-in  { border-color: var(--green); background: #e2f3e8; color: #156b35; }
+button.la-chip.la-clk { border-color: #9aa0ab; background: #eceef1; color: #4a505c; }
+button.la-chip.off, button.la-chip.off:hover { border-color: var(--frame); background: var(--panel2); color: #b0b5be; font-weight: 400; text-decoration: line-through; }
+button.la-chip:hover { filter: brightness(.96); }
+.la-read { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.la-plot { flex: 1; min-height: 0; overflow: auto; cursor: crosshair; user-select: none; }
+.la-plot.dragging { cursor: grabbing; }
+.la-plot svg { display: block; font-family: var(--mono); }
+.la-empty { padding: 26px 20px; color: var(--muted); font-size: 12px; line-height: 1.7; cursor: default; }
+.la-grid { stroke: #eef0f3; stroke-width: 1; }
+.la-grid.major { stroke: #dfe3e9; }
+.la-tick { font-size: 8.5px; fill: var(--muted); }
+.la-name { font-size: 10.5px; fill: var(--ink); }
+.la-pin  { font-size: 8.5px; fill: var(--muted); }
+.la-val  { font-size: 10.5px; fill: var(--ink2); font-weight: 600; }
+.la-trace { fill: none; stroke-width: 1.6; stroke-linejoin: miter; }
+path.la-out { stroke: var(--blue); }
+path.la-in  { stroke: var(--green); }
+path.la-clk { stroke: #8a909c; stroke-width: 1.2; }
+.la-cursor { fill: rgba(31,111,212,.10); }
 /* file tabs above the editor: the design (.v) and its constraints (.cst) */
 .file-tabs {
   display: flex; align-items: flex-end; gap: 3px; padding: 6px 8px 0;
@@ -301,7 +361,7 @@ button.file-tab.active {
 
 <header>
   <div class="logo">soft<span>fpga</span></div>
-  <span class="ver">v2.12</span>
+  <span class="ver">v2.17</span>
   <span style="font-size:11px;color:var(--muted)"><span class="status-dot" id="sdot"></span><span id="stxt">idle</span></span>
 </header>
 
@@ -338,10 +398,24 @@ button.file-tab.active {
         <textarea id="editor" spellcheck="false" autocomplete="off" oninput="onEdit()"></textarea>
       </div>
     </div>
-    <div class="console-box">
+    <div class="h-split" id="h-split" title="Drag up or down to resize · double-click to reset"></div>
+    <div class="console-box" id="bottom-box">
       <div class="phead">
-        <span>Console</span>
-        <button onclick="clearLog()" style="font-size:10px;padding:2px 8px">clear</button>
+        <span class="btabs">
+          <button class="btab active" id="btab-console" onclick="showBottom('console')">Console</button>
+          <button class="btab" id="btab-la" onclick="showBottom('la')">Logic analyzer</button>
+        </span>
+      </div>
+      <div class="la-pane" id="la-pane" style="display:none">
+        <div class="la-bar">
+          <button onclick="laZoom(2)" title="Zoom out: show twice as many cycles">−</button>
+          <button onclick="laZoom(0.5)" title="Zoom in: show half as many cycles">+</button>
+          <span id="la-span" class="la-span">32 cycles</span>
+          <span id="la-read" class="la-read"></span>
+          <span class="la-hint">wheel: zoom · drag: pan · double-click: reset</span>
+        </div>
+        <div class="la-pins" id="la-pins"></div>
+        <div class="la-plot" id="la-plot"></div>
       </div>
       <div class="log-out" id="log-out">
         <div class="dim">// softfpga — write the design (.v) and its pins (.cst), then ⚡ Synthesize → 📍 Place &amp; Route → ▶ Run</div>
@@ -1329,6 +1403,7 @@ window.log = function(msg, cls='') {
   d.textContent = msg;
   el.appendChild(d);
   el.scrollTop = el.scrollHeight;
+  if (cls === 'err' && bottomMode !== 'console') showBottom('console');
 }
 window.clearLog = function() { document.getElementById('log-out').innerHTML = ''; }
 
@@ -1467,12 +1542,14 @@ function attachEmu(netlist) {
   setCycle(0);
   updateStats(); renderSwitches(); renderLEDs(); renderNets();
   renderLUTSel(); inspectLUT(0);
+  laReset();                               // the logic analyzer starts a fresh recording
 }
 
 // Take the design off the board (after a new synthesis or a failed Place & Route).
 function detachEmu() {
   stopRun();
   emu = null; swState = {};
+  laReset();
   setCycle(0);
   { const nt = document.getElementById('net-tbl'); if (nt) nt.innerHTML = ''; }
   updateStats(); renderSwitches(); renderLEDs();
@@ -1552,7 +1629,7 @@ window.doPnR = function() {
   setStatus('done', 'placed');
   setTimeout(()=>setStatus('','idle'), 1500);
   setNext('run');
-  log('Place & Route done — the design is on the board. Press ▶ Run.', 'ok');
+  log('Place & Route done — the design is on the board. Press ▶ Run. In the Logic analyzer tab, pick the pins to watch.', 'ok');
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -1561,9 +1638,11 @@ window.doPnR = function() {
 window.stepSim = function() {
   if (!emu) { log(synthNl ? 'Not on the board yet — press 📍 Place & Route first.' : 'Press ⚡ Synthesize first.', 'warn'); if (running) stopRun(); return; }
   emu.tick();
+  laSample();
   const c = emu.cycle;
   setCycle(c);
   renderLEDs(); renderNets(); inspectLUT(inspLUT);
+  laRender();
 }
 
 function stopRun() {
@@ -1592,6 +1671,7 @@ window.resetSim = function() {
   emu.reset(swState);                      // flip-flops back to 0; switches stay where they are
   setCycle(0);
   renderLEDs(); renderNets(); inspectLUT(inspLUT);
+  laReset();
   log('— reset —', 'dim');
 }
 
@@ -1662,6 +1742,294 @@ function renderSwitches() {
     });
     c.appendChild(b); c.appendChild(lb); c.appendChild(pn); el.appendChild(c);
   }
+}
+
+// ══════════════════════════════════════════════════════════════
+//  LOGIC ANALYZER
+//  Records every placed pin once per clock cycle and draws the
+//  waveforms of the pins the student has switched on (bottom
+//  panel, next to the Console).
+//    sample 0   = the state at power-up, before the first clock edge
+//    sample k   = the state during clock cycle k (after the k-th rising edge)
+// ══════════════════════════════════════════════════════════════
+const la = {
+  chans: [],        // { name, net, pin, kind: 'clk' | 'in' | 'out' }
+  shown: new Set(), // names of the pins switched on in the pin row (every pin is recorded, shown or not)
+  samples: [],      // one Uint8Array per sample, one value per channel
+  base: 0,          // cycle number of samples[0] (grows when old samples are dropped)
+  max: 4096,        // samples kept
+  span: 32,         // cycles shown
+  pos: null,        // first sample shown; null = follow the newest
+  cursor: null,     // sample under the mouse
+  view: null,       // geometry of the last drawing (for the mouse)
+};
+let bottomMode = 'console';
+
+// Channels of the placed design: clock first, then inputs, then outputs, each by pin number.
+function laReset() {
+  la.chans = []; la.samples = []; la.base = 0; la.pos = null; la.cursor = null;
+  if (emu) {
+    const byPin = (a, b) => a.pin - b.pin;
+    for (const i of emu.inputs.filter(i => i.kind === 'clk')) la.chans.push({ name: i.name, net: i.net, pin: i.pin, kind: 'clk' });
+    for (const i of emu.inputs.filter(i => i.kind !== 'clk').sort(byPin)) la.chans.push({ name: i.name, net: i.net, pin: i.pin, kind: 'in' });
+    for (const o of [...emu.ios].sort(byPin)) la.chans.push({ name: o.name, net: o.net, pin: o.pin, kind: 'out' });
+    // the choice of pins survives a new Place & Route of the same design
+    const names = new Set(la.chans.map(c => c.name));
+    la.shown = new Set([...la.shown].filter(n => names.has(n)));
+    laSample();
+  }
+  laRenderPins();
+  laRender();
+}
+
+// The pin row: one button per placed pin. All start switched off, like probes that are
+// not connected yet; click a pin to show its waveform, click again to hide it.
+function laRenderPins() {
+  const row = document.getElementById('la-pins'); if (!row) return;
+  row.innerHTML = '';
+  if (!la.chans.length) return;
+  const lab = document.createElement('span'); lab.className = 'la-pins-label'; lab.textContent = 'Pins:';
+  row.appendChild(lab);
+  for (const c of la.chans) {
+    const b = document.createElement('button');
+    b.className = 'la-chip la-' + c.kind + (la.shown.has(c.name) ? '' : ' off');
+    b.textContent = c.name;
+    b.title = `pin ${c.pin} — click to ${la.shown.has(c.name) ? 'hide' : 'show'}`;
+    b.addEventListener('click', () => laTogglePin(c.name));
+    row.appendChild(b);
+  }
+}
+function laTogglePin(name) {
+  if (la.shown.has(name)) la.shown.delete(name); else la.shown.add(name);
+  laRenderPins();
+  laRender();
+}
+// A new design starts with no pin selected.
+function laForgetPins() { la.shown.clear(); }
+
+// Take one sample of every channel (called after each clock cycle).
+function laSample() {
+  if (!emu || !la.chans.length) return;
+  const row = new Uint8Array(la.chans.length);
+  la.chans.forEach((c, i) => { row[i] = emu.rd(c.net); });
+  la.samples.push(row);
+  if (la.samples.length > la.max) {
+    la.samples.shift(); la.base++;
+    if (la.pos !== null) la.pos = Math.max(0, la.pos - 1);
+    if (la.cursor !== null) la.cursor = Math.max(0, la.cursor - 1);
+  }
+}
+
+const LA_SPAN0 = 32, LA_SPAN_MIN = 8, LA_SPAN_MAX = 1024;
+
+// Zoom: show `factor` times as many cycles. While the view follows the newest cycle it
+// keeps following; when scrolled back, the cycle at `anchor` (0 = left edge, 1 = right
+// edge of the plot; the mouse position) stays where it is.
+window.laZoom = function(factor, anchor) {
+  const old = la.span;
+  let span = Math.round(old * factor);
+  if (span === old) span += factor > 1 ? 1 : -1;
+  span = Math.max(LA_SPAN_MIN, Math.min(LA_SPAN_MAX, span));
+  if (la.pos !== null) {
+    const a = anchor === undefined ? 0.5 : Math.max(0, Math.min(1, anchor));
+    laPanTo(Math.round(la.pos + a * old - a * span), span);
+    return;
+  }
+  la.span = span;
+  laRender();
+}
+
+// Pan: put sample `start` at the left edge. Reaching the newest cycle resumes following it.
+function laPanTo(start, span) {
+  if (span !== undefined) la.span = span;
+  const maxStart = Math.max(0, la.samples.length - la.span);
+  la.pos = start >= maxStart ? null : Math.max(0, start);
+  laRender();
+}
+
+// Double-click: back to the default zoom, following the newest cycle.
+window.laResetView = function() {
+  la.span = LA_SPAN0; la.pos = null; la.cursor = null;
+  laRender();
+}
+
+function laSetCursor(idx) {
+  const c = (idx === null || idx < 0 || idx >= la.samples.length) ? null : idx;
+  if (c === la.cursor) return;
+  la.cursor = c;
+  laRender();
+}
+
+// Values of the multi-bit ports at one sample, as hex: "led=0x2a  step=0x3"
+function laBuses(row) {
+  const groups = {};
+  la.chans.forEach((c, i) => {
+    const m = c.name.match(/^(.*)\[(\d+)\]$/);
+    if (!m) return;
+    (groups[m[1]] = groups[m[1]] || []).push({ bit: +m[2], v: row[i] });
+  });
+  const out = [];
+  for (const [name, bits] of Object.entries(groups)) {
+    if (bits.length < 2) continue;
+    const lo = Math.min(...bits.map(b => b.bit)), hi = Math.max(...bits.map(b => b.bit));
+    let val = 0;
+    for (const b of bits) val += b.v * 2 ** (b.bit - lo);
+    out.push(`${name}=0x${val.toString(16).padStart(Math.ceil((hi - lo + 1) / 4), '0')}`);
+  }
+  return out.join('  ');
+}
+
+function laRender() {
+  const pane = document.getElementById('la-plot');
+  if (!pane || bottomMode !== 'la') return;
+  const read = document.getElementById('la-read'), spanEl = document.getElementById('la-span');
+  if (spanEl) spanEl.textContent = la.span + ' cycles' + (la.pos === null ? '' : ' · scrolled back');
+  if (!la.chans.length) {
+    pane.innerHTML = '<div class="la-empty">Nothing on the board yet. Synthesize and Place &amp; Route a design, then press Run:<br>every placed pin is recorded here once per clock cycle.</div>';
+    if (read) read.textContent = '';
+    la.view = null;
+    return;
+  }
+  const vis = la.chans.map((c, i) => i).filter(i => la.shown.has(la.chans[i].name));     // channels to draw
+  if (!vis.length) {
+    pane.innerHTML = '<div class="la-empty">No pin is selected. Click the pin names in the row above to show their waveforms.</div>';
+    if (read) read.textContent = la.samples.length > 1 ? `recording: cycle ${la.base + la.samples.length - 1}` : '';
+    la.view = null;
+    return;
+  }
+  const n = la.samples.length, span = la.span;
+  const maxStart = Math.max(0, n - span);
+  const start = la.pos === null ? maxStart : Math.min(la.pos, maxStart);
+
+  const W = Math.max(420, pane.clientWidth || 640), NAMEW = 112, VALW = 20, RH = 20, TOP = 17;
+  const PW = W - NAMEW - VALW - 6, cw = PW / span;
+  const H = TOP + vis.length * RH + 5;
+  const X = i => +(NAMEW + (i - start) * cw).toFixed(1);
+  const end = Math.min(n, start + span);
+  const shown = la.cursor !== null ? la.cursor : n - 1;       // sample whose values are printed
+  la.view = { start, cw, NAMEW, PW };
+
+  let g = '';
+  // time grid: one line per cycle when zoomed in, labelled with the cycle number
+  const step = [1, 2, 4, 5, 8, 10, 16, 20, 32, 50, 64, 100, 128, 200, 256].find(k => k * cw >= 26) || 500;
+  for (let i = start; i <= start + span; i++) {
+    const abs = la.base + i, major = abs % step === 0;
+    if (!major && cw < 6) continue;
+    g += `<line x1="${X(i)}" y1="${TOP - 3}" x2="${X(i)}" y2="${H - 3}" class="${major ? 'la-grid major' : 'la-grid'}"/>`;
+    if (major && i < start + span) g += `<text x="${X(i) + 2}" y="10" class="la-tick">${abs}</text>`;
+  }
+  if (la.cursor !== null && la.cursor >= start && la.cursor < end) {
+    g += `<rect x="${X(la.cursor)}" y="${TOP - 3}" width="${cw.toFixed(1)}" height="${H - TOP}" class="la-cursor"/>`;
+  }
+  vis.forEach((ci, row) => {
+    const c = la.chans[ci];
+    const y0 = TOP + row * RH, yH = y0 + 3, yL = y0 + RH - 5;
+    g += `<text x="4" y="${yL - 1}" class="la-name la-${c.kind}">${c.name}</text>`;
+    g += `<text x="${NAMEW - 6}" y="${yL - 1}" class="la-pin" text-anchor="end">${c.pin}</text>`;
+    let d = '', prev = null;
+    for (let i = start; i < end; i++) {
+      const v = la.samples[i][ci];
+      if (c.kind === 'clk' && la.base + i >= 1) {
+        // the clock itself: high for the first half of every cycle
+        d += (d ? `L${X(i)} ${yL}` : `M${X(i)} ${yL}`) + `V${yH}H${+(X(i) + cw / 2).toFixed(1)}V${yL}H${X(i + 1)}`;
+      } else {
+        const y = v ? yH : yL;
+        d += d ? (prev !== v ? `V${y}` : '') : `M${X(i)} ${y}`;
+        d += `H${X(i + 1)}`;
+      }
+      prev = v;
+    }
+    g += `<path d="${d}" class="la-trace la-${c.kind}" data-ch="${c.name}"/>`;
+    const val = shown >= 0 && shown < n ? la.samples[shown][ci] : '';
+    g += `<text x="${W - 6}" y="${yL - 1}" class="la-val" text-anchor="end">${val}</text>`;
+  });
+  pane.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${g}</svg>`;
+  if (read) {
+    const abs = la.base + shown;
+    const when = la.cursor !== null ? (abs === 0 ? 'power-up' : 'cycle ' + abs) : (abs === 0 ? 'power-up' : 'now: cycle ' + abs);
+    const buses = laBuses(la.samples[shown]);
+    read.textContent = when + (buses ? '   ' + buses : '');
+  }
+}
+
+// Bottom panel: Console or Logic analyzer.
+window.showBottom = function(which) {
+  bottomMode = which === 'la' ? 'la' : 'console';
+  const box = document.getElementById('bottom-box');
+  const set = (id, on) => { const e = document.getElementById(id); if (e) e.style.display = on ? '' : 'none'; };
+  set('log-out', bottomMode === 'console'); set('clear-log-btn', bottomMode === 'console');
+  set('la-pane', bottomMode === 'la');
+  if (box) box.classList.toggle('tall', bottomMode === 'la');
+  applyBottomHeight();                       // each tab keeps the height the user gave it
+  for (const [id, m] of [['btab-console', 'console'], ['btab-la', 'la']]) { const b = document.getElementById(id); if (b) b.classList.toggle('active', m === bottomMode); }
+  laRender();
+}
+
+// Mouse on the plot:  move = read a cycle · wheel = zoom · drag = pan · double-click = reset view
+function laInitMouse() {
+  const pane = document.getElementById('la-plot'); if (!pane) return;
+  let drag = null;
+  const plotX = (e) => { const svg = pane.querySelector('svg'); return svg ? e.clientX - svg.getBoundingClientRect().left - la.view.NAMEW : 0; };
+  pane.addEventListener('mousedown', (e) => {
+    if (e.button !== 0 || !la.view) return;
+    drag = { x: e.clientX, start: la.view.start, moved: false };
+    e.preventDefault();
+  });
+  pane.addEventListener('mousemove', (e) => {
+    if (!la.view) return;
+    if (drag) {
+      const shift = Math.round((drag.x - e.clientX) / la.view.cw);
+      if (shift !== 0 || drag.moved) { drag.moved = true; pane.classList.add('dragging'); la.cursor = null; laPanTo(drag.start + shift); }
+      return;
+    }
+    const px = plotX(e);
+    laSetCursor(px < 0 || px > la.view.PW ? null : la.view.start + Math.floor(px / la.view.cw));
+  });
+  const endDrag = () => { drag = null; pane.classList.remove('dragging'); };
+  pane.addEventListener('mouseup', endDrag);
+  pane.addEventListener('mouseleave', () => { endDrag(); laSetCursor(null); });
+  pane.addEventListener('wheel', (e) => {
+    if (!la.view) return;
+    e.preventDefault();                                    // zoom the plot, do not scroll the page
+    laZoom(e.deltaY > 0 ? 1.25 : 0.8, plotX(e) / la.view.PW);
+  }, { passive: false });
+  pane.addEventListener('dblclick', () => laResetView());
+  window.addEventListener('resize', () => laRender());
+}
+
+// ── Splitter between the editor and the bottom panel ──
+// Drag it up or down to give the Console / Logic analyzer more or less room.
+// Each tab remembers its own height; double-click the bar to go back to the default.
+const bottomH = { console: null, la: null };
+function applyBottomHeight() {
+  const box = document.getElementById('bottom-box'); if (!box) return;
+  const h = bottomH[bottomMode];
+  box.style.height = h === null ? '' : h + 'px';
+  box.style.minHeight = h === null ? '' : '0';
+}
+function initSplitter() {
+  const bar = document.getElementById('h-split'), box = document.getElementById('bottom-box');
+  if (!bar || !box) return;
+  const MIN = 70;
+  let drag = null;
+  bar.addEventListener('mousedown', (e) => {
+    if (e.button !== 0) return;
+    const col = box.parentElement.getBoundingClientRect().height;
+    drag = { y: e.clientY, h: box.getBoundingClientRect().height, max: col > 0 ? Math.max(MIN, col - 110) : Infinity };
+    document.body.classList.add('row-resizing');
+    e.preventDefault();
+  });
+  document.addEventListener('mousemove', (e) => {
+    if (!drag) return;
+    bottomH[bottomMode] = Math.round(Math.max(MIN, Math.min(drag.max, drag.h + (drag.y - e.clientY))));
+    applyBottomHeight();
+  });
+  document.addEventListener('mouseup', () => {
+    if (!drag) return;
+    drag = null; document.body.classList.remove('row-resizing');
+    laRender();
+  });
+  bar.addEventListener('dblclick', () => { bottomH[bottomMode] = null; applyBottomHeight(); laRender(); });
 }
 
 function renderNets() {
@@ -1762,6 +2130,7 @@ function loadExample(name) {
   // An example is a fresh design: two files, name.v and name.cst.
   // Nothing is on the board until you synthesize and place it.
   detachEmu();
+  laForgetPins();
   synthNl = null;
   window.__lastNetlist = null;
   buf   = { verilog: ex.v, cst: ex.cst };
@@ -1795,6 +2164,7 @@ window.newFile = function() {
   const dirty = buf.verilog.trim() || (buf.cst.trim() && buf.cst !== CST_HINT);
   if (dirty && !window.confirm('Start a new design? Text that is not saved will be lost.')) return;
   detachEmu();
+  laForgetPins();
   synthNl = null; window.__lastNetlist = null;
   buf   = { verilog: '', cst: CST_HINT };
   fnBuf = { verilog: 'untitled.v', cst: 'untitled.cst' };
@@ -1826,7 +2196,7 @@ window.openFile = function() {
         const m = /\.(cst|pcf)$/i.test(f.name) ? 'cst' : 'verilog';
         buf[m] = String(r.result);
         fnBuf[m] = m === 'cst' ? f.name.replace(/\.pcf$/i, '.cst') : f.name;
-        if (m === 'verilog') { synthNl = null; window.__lastNetlist = null; detachEmu(); }  // a new design
+        if (m === 'verilog') { synthNl = null; window.__lastNetlist = null; detachEmu(); laForgetPins(); }  // a new design
         else if (emu) { detachEmu(); }                                                     // new pins: place again
         last = m;
         log(`Opened ${f.name} (${f.size} bytes)`, 'ok');
@@ -1898,6 +2268,8 @@ window.showHelp = function() {
 buildExTabs();
 setMode('verilog');
 setNext('synth');
+laInitMouse();
+initSplitter();
 renderLEDs();           // draw the 8 LED slots + the blank 7-segment display immediately
 renderSwitches();       // draw the 8 switch slots (inert until a design is placed on them)
 updateStats();
