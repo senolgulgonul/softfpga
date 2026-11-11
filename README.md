@@ -122,26 +122,30 @@ Run. Editing a file moves it back to the step that has to be redone.
 
 The bottom panel has two tabs, **Console** and **Logic analyzer**. The analyzer
 records every placed pin once per clock cycle while the design runs and draws the
-waveforms: the clock first, then the inputs (green), then the outputs (blue), each
-with its pin number.
+waveforms against time.
 
-- The first sample is the state at power-up, before the first clock edge.
-- The **Pins** row lists every port that has a pin in the `.cst` file. All start
-  switched off, like probes that are not connected yet: click the pins you want
-  to watch, click again to hide one. Every pin is recorded whether shown or not,
-  so a pin picked later shows its whole history. To watch an internal signal,
+- **Pins.** The Pins row lists every port that has a pin in the `.cst` file. All
+  start switched off, like probes that are not connected yet: click the pins you
+  want to watch, click again to hide one. Every pin is recorded whether shown or
+  not, so a pin picked later shows its whole history. To watch an internal signal,
   make it an output and give it a pin.
-- **Mouse wheel** zooms (8 to 1024 cycles; the **−** and **+** buttons do the same).
-  **Drag** pans back through the last 4096 cycles. **Double-click** resets the view.
-  While the view shows the newest cycle it follows the clock; scrolled back, it stays put.
-- Point at a cycle to read the value of every pin in that cycle. Multi-bit ports
-  are also shown as one hex number, for example `step=0x3`.
-- Place & Route starts a new recording.
-- Drag the bar between the editor and the bottom panel up or down to give the
-  waveforms more room; each tab keeps its own height, and a double-click on the
-  bar restores the default. With more pins than fit, the plot scrolls.
-
-If an error is reported while the analyzer is open, the panel switches back to the Console.
+- **Time.** The axis is in seconds since power-up: one cycle of the 10 Hz clock is
+  0.1 s. The clock is drawn as a square wave, high for the first half of each cycle.
+- **Marker.** Click in the plot to place the marker, a vertical line. Its time is
+  shown in the bar (`Marker: 1.60 s`) and the value of every pin at that moment is
+  printed beside its name, as in a waveform viewer. Time is read in 10 ms steps
+  (a tenth of a cycle); near a clock edge the marker snaps onto the edge. Without a
+  marker the values are those of now. Multi-bit ports are also shown as one hex
+  number, for example `step=0x3`.
+- **Mouse.** Scroll zooms (0.2 s to 102 s shown; the **−** and **+** buttons do the
+  same), drag pans back through the last 4096 cycles, double-click resets the view
+  and removes the marker. While the view shows the newest cycle it follows the
+  clock; scrolled back, it stays put.
+- **Size.** Drag the bar between the editor and the bottom panel up or down to
+  give the waveforms more room; each tab keeps its own height, and a double-click
+  on the bar restores the default. With more pins than fit, the plot scrolls.
+- Place & Route starts a new recording. If an error is reported while the analyzer
+  is open, the panel switches back to the Console.
 
 ---
 
@@ -293,7 +297,7 @@ The board clock is 10 Hz; designs that divide a MHz clock need a smaller divider
   title   = {softfpga: A browser-based iCE40 FPGA emulator},
   year    = {2026},
   url     = {https://github.com/senolgulgonul/softfpga},
-  version = {2.17}
+  version = {2.19}
 }
 ```
 

@@ -253,8 +253,8 @@ button.btab.active { color: var(--ink2); background: var(--panel2); border-color
   border-bottom: 1px solid var(--frame2); font-family: var(--mono); font-size: 11px; color: var(--ink2);
 }
 .la-bar button { font-size: 11px; padding: 1px 8px; min-width: 24px; }
-.la-span { min-width: 74px; color: var(--muted); white-space: nowrap; }
-.la-hint { color: #aab; white-space: nowrap; }
+.la-span { min-width: 92px; color: var(--muted); white-space: nowrap; }
+.la-hint { flex: 1; min-width: 0; color: #aab; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: right; }   /* the hint gives way first */
 .la-pins {
   display: flex; flex-wrap: wrap; align-items: center; gap: 3px; padding: 4px 8px; flex-shrink: 0;
   border-bottom: 1px solid var(--frame2); font-family: var(--mono); font-size: 10.5px;
@@ -269,7 +269,7 @@ button.la-chip.la-in  { border-color: var(--green); background: #e2f3e8; color: 
 button.la-chip.la-clk { border-color: #9aa0ab; background: #eceef1; color: #4a505c; }
 button.la-chip.off, button.la-chip.off:hover { border-color: var(--frame); background: var(--panel2); color: #b0b5be; font-weight: 400; text-decoration: line-through; }
 button.la-chip:hover { filter: brightness(.96); }
-.la-read { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.la-read { flex: none; white-space: nowrap; color: #15191f; font-weight: 600; }   /* the marker time is never cut off */
 .la-plot { flex: 1; min-height: 0; overflow: auto; cursor: crosshair; user-select: none; }
 .la-plot.dragging { cursor: grabbing; }
 .la-plot svg { display: block; font-family: var(--mono); }
@@ -278,13 +278,14 @@ button.la-chip:hover { filter: brightness(.96); }
 .la-grid.major { stroke: #dfe3e9; }
 .la-tick { font-size: 8.5px; fill: var(--muted); }
 .la-name { font-size: 10.5px; fill: var(--ink); }
-.la-pin  { font-size: 8.5px; fill: var(--muted); }
-.la-val  { font-size: 10.5px; fill: var(--ink2); font-weight: 600; }
+.la-pin  { font-size: 8px; fill: #a4aab5; }
+.la-val  { font-size: 11px; fill: var(--ink); font-weight: 700; }
 .la-trace { fill: none; stroke-width: 1.6; stroke-linejoin: miter; }
 path.la-out { stroke: var(--blue); }
 path.la-in  { stroke: var(--green); }
 path.la-clk { stroke: #8a909c; stroke-width: 1.2; }
-.la-cursor { fill: rgba(31,111,212,.10); }
+.la-mark { stroke: #15191f; stroke-width: 1.2; }
+.la-mark-head { fill: #15191f; }
 /* file tabs above the editor: the design (.v) and its constraints (.cst) */
 .file-tabs {
   display: flex; align-items: flex-end; gap: 3px; padding: 6px 8px 0;
@@ -361,7 +362,7 @@ button.file-tab.active {
 
 <header>
   <div class="logo">soft<span>fpga</span></div>
-  <span class="ver">v2.17</span>
+  <span class="ver">v2.19</span>
   <span style="font-size:11px;color:var(--muted)"><span class="status-dot" id="sdot"></span><span id="stxt">idle</span></span>
 </header>
 
@@ -410,9 +411,9 @@ button.file-tab.active {
         <div class="la-bar">
           <button onclick="laZoom(2)" title="Zoom out: show twice as many cycles">−</button>
           <button onclick="laZoom(0.5)" title="Zoom in: show half as many cycles">+</button>
-          <span id="la-span" class="la-span">32 cycles</span>
+          <span id="la-span" class="la-span">3.20 s shown</span>
           <span id="la-read" class="la-read"></span>
-          <span class="la-hint">wheel: zoom · drag: pan · double-click: reset</span>
+          <span class="la-hint">scroll = zoom · drag = pan · click = marker · double-click = reset</span>
         </div>
         <div class="la-pins" id="la-pins"></div>
         <div class="la-plot" id="la-plot"></div>
@@ -1760,14 +1761,14 @@ const la = {
   max: 4096,        // samples kept
   span: 32,         // cycles shown
   pos: null,        // first sample shown; null = follow the newest
-  cursor: null,     // sample under the mouse
+  mark: null,       // the time marker, in tenths of a cycle since power-up (10 ms steps at 10 Hz); null = none
   view: null,       // geometry of the last drawing (for the mouse)
 };
 let bottomMode = 'console';
 
 // Channels of the placed design: clock first, then inputs, then outputs, each by pin number.
 function laReset() {
-  la.chans = []; la.samples = []; la.base = 0; la.pos = null; la.cursor = null;
+  la.chans = []; la.samples = []; la.base = 0; la.pos = null; la.mark = null;
   if (emu) {
     const byPin = (a, b) => a.pin - b.pin;
     for (const i of emu.inputs.filter(i => i.kind === 'clk')) la.chans.push({ name: i.name, net: i.net, pin: i.pin, kind: 'clk' });
@@ -1816,11 +1817,10 @@ function laSample() {
   if (la.samples.length > la.max) {
     la.samples.shift(); la.base++;
     if (la.pos !== null) la.pos = Math.max(0, la.pos - 1);
-    if (la.cursor !== null) la.cursor = Math.max(0, la.cursor - 1);
   }
 }
 
-const LA_SPAN0 = 32, LA_SPAN_MIN = 8, LA_SPAN_MAX = 1024;
+const LA_SPAN0 = 32, LA_SPAN_MIN = 2, LA_SPAN_MAX = 1024;
 
 // Zoom: show `factor` times as many cycles. While the view follows the newest cycle it
 // keeps following; when scrolled back, the cycle at `anchor` (0 = left edge, 1 = right
@@ -1847,17 +1847,44 @@ function laPanTo(start, span) {
   laRender();
 }
 
-// Double-click: back to the default zoom, following the newest cycle.
+// Double-click: back to the default zoom, following the newest cycle, marker removed.
 window.laResetView = function() {
-  la.span = LA_SPAN0; la.pos = null; la.cursor = null;
+  la.span = LA_SPAN0; la.pos = null; la.mark = null;
   laRender();
 }
 
-function laSetCursor(idx) {
-  const c = (idx === null || idx < 0 || idx >= la.samples.length) ? null : idx;
-  if (c === la.cursor) return;
-  la.cursor = c;
+// ── time ──
+// One clock cycle lasts 1 / CLOCK_HZ seconds (0.1 s at 10 Hz). The marker is placed in
+// tenths of a cycle, so a time is read with a resolution of 10 ms.
+const LA_SUB = 10;
+const laSec = (tenths) => tenths / LA_SUB / CLOCK_HZ;
+function laFmt(sec) {
+  const a = Math.abs(sec);
+  if (a === 0) return '0 s';
+  if (a < 1) return Math.round(sec * 1000) + ' ms';
+  return sec.toFixed(2) + ' s';
+}
+
+// Click: put the time marker (one vertical line, as in VeriSim) at the mouse.
+// Near a clock edge (start or middle of a cycle) the marker snaps onto the edge.
+function laPlaceMark(px) {
+  const v = la.view; if (!v) return;
+  const total = (la.base + la.samples.length) * LA_SUB;                 // end of the recording
+  let t = (la.base + v.start) * LA_SUB + px / v.cw * LA_SUB;
+  const edge = Math.round(t / (LA_SUB / 2)) * (LA_SUB / 2);
+  t = Math.abs(edge - t) / LA_SUB * v.cw <= 4 ? edge : Math.round(t);
+  t = Math.max(la.base * LA_SUB, Math.min(total, t));
+  la.mark = t;
   laRender();
+}
+
+// Value of channel ci at a time given in tenths of a cycle.
+function laValueAt(ci, tenths) {
+  const n = la.samples.length;
+  const cyc = Math.floor(tenths / LA_SUB);
+  const i = Math.max(0, Math.min(n - 1, cyc - la.base));
+  if (la.chans[ci].kind === 'clk') return cyc >= 1 && cyc - la.base < n && tenths % LA_SUB < LA_SUB / 2 ? 1 : 0;
+  return la.samples[i][ci];
 }
 
 // Values of the multi-bit ports at one sample, as hex: "led=0x2a  step=0x3"
@@ -1883,49 +1910,58 @@ function laRender() {
   const pane = document.getElementById('la-plot');
   if (!pane || bottomMode !== 'la') return;
   const read = document.getElementById('la-read'), spanEl = document.getElementById('la-span');
-  if (spanEl) spanEl.textContent = la.span + ' cycles' + (la.pos === null ? '' : ' · scrolled back');
+  if (spanEl) spanEl.textContent = laFmt(la.span / CLOCK_HZ) + ' shown' + (la.pos === null ? '' : ' · scrolled back');
   if (!la.chans.length) {
     pane.innerHTML = '<div class="la-empty">Nothing on the board yet. Synthesize and Place &amp; Route a design, then press Run:<br>every placed pin is recorded here once per clock cycle.</div>';
     if (read) read.textContent = '';
     la.view = null;
     return;
   }
+  const n = la.samples.length, span = la.span;
+  const nowT = (la.base + n - 1) * LA_SUB;                              // start of the newest cycle
   const vis = la.chans.map((c, i) => i).filter(i => la.shown.has(la.chans[i].name));     // channels to draw
   if (!vis.length) {
     pane.innerHTML = '<div class="la-empty">No pin is selected. Click the pin names in the row above to show their waveforms.</div>';
-    if (read) read.textContent = la.samples.length > 1 ? `recording: cycle ${la.base + la.samples.length - 1}` : '';
+    if (read) read.textContent = n > 1 ? `recording: ${laFmt(laSec(nowT))}` : '';
     la.view = null;
     return;
   }
-  const n = la.samples.length, span = la.span;
   const maxStart = Math.max(0, n - span);
   const start = la.pos === null ? maxStart : Math.min(la.pos, maxStart);
 
-  const W = Math.max(420, pane.clientWidth || 640), NAMEW = 112, VALW = 20, RH = 20, TOP = 17;
-  const PW = W - NAMEW - VALW - 6, cw = PW / span;
+  const W = Math.max(420, pane.clientWidth || 640), NAMEW = 128, RH = 20, TOP = 19;
+  const PW = W - NAMEW - 10, cw = PW / span;
   const H = TOP + vis.length * RH + 5;
-  const X = i => +(NAMEW + (i - start) * cw).toFixed(1);
+  const X = i => +(NAMEW + (i - start) * cw).toFixed(1);               // x of the start of sample i
+  const XT = t => +(NAMEW + (t / LA_SUB - la.base - start) * cw).toFixed(1);   // x of a time in tenths
   const end = Math.min(n, start + span);
-  const shown = la.cursor !== null ? la.cursor : n - 1;       // sample whose values are printed
   la.view = { start, cw, NAMEW, PW };
 
   let g = '';
-  // time grid: one line per cycle when zoomed in, labelled with the cycle number
-  const step = [1, 2, 4, 5, 8, 10, 16, 20, 32, 50, 64, 100, 128, 200, 256].find(k => k * cw >= 26) || 500;
+  // time axis: seconds since power-up; one faint line per cycle, 10 ms ticks when zoomed in
+  const step = [1, 2, 5, 10, 20, 50, 100, 200, 500].find(k => k * cw >= 38) || 1000;
+  const dec = step % CLOCK_HZ === 0 ? 0 : Math.ceil(Math.log10(CLOCK_HZ));
   for (let i = start; i <= start + span; i++) {
     const abs = la.base + i, major = abs % step === 0;
-    if (!major && cw < 6) continue;
-    g += `<line x1="${X(i)}" y1="${TOP - 3}" x2="${X(i)}" y2="${H - 3}" class="${major ? 'la-grid major' : 'la-grid'}"/>`;
-    if (major && i < start + span) g += `<text x="${X(i) + 2}" y="10" class="la-tick">${abs}</text>`;
+    if (major || cw >= 6) g += `<line x1="${X(i)}" y1="${TOP - 4}" x2="${X(i)}" y2="${H - 3}" class="${major ? 'la-grid major' : 'la-grid'}"/>`;
+    if (major && i < start + span) g += `<text x="${X(i) + 2}" y="${TOP - 7}" class="la-tick">${(abs / CLOCK_HZ).toFixed(dec)} s</text>`;
+    if (cw >= 80 && i < start + span) for (let k = 1; k < LA_SUB; k++) {
+      const x = +(X(i) + k * cw / LA_SUB).toFixed(1);
+      g += `<line x1="${x}" y1="${TOP - 4}" x2="${x}" y2="${TOP - (k === LA_SUB / 2 ? -1 : 1)}" class="la-grid major"/>`;
+    }
   }
-  if (la.cursor !== null && la.cursor >= start && la.cursor < end) {
-    g += `<rect x="${X(la.cursor)}" y="${TOP - 3}" width="${cw.toFixed(1)}" height="${H - TOP}" class="la-cursor"/>`;
+  // the time marker: one vertical line; the values at it are printed beside the names
+  if (la.mark !== null && XT(la.mark) >= NAMEW - 0.5 && XT(la.mark) <= NAMEW + PW + 0.5) {
+    const mx = XT(la.mark);
+    g += `<line x1="${mx}" y1="${TOP - 5}" x2="${mx}" y2="${H - 3}" class="la-mark"/>`;
+    g += `<path d="M${mx - 4} ${TOP - 10}H${mx + 4}L${mx} ${TOP - 4}Z" class="la-mark-head"/>`;
   }
+  const valT = la.mark !== null ? la.mark : nowT;                       // no marker: the values of now
   vis.forEach((ci, row) => {
     const c = la.chans[ci];
     const y0 = TOP + row * RH, yH = y0 + 3, yL = y0 + RH - 5;
-    g += `<text x="4" y="${yL - 1}" class="la-name la-${c.kind}">${c.name}</text>`;
-    g += `<text x="${NAMEW - 6}" y="${yL - 1}" class="la-pin" text-anchor="end">${c.pin}</text>`;
+    g += `<text x="4" y="${yL - 1}" class="la-name la-${c.kind}">${c.name}<tspan class="la-pin" dx="5">${c.pin}</tspan></text>`;
+    g += `<text x="${NAMEW - 9}" y="${yL - 1}" class="la-val" text-anchor="end">${laValueAt(ci, valT)}</text>`;
     let d = '', prev = null;
     for (let i = start; i < end; i++) {
       const v = la.samples[i][ci];
@@ -1940,15 +1976,13 @@ function laRender() {
       prev = v;
     }
     g += `<path d="${d}" class="la-trace la-${c.kind}" data-ch="${c.name}"/>`;
-    const val = shown >= 0 && shown < n ? la.samples[shown][ci] : '';
-    g += `<text x="${W - 6}" y="${yL - 1}" class="la-val" text-anchor="end">${val}</text>`;
   });
   pane.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${g}</svg>`;
   if (read) {
-    const abs = la.base + shown;
-    const when = la.cursor !== null ? (abs === 0 ? 'power-up' : 'cycle ' + abs) : (abs === 0 ? 'power-up' : 'now: cycle ' + abs);
-    const buses = laBuses(la.samples[shown]);
-    read.textContent = when + (buses ? '   ' + buses : '');
+    const txt = la.mark !== null ? 'Marker: ' + laFmt(laSec(la.mark)) : 'now ' + laFmt(laSec(nowT));
+    const i = Math.max(0, Math.min(n - 1, Math.floor(valT / LA_SUB) - la.base));
+    const buses = laBuses(la.samples[i]);
+    read.textContent = txt + (buses ? '   ' + buses : '');
   }
 }
 
@@ -1965,29 +1999,30 @@ window.showBottom = function(which) {
   laRender();
 }
 
-// Mouse on the plot:  move = read a cycle · wheel = zoom · drag = pan · double-click = reset view
+// Mouse on the plot:  click = marker · wheel = zoom · drag = pan · double-click = reset
 function laInitMouse() {
   const pane = document.getElementById('la-plot'); if (!pane) return;
-  let drag = null;
+  let drag = null, dragged = false;
   const plotX = (e) => { const svg = pane.querySelector('svg'); return svg ? e.clientX - svg.getBoundingClientRect().left - la.view.NAMEW : 0; };
   pane.addEventListener('mousedown', (e) => {
     if (e.button !== 0 || !la.view) return;
     drag = { x: e.clientX, start: la.view.start, moved: false };
+    dragged = false;
     e.preventDefault();
   });
   pane.addEventListener('mousemove', (e) => {
-    if (!la.view) return;
-    if (drag) {
-      const shift = Math.round((drag.x - e.clientX) / la.view.cw);
-      if (shift !== 0 || drag.moved) { drag.moved = true; pane.classList.add('dragging'); la.cursor = null; laPanTo(drag.start + shift); }
-      return;
-    }
-    const px = plotX(e);
-    laSetCursor(px < 0 || px > la.view.PW ? null : la.view.start + Math.floor(px / la.view.cw));
+    if (!la.view || !drag) return;
+    const shift = Math.round((drag.x - e.clientX) / la.view.cw);
+    if (shift !== 0 || drag.moved) { drag.moved = true; dragged = true; pane.classList.add('dragging'); laPanTo(drag.start + shift); }
   });
   const endDrag = () => { drag = null; pane.classList.remove('dragging'); };
   pane.addEventListener('mouseup', endDrag);
-  pane.addEventListener('mouseleave', () => { endDrag(); laSetCursor(null); });
+  pane.addEventListener('mouseleave', endDrag);
+  pane.addEventListener('click', (e) => {
+    if (!la.view || dragged) { dragged = false; return; }               // the end of a pan is not a click
+    const px = plotX(e);
+    if (px >= 0 && px <= la.view.PW) laPlaceMark(px);
+  });
   pane.addEventListener('wheel', (e) => {
     if (!la.view) return;
     e.preventDefault();                                    // zoom the plot, do not scroll the page
