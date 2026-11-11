@@ -97,7 +97,7 @@ A clock on a switch pin works: each flip of the switch is a clock edge.
 
 The toolbar follows the order of the work:
 
-**Examples · New · Open · Save │ Synthesize · Place & Route · Run · Schematic ··· Help**
+**Examples · New · Open · Save │ Synthesize · Place & Route · Run ··· Help**
 
 1. Pick a design from **Examples**, or press **New** and write your own. **Open**
    takes a `.v` file, a `.cst` file, or both at once.
@@ -113,14 +113,14 @@ The toolbar follows the order of the work:
 The blue button is always the next step: Synthesize, then Place & Route, then
 Run. Editing a file moves it back to the step that has to be redone.
 
-**Schematic** shows the synthesized circuit: LUTs, flip-flops and the ports
-(with their pins once placed). **Save** writes the file of the open tab.
+**Save** writes the file of the open tab. The bottom panel has three tabs:
+**Console**, **Logic analyzer** and **Schematic**.
 
 ---
 
 ## Logic analyzer
 
-The bottom panel has two tabs, **Console** and **Logic analyzer**. The analyzer
+The analyzer
 records every placed pin once per clock cycle while the design runs and draws the
 waveforms against time.
 
@@ -146,6 +146,22 @@ waveforms against time.
   on the bar restores the default. With more pins than fit, the plot scrolls.
 - Place & Route starts a new recording. If an error is reported while the analyzer
   is open, the panel switches back to the Console.
+
+---
+
+## Schematic
+
+The **Schematic** tab of the bottom panel draws the circuit that synthesis made of
+your design, the same way VeriSim does:
+
+- **Gates** — AND, OR and NOT gates and flip-flops.
+- **RTL** — word-level blocks (adders, comparators, multiplexers, registers), with
+  the module hierarchy kept.
+
+Scroll zooms, drag pans, double-click fits the drawing into the panel. The drawing
+is made after each successful Synthesize; the bar shows how many cells of each
+kind the circuit has. The emulator itself still runs the design on iCE40 LUT4s and
+flip-flops; the schematic is a readable view of the same logic.
 
 ---
 
@@ -240,6 +256,8 @@ transmit and receive, memories, arithmetic, asynchronous resets and a small CPU.
 softfpga/
 ├── index.html          ← the app: HTML, CSS, JS in one file, no build step
 ├── yosys-0.50.857.js   ← Yosys (YoWASP build), packed; loaded when Synthesize is pressed
+├── elk.bundled.js      ← ELK graph layout, used by the Schematic tab
+├── netlistsvg.bundle.js← netlistsvg, draws the Schematic tab
 ├── README.md
 ├── _headers            ← Cross-origin headers (Cloudflare Pages)
 ├── netlify.toml        ← Cross-origin headers (Netlify)
@@ -253,8 +271,10 @@ straight from disk. The release is fixed on purpose: the latest YoWASP build has
 grown to 79 MB and changes without notice, and 0.50.857 is the one the engine was
 verified with.
 
-Keep the two files together. If `yosys-0.50.857.js` is missing, softfpga says so
-in the console and downloads the same release from the jsDelivr CDN instead.
+Keep the four files together (`index.html`, `yosys-0.50.857.js`, `elk.bundled.js`,
+`netlistsvg.bundle.js`). If `yosys-0.50.857.js` is missing, softfpga says so in the
+console and downloads the same release from the jsDelivr CDN instead. Without the
+other two, everything works except the Schematic tab.
 
 ---
 
@@ -277,7 +297,7 @@ The board clock is 10 Hz; designs that divide a MHz clock need a smaller divider
 - [x] LUT4 + full SB_DFF family (up to 5280 LUTs)
 - [x] Constraint file and Place & Route step
 - [x] Virtual board: 8 switches, 8 LEDs, 7-segment digit, clock
-- [x] Schematic of the synthesized circuit
+- [x] Schematic of the synthesized circuit, as gates or RTL
 - [x] Two-file designs (`.v` + `.cst`): new, open, save
 - [ ] UART terminal on two board pins
 - [ ] Waveform (VCD) export
@@ -297,7 +317,7 @@ The board clock is 10 Hz; designs that divide a MHz clock need a smaller divider
   title   = {softfpga: A browser-based iCE40 FPGA emulator},
   year    = {2026},
   url     = {https://github.com/senolgulgonul/softfpga},
-  version = {2.19}
+  version = {2.20}
 }
 ```
 
@@ -307,7 +327,11 @@ The board clock is 10 Hz; designs that divide a MHz clock need a smaller divider
 
 softfpga uses [Yosys](https://yosyshq.net/yosys/) for synthesis, via the
 [YoWASP](https://yowasp.org/) WebAssembly build. Yosys is developed by
-Claire Xenia Wolf and the YosysHQ team.
+Claire Xenia Wolf and the YosysHQ team (ISC license).
+
+The Schematic tab is drawn by [netlistsvg](https://github.com/nturley/netlistsvg)
+by Neil Turley (MIT license) with the [ELK](https://github.com/kieler/elkjs) layout
+engine (EPL-2.0).
 
 ---
 

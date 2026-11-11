@@ -286,6 +286,15 @@ path.la-in  { stroke: var(--green); }
 path.la-clk { stroke: #8a909c; stroke-width: 1.2; }
 .la-mark { stroke: #15191f; stroke-width: 1.2; }
 .la-mark-head { fill: #15191f; }
+/* schematic tab */
+.syn-seg { display: inline-flex; border: 1px solid var(--frame); border-radius: 5px; overflow: hidden; flex-shrink: 0; }
+.syn-seg button { border: none; border-radius: 0; background: var(--panel2); color: var(--ink2); font-family: var(--mono); font-size: 11px; padding: 2px 11px; min-width: 0; box-shadow: none; }
+.syn-seg button.on, .syn-seg button.on:hover { background: var(--blue); color: #fff; }
+.syn-area { flex: 1; min-height: 0; overflow: hidden; position: relative; background: #fff; cursor: grab; }
+.syn-area.dragging { cursor: grabbing; }
+.syn-area svg { display: block; user-select: none; }
+.syn-empty { padding: 26px 20px; color: var(--muted); font-size: 12px; line-height: 1.7; cursor: default; }
+.syn-empty pre { white-space: pre-wrap; margin: 6px 0; font-family: var(--mono); font-size: 11px; color: var(--red); }
 /* file tabs above the editor: the design (.v) and its constraints (.cst) */
 .file-tabs {
   display: flex; align-items: flex-end; gap: 3px; padding: 6px 8px 0;
@@ -362,7 +371,7 @@ button.file-tab.active {
 
 <header>
   <div class="logo">soft<span>fpga</span></div>
-  <span class="ver">v2.19</span>
+  <span class="ver">v2.20</span>
   <span style="font-size:11px;color:var(--muted)"><span class="status-dot" id="sdot"></span><span id="stxt">idle</span></span>
 </header>
 
@@ -380,7 +389,6 @@ button.file-tab.active {
   <button class="primary" id="compile-btn" onclick="doCompile()">⚡ Synthesize</button>
   <button id="pnr-btn" onclick="doPnR()">📍 Place &amp; Route</button>
   <button id="run-btn" class="run-btn" onclick="toggleRun()">▶ Run</button>
-  <button id="tab-schematic" onclick="openSchematic()">◫ Schematic</button>
   <div class="tb-spacer"></div>
   <button onclick="showHelp()">❓ Help</button>
 </div>
@@ -405,6 +413,7 @@ button.file-tab.active {
         <span class="btabs">
           <button class="btab active" id="btab-console" onclick="showBottom('console')">Console</button>
           <button class="btab" id="btab-la" onclick="showBottom('la')">Logic analyzer</button>
+          <button class="btab" id="btab-syn" onclick="showBottom('syn')">Schematic</button>
         </span>
       </div>
       <div class="la-pane" id="la-pane" style="display:none">
@@ -417,6 +426,14 @@ button.file-tab.active {
         </div>
         <div class="la-pins" id="la-pins"></div>
         <div class="la-plot" id="la-plot"></div>
+      </div>
+      <div class="la-pane" id="syn-pane" style="display:none">
+        <div class="la-bar">
+          <span class="syn-seg"><button id="syn-gates" class="on" onclick="synSetMode('gates')" title="AND / OR / NOT gates and flip-flops">Gates</button><button id="syn-rtl" onclick="synSetMode('rtl')" title="Word-level blocks: adders, muxes, registers">RTL</button></span>
+          <span id="syn-stat" class="la-read"></span>
+          <span class="la-hint">scroll = zoom · drag = pan · double-click = fit</span>
+        </div>
+        <div class="syn-area" id="syn-area"></div>
       </div>
       <div class="log-out" id="log-out">
         <div class="dim">// softfpga — write the design (.v) and its pins (.cst), then ⚡ Synthesize → 📍 Place &amp; Route → ▶ Run</div>
@@ -1562,6 +1579,7 @@ window.doCompile = async function() {
   if (!src) { log(`${fnBuf.verilog} is empty — write a design or pick an example.`, 'warn'); return; }
   detachEmu();
   synthNl = null; window.__lastNetlist = null;
+  synSetSource(null);
   setStatus('compiling');
   document.getElementById('compile-btn').disabled = true;
 
@@ -1575,6 +1593,7 @@ window.doCompile = async function() {
     }
     if (netlist.luts.length > 5280) throw new Error(`LUT count ${netlist.luts.length} > 5280 (iCE40UP5K)`);
     synthNl = netlist;
+    synSetSource(src);                       // the Schematic tab draws this design
     window.__lastNetlist = netlist;
     setStatus('done', 'synthesized');
     setTimeout(()=>setStatus('','idle'), 1500);
@@ -1988,15 +2007,16 @@ function laRender() {
 
 // Bottom panel: Console or Logic analyzer.
 window.showBottom = function(which) {
-  bottomMode = which === 'la' ? 'la' : 'console';
+  bottomMode = which === 'la' ? 'la' : which === 'syn' ? 'syn' : 'console';
   const box = document.getElementById('bottom-box');
   const set = (id, on) => { const e = document.getElementById(id); if (e) e.style.display = on ? '' : 'none'; };
   set('log-out', bottomMode === 'console'); set('clear-log-btn', bottomMode === 'console');
-  set('la-pane', bottomMode === 'la');
-  if (box) box.classList.toggle('tall', bottomMode === 'la');
+  set('la-pane', bottomMode === 'la'); set('syn-pane', bottomMode === 'syn');
+  if (box) box.classList.toggle('tall', bottomMode !== 'console');
   applyBottomHeight();                       // each tab keeps the height the user gave it
-  for (const [id, m] of [['btab-console', 'console'], ['btab-la', 'la']]) { const b = document.getElementById(id); if (b) b.classList.toggle('active', m === bottomMode); }
+  for (const [id, m] of [['btab-console', 'console'], ['btab-la', 'la'], ['btab-syn', 'syn']]) { const b = document.getElementById(id); if (b) b.classList.toggle('active', m === bottomMode); }
   laRender();
+  synRender();
 }
 
 // Mouse on the plot:  click = marker · wheel = zoom · drag = pan · double-click = reset
@@ -2035,7 +2055,7 @@ function laInitMouse() {
 // ── Splitter between the editor and the bottom panel ──
 // Drag it up or down to give the Console / Logic analyzer more or less room.
 // Each tab remembers its own height; double-click the bar to go back to the default.
-const bottomH = { console: null, la: null };
+const bottomH = { console: null, la: null, syn: null };
 function applyBottomHeight() {
   const box = document.getElementById('bottom-box'); if (!box) return;
   const h = bottomH[bottomMode];
@@ -2063,8 +2083,141 @@ function initSplitter() {
     if (!drag) return;
     drag = null; document.body.classList.remove('row-resizing');
     laRender();
+    if (bottomMode === 'syn') synFit();
   });
   bar.addEventListener('dblclick', () => { bottomH[bottomMode] = null; applyBottomHeight(); laRender(); });
+}
+
+// ══════════════════════════════════════════════════════════════
+//  SCHEMATIC  (bottom panel, next to the Logic analyzer)
+//  The synthesized circuit, drawn the way VeriSim draws it:
+//    Gates  AND / OR / NOT gates and flip-flops
+//    RTL    word-level blocks (adders, muxes, registers), hierarchy kept
+//  Yosys produces the netlist; netlistsvg + ELK lay it out.
+//  scroll = zoom · drag = pan · double-click = fit
+// ══════════════════════════════════════════════════════════════
+// Run as a script file: Yosys 0.50 splits a -p command line at the comma in "AND,OR".
+const SYN_VIEW = {
+  gates: 'read_verilog design.v\nsynth -auto-top -flatten\ndelete t:$scopeinfo\nabc -g AND,OR\nopt_clean\nwrite_json out.json\n',
+  rtl:   'read_verilog design.v\nprep -auto-top\nwrite_json out.json\n',
+};
+const syn = {
+  mode: 'gates',
+  src: null,                        // the Verilog of the last successful synthesis
+  cache: { gates: null, rtl: null },// drawing per mode: { svg, stat } or { error }
+  busy: false,
+  svg: null, z: 1, px: 0, py: 0,    // pan / zoom state
+};
+
+// Called by Synthesize: a new source (or null when there is none).
+function synSetSource(src) {
+  syn.src = src || null;
+  syn.cache = { gates: null, rtl: null };
+  if (bottomMode === 'syn') synRender();
+}
+window.synSetMode = function(m) {
+  syn.mode = m === 'rtl' ? 'rtl' : 'gates';
+  synRender();
+}
+
+function synEmpty(html) {
+  const area = document.getElementById('syn-area'); if (area) area.innerHTML = '<div class="syn-empty">' + html + '</div>';
+  syn.svg = null;
+}
+function synStat(t) { const e = document.getElementById('syn-stat'); if (e) e.textContent = t; }
+const synEsc = (t) => String(t).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+
+// pan + zoom (CSS transform on the drawing)
+function synApply() { if (syn.svg) syn.svg.style.transform = `translate(${syn.px}px,${syn.py}px) scale(${syn.z})`; }
+function synFit() {
+  if (!syn.svg) return;
+  const area = document.getElementById('syn-area');
+  const aw = area.clientWidth || 600, ah = area.clientHeight || 240;
+  const sw = parseFloat(syn.svg.getAttribute('width')) || aw, sh = parseFloat(syn.svg.getAttribute('height')) || ah;
+  syn.z = Math.min((aw - 24) / sw, (ah - 24) / sh, 1) || 1;
+  syn.px = Math.max(12, (aw - sw * syn.z) / 2); syn.py = 12;
+  synApply();
+}
+function synShow(res) {
+  const area = document.getElementById('syn-area'); if (!area) return;
+  if (res.error) { synEmpty('<b>Schematic error</b><pre>' + synEsc(res.error) + '</pre>'); synStat(''); return; }
+  area.innerHTML = res.svg;
+  syn.svg = area.querySelector('svg');
+  if (syn.svg) { syn.svg.style.transformOrigin = '0 0'; synFit(); }
+  synStat(res.stat);
+}
+
+async function synRender() {
+  if (bottomMode !== 'syn') return;
+  for (const [id, m] of [['syn-gates', 'gates'], ['syn-rtl', 'rtl']]) { const b = document.getElementById(id); if (b) b.classList.toggle('on', m === syn.mode); }
+  if (!syn.src) {
+    synEmpty('Press <b>⚡ Synthesize</b> to see the circuit of your design here, as gates or as RTL blocks.');
+    synStat('');
+    return;
+  }
+  const mode = syn.mode, src = syn.src;
+  if (syn.cache[mode]) { synShow(syn.cache[mode]); return; }
+  if (syn.busy) return;                                      // the running job re-checks when it ends
+  syn.busy = true;
+  synStat('drawing…');
+  let res, logBuf = '';
+  try {
+    if (typeof ELK === 'undefined') await loadScript('elk.bundled.js');
+    if (typeof netlistsvg === 'undefined') await loadScript('netlistsvg.bundle.js');
+    const run = await loadYosys();
+    while (synBusy) await new Promise(r => setTimeout(r, 60));          // wait for a synthesis that is running
+    synBusy = true;
+    let out;
+    try {
+      out = await run(['-q', '-s', 'view.ys'],
+        { 'design.v': new TextEncoder().encode(sanitize(src)), 'view.ys': SYN_VIEW[mode] },
+        { stdout: x => { logBuf += synBytesToStr(x); }, stderr: x => { logBuf += synBytesToStr(x); } });
+    } finally { synBusy = false; }
+    const raw = out && out['out.json'];
+    if (!raw) throw new Error('no netlist produced');
+    const netlist = JSON.parse(synBytesToStr(raw));
+    // cell summary, as in VeriSim
+    const cells = {}; let latch = false;
+    for (const mn in (netlist.modules || {})) {
+      const cs = netlist.modules[mn].cells || {};
+      for (const cn in cs) {
+        const ty = cs[cn].type || ''; if (/scopeinfo/i.test(ty)) continue;
+        if (/dlatch/i.test(ty)) latch = true;
+        const t = ty.replace(/^\$_?/, '').replace(/_$/, ''); cells[t] = (cells[t] || 0) + 1;
+      }
+    }
+    const summary = Object.entries(cells).sort().map(([k, v]) => v + '×' + k).join('  ');
+    // netlistsvg changes its input, so it gets a copy
+    const svg = await netlistsvg.render(netlistsvg.digitalSkin, JSON.parse(JSON.stringify(netlist)));
+    res = { svg, stat: (mode === 'gates' ? 'Gates' : 'RTL') + (summary ? '  ·  ' + summary : '  ·  wires only') + (latch ? '   ⚠ latch inferred — check for a missing else/default' : '') };
+  } catch (e) {
+    const lines = logBuf.replace(/\x1b\[[0-9;]*m/g, '').split('\n').map(l => l.replace(/null/g, '').trim()).filter(l => /error/i.test(l)).slice(0, 6).join('\n');
+    res = { error: lines || (e && e.message) || String(e) };
+  }
+  syn.busy = false;
+  if (syn.src === src) syn.cache[mode] = res;                // the design did not change meanwhile
+  synRender();                                               // show it, or start over for a newer source / mode
+}
+
+function synInitMouse() {
+  const area = document.getElementById('syn-area'); if (!area) return;
+  let drag = null;
+  area.addEventListener('wheel', (e) => {
+    if (!syn.svg) return;
+    e.preventDefault();
+    const r = area.getBoundingClientRect(), mx = e.clientX - r.left, my = e.clientY - r.top;
+    const f = e.deltaY < 0 ? 1.1 : 1 / 1.1;
+    syn.px = mx - (mx - syn.px) * f; syn.py = my - (my - syn.py) * f; syn.z *= f;
+    synApply();
+  }, { passive: false });
+  area.addEventListener('mousedown', (e) => {
+    if (!syn.svg || e.button !== 0) return;
+    drag = { x: e.clientX - syn.px, y: e.clientY - syn.py };
+    area.classList.add('dragging'); e.preventDefault();
+  });
+  window.addEventListener('mousemove', (e) => { if (!drag) return; syn.px = e.clientX - drag.x; syn.py = e.clientY - drag.y; synApply(); });
+  window.addEventListener('mouseup', () => { if (drag) { drag = null; area.classList.remove('dragging'); } });
+  area.addEventListener('dblclick', () => synFit());
 }
 
 function renderNets() {
@@ -2166,6 +2319,7 @@ function loadExample(name) {
   // Nothing is on the board until you synthesize and place it.
   detachEmu();
   laForgetPins();
+  synSetSource(null);
   synthNl = null;
   window.__lastNetlist = null;
   buf   = { verilog: ex.v, cst: ex.cst };
@@ -2200,6 +2354,7 @@ window.newFile = function() {
   if (dirty && !window.confirm('Start a new design? Text that is not saved will be lost.')) return;
   detachEmu();
   laForgetPins();
+  synSetSource(null);
   synthNl = null; window.__lastNetlist = null;
   buf   = { verilog: '', cst: CST_HINT };
   fnBuf = { verilog: 'untitled.v', cst: 'untitled.cst' };
@@ -2231,7 +2386,7 @@ window.openFile = function() {
         const m = /\.(cst|pcf)$/i.test(f.name) ? 'cst' : 'verilog';
         buf[m] = String(r.result);
         fnBuf[m] = m === 'cst' ? f.name.replace(/\.pcf$/i, '.cst') : f.name;
-        if (m === 'verilog') { synthNl = null; window.__lastNetlist = null; detachEmu(); laForgetPins(); }  // a new design
+        if (m === 'verilog') { synthNl = null; window.__lastNetlist = null; detachEmu(); laForgetPins(); synSetSource(null); }  // a new design
         else if (emu) { detachEmu(); }                                                     // new pins: place again
         last = m;
         log(`Opened ${f.name} (${f.size} bytes)`, 'ok');
@@ -2304,6 +2459,7 @@ buildExTabs();
 setMode('verilog');
 setNext('synth');
 laInitMouse();
+synInitMouse();
 initSplitter();
 renderLEDs();           // draw the 8 LED slots + the blank 7-segment display immediately
 renderSwitches();       // draw the 8 switch slots (inert until a design is placed on them)
@@ -2311,348 +2467,5 @@ updateStats();
 
 </script>
 
-<!-- ══════════════════════════════════════════════════════════════
-     SCHEMATIC VIEWER
-     Reads window.__lastNetlist (set by doCompile) and draws the
-     synthesized circuit: LUT4 / DFF / SB_CARRY / IO as an SVG logic
-     diagram. Keys off the normalized schema (lut.out, ff.q_net,
-     ff.d_net), so it works for both Verilog- and JSON-compiled designs.
-
-     Layout is a simple register-feedback scheme — clean for small
-     designs (counter/blink/shift/pwm). For large arbitrary graphs,
-     keep this parser and swap the layout step for elkjs/netlistsvg.
-     ══════════════════════════════════════════════════════════════ -->
-<style>
-  #sch-tab-active { } /* placeholder */
-  #tab-schematic.active { background: linear-gradient(180deg,#2f86e8,#1f6fd4); color:#fff; border-color:var(--blue-deep); }
-  #sch-overlay {
-    position: fixed; inset: 0; z-index: 9999; display: none;
-    background: rgba(20,28,40,.55); backdrop-filter: blur(2px);
-    align-items: center; justify-content: center; padding: 28px;
-  }
-  #sch-overlay.open { display: flex; }
-  #sch-card {
-    background: var(--panel2); border: 1px solid var(--frame);
-    border-radius: 7px; box-shadow: 0 18px 50px rgba(0,0,0,.35);
-    max-width: 96vw; max-height: 94vh; display: flex; flex-direction: column;
-    resize: both; overflow: hidden; min-width: 360px; min-height: 200px;
-  }
-  #sch-head {
-    display: flex; align-items: center; gap: 12px;
-    padding: 6px 12px; background: var(--frame2);
-    border-bottom: 1px solid var(--frame); border-radius: 7px 7px 0 0;
-  }
-  #sch-head .sch-title {
-    font-size: 11px; font-weight: 700; letter-spacing: .04em;
-    text-transform: uppercase; color: var(--ink2);
-  }
-  #sch-head .sch-sub { font-family: var(--mono); font-size: 11px; color: var(--muted); flex: 1; }
-  #sch-stage {
-    overflow: auto; padding: 6px; flex: 1; min-height: 0;
-    background:
-      radial-gradient(circle at center, #e6e8ec 1px, transparent 1px) 0 0/22px 22px,
-      var(--panel2);
-  }
-  #sch-stage .sch-empty { padding: 40px 48px; color: var(--muted); font-size: 13px; text-align: center; }
-  #sch-stage .sch-empty code { font-family: var(--mono); color: var(--ink2); }
-</style>
-
-<div id="sch-overlay" onclick="if(event.target===this)closeSchematic()">
-  <div id="sch-card">
-    <div id="sch-head">
-      <span class="sch-title">Schematic</span>
-      <span class="sch-sub" id="sch-sub"></span>
-      <button id="sch-export" style="font-size:11px;padding:4px 9px">⬇ SVG</button>
-      <button onclick="closeSchematic()" style="font-size:11px;padding:4px 9px">✕ Close</button>
-    </div>
-    <div id="sch-stage"></div>
-  </div>
-</div>
-
-<script>
-(function () {
-  const NS = "http://www.w3.org/2000/svg";
-  const E = (t, a = {}) => { const n = document.createElementNS(NS, t); for (const k in a) n.setAttribute(k, a[k]); return n; };
-  const C = { rowH: 92, lutW: 110, lutH: 64, ffW: 60, ffH: 52, ledR: 12, trk: 15, padT: 26, padL: 22, gap: 60 };
-  const LEDC = c => ({ green: "#1f9d4d", amber: "#d98a00", red: "#d63a3a", blue: "#1f6fd4" }[c] || "#d63a3a");
-  const isConst = n => n === "const0" || n === "const1";
-  const cssVar = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim() || v;
-
-  // ---- model: normalized schema (lut.out / ff.q_net / ff.d_net) ----------
-  function model(nl) {
-    const luts = nl.luts || [], ffs = nl.ffs || [], carries = nl.carries || [];
-    // Placed designs carry their pins in nl.ios; before Place & Route use the output ports.
-    const pinOf = Object.fromEntries((nl.ios || []).map(io => [io.name, io.pin]));
-    const ios = nl.ports
-      ? nl.ports.filter(p => p.dir === "output").map(p => ({ name: pinOf[p.name] !== undefined ? `${p.name} · pin ${pinOf[p.name]}` : p.name, net: p.net, color: "red" }))
-      : (nl.ios || []);
-    const outNet = l => (l.out != null ? l.out : l.id);
-    const qNet   = f => (f.q_net || f.id + "_q");
-
-    const drv = {};                                   // net -> producer
-    luts.forEach(l => drv[outNet(l)] = { kind: "lut", cell: l });
-    ffs.forEach(f => drv[qNet(f)] = { kind: "ff", cell: f });
-    carries.forEach(c => { if (c.out != null) drv[c.out] = { kind: "carry", cell: c }; });
-
-    // one row per FF; the LUT feeding its D shares the row
-    const rows = [], used = new Set();
-    ffs.forEach(f => {
-      const d = drv[f.d_net];
-      const lut = d && d.kind === "lut" ? d.cell : null;
-      if (lut) used.add(lut);
-      rows.push({ ff: f, lut });
-    });
-    luts.filter(l => !used.has(l)).forEach(l => rows.push({ lut: l }));      // bare combinational LUTs
-    carries.forEach(c => rows.push({ carry: c }));
-
-    return { luts, ffs, ios, carries, drv, rows, outNet, qNet };
-  }
-
-  function buildSVG(nl) {
-    const m = model(nl);
-    const INK = cssVar("--ink"), INK2 = cssVar("--ink2"), MUT = cssVar("--muted"),
-          BLUE = cssVar("--blue"), AMBER = cssVar("--amber"), GREEN = cssVar("--green");
-
-    // nets that need routing = LUT/CARRY inputs that have a producer (not const, not primary)
-    const routed = [], seen = new Set();
-    const collectIn = arr => arr.forEach(n => {
-      if (n && !isConst(n) && m.drv[n] && !seen.has(n)) { seen.add(n); routed.push(n); }
-    });
-    m.luts.forEach(l => collectIn(l.inputs || []));
-    m.carries.forEach(c => collectIn([c.i0, c.i1, c.ci]));
-    const trackOf = Object.fromEntries(routed.map((n, i) => [n, i]));
-    const nTrk = routed.length;
-
-    const leftCh = nTrk * C.trk, topCh = nTrk * C.trk;
-    const lutX = C.padL + leftCh + 28;
-    const ffX  = lutX + C.lutW + C.gap;
-    const ledX = ffX + C.ffW + C.gap;
-    const lblW = Math.max(0, ...m.ios.map(io => String(io.name).length)) * 5.6;   // widest output label, in px
-    const STEP = Math.max(44, lblW + 14);                                    // horizontal spacing for IOs sharing a net
-    const ioByNet = {};
-    m.ios.forEach(io => { (ioByNet[io.net] = ioByNet[io.net] || []).push(io); });
-    const maxIO = Math.max(1, ...Object.values(ioByNet).map(a => a.length));
-    // wire-through IO nets: outputs tied straight to a primary input/constant
-    // with no cell in between (e.g. `assign led = sw`). Each gets its own row.
-    const wtNets = [...new Set(m.ios.map(io => io.net).filter(n => !m.drv[n]))];
-    const wtIndex = Object.fromEntries(wtNets.map((n, i) => [n, i]));
-    const y0   = C.padT + topCh + 28;
-    const cy   = i => y0 + i * C.rowH + C.lutH / 2;
-    const W = ledX + (maxIO - 1) * STEP + Math.max(C.ledR + 26, lblW / 2 + 18), H = y0 + (m.rows.length + wtNets.length) * C.rowH + 10;
-
-    const svg = E("svg", { viewBox: `0 0 ${W} ${H}`, width: W, height: H });
-    const defs = E("defs");
-    defs.innerHTML = `<filter id="sch-glow" x="-60%" y="-60%" width="220%" height="220%">
-      <feGaussianBlur stdDeviation="2.6" result="b"/><feMerge>
-      <feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>`;
-    svg.appendChild(defs);
-    const wires = E("g"), dots = E("g"), cells = E("g");
-
-    // index helpers
-    const rowOf = new Map();                            // cell -> row index
-    m.rows.forEach((r, i) => { if (r.lut) rowOf.set(r.lut, i); if (r.ff) rowOf.set(r.ff, i); if (r.carry) rowOf.set(r.carry, i); });
-    const outPos = {};                                  // net -> {x,y} of its producer pin
-    m.rows.forEach((r, i) => {
-      if (r.lut)   outPos[m.outNet(r.lut)] = { x: lutX + C.lutW, y: cy(i) };
-      if (r.carry && r.carry.out != null) outPos[r.carry.out] = { x: lutX + C.lutW, y: cy(i) };
-      if (r.ff)    outPos[m.qNet(r.ff)] = { x: ffX + C.ffW, y: cy(i) };
-    });
-    const lutInY = (i, k) => cy(i) - C.lutH / 2 + (k + 0.5) * (C.lutH / 4);
-
-    const wire = (d, col) => wires.appendChild(E("path", { d, fill: "none", stroke: col, "stroke-width": 1.6, "stroke-linejoin": "round", "stroke-linecap": "round" }));
-    const dot  = (x, y, col) => dots.appendChild(E("circle", { cx: x, cy: y, r: 2.5, fill: col }));
-    const FWD = INK2, FB = BLUE;
-
-    // forward: producer of each FF.D -> FF.D pin (straight when same row)
-    m.rows.forEach((r, i) => {
-      if (!r.ff) return;
-      const p = outPos[r.ff.d_net];
-      if (!p) return;
-      if (Math.abs(p.y - cy(i)) < 1) wire(`M${p.x} ${cy(i)} H${ffX}`, FWD);          // same row, straight
-      else { const mx = (p.x + ffX) / 2; wire(`M${p.x} ${p.y} H${mx} V${cy(i)} H${ffX}`, FWD); }
-    });
-
-    // (IO leads are drawn per-slot below, so shared nets fan out cleanly.)
-
-    // routed nets: producer -> top channel -> left channel -> branch into input pins
-    routed.forEach(net => {
-      const src = outPos[net]; if (!src) return;
-      const ti = trackOf[net];
-      const sinks = [];
-      m.rows.forEach((r, i) => {
-        if (r.lut) (r.lut.inputs || []).forEach((n, k) => { if (n === net) sinks.push({ x: lutX, y: lutInY(i, k) }); });
-        if (r.carry) [r.carry.i0, r.carry.i1, r.carry.ci].forEach((n, k) => { if (n === net) sinks.push({ x: lutX, y: cy(i) - C.lutH / 2 + (k + 0.5) * (C.lutH / 3) }); });
-      });
-      if (!sinks.length) return;
-      const topY = C.padT + ti * C.trk, leftX = C.padL + ti * C.trk, stub = src.x + 12 + ti * 3;
-      const ys = sinks.map(s => s.y), ymax = Math.max(...ys), ymin = Math.min(...ys);
-      wire(`M${src.x} ${src.y} H${stub} V${topY} H${leftX} V${ymax}`, FB);
-      dot(src.x, src.y, FB);
-      sinks.forEach(s => { wire(`M${leftX} ${s.y} H${s.x}`, FB); dot(s.x, s.y, FB); });
-      if (sinks.length > 1) dot(leftX, ymin, FB);
-    });
-
-    // ---- text helper ----
-    const txt = (x, y, s, a = {}) => { const t = E("text", Object.assign({ x, y, "font-family": cssVar("--mono") }, a)); t.textContent = s; return t; };
-    const idLabel = (x, y, id) => {                     // clipped id label + full-name tooltip
-      const s = (id == null) ? "" : String(id);
-      const t = txt(x, y, s.length > 17 ? s.slice(0, 16) + "…" : s, { "font-size": 9.5, fill: cssVar("--muted") });
-      const tip = E("title"); tip.textContent = s; t.appendChild(tip);
-      return t;
-    };
-
-    // ---- cells ----
-    m.rows.forEach((r, i) => {
-      // LUT
-      if (r.lut) {
-        const x = lutX, y = cy(i) - C.lutH / 2, l = r.lut, g = E("g");
-        g.appendChild(E("rect", { x, y, width: C.lutW, height: C.lutH, rx: 6, fill: "#fff", stroke: BLUE, "stroke-width": 1.4 }));
-        g.appendChild(txt(x + C.lutW / 2, y + C.lutH / 2 - 2, l.comment || "LUT4", { "text-anchor": "middle", "font-size": 13, fill: INK, "font-weight": 600 }));
-        g.appendChild(txt(x + C.lutW / 2, y + C.lutH / 2 + 13, "0x" + (l.truth_table >>> 0).toString(16).padStart(4, "0"), { "text-anchor": "middle", "font-size": 10, fill: MUT }));
-        g.appendChild(idLabel(x + 4, y - 5, l.id));
-        (l.inputs || []).forEach((inn, k) => {
-          if (k > 3) return;
-          const py = lutInY(i, k);
-          g.appendChild(E("circle", { cx: x, cy: py, r: 2.3, fill: BLUE }));
-          if (isConst(inn)) {
-            g.appendChild(E("path", { d: `M${x} ${py} H${x - 14}`, stroke: MUT, "stroke-width": 1.3, fill: "none" }));
-            g.appendChild(E("path", { d: `M${x - 14} ${py - 4} V${py + 4}`, stroke: MUT, "stroke-width": 1.3 }));
-            g.appendChild(txt(x - 18, py + 3, inn === "const1" ? "1" : "0", { "text-anchor": "end", "font-size": 9, fill: MUT }));
-          } else if (inn && !m.drv[inn]) {                 // primary input (sw0, etc.) -> labeled stub
-            g.appendChild(E("path", { d: `M${x} ${py} H${x - 16}`, stroke: MUT, "stroke-width": 1.3, fill: "none" }));
-            g.appendChild(txt(x - 19, py + 3, inn, { "text-anchor": "end", "font-size": 8.5, fill: MUT }));
-          }
-        });
-        g.appendChild(E("circle", { cx: x + C.lutW, cy: cy(i), r: 2.3, fill: BLUE }));
-        cells.appendChild(g);
-      }
-      // CARRY
-      if (r.carry) {
-        const x = lutX, y = cy(i) - C.lutH / 2, c = r.carry, g = E("g");
-        g.appendChild(E("rect", { x, y, width: C.lutW, height: C.lutH, rx: 6, fill: "#fff", stroke: GREEN, "stroke-width": 1.4 }));
-        g.appendChild(txt(x + C.lutW / 2, y + C.lutH / 2 + 4, "CARRY", { "text-anchor": "middle", "font-size": 13, fill: INK, "font-weight": 600 }));
-        g.appendChild(idLabel(x + 4, y - 5, c.id || "carry"));
-        ["I0", "I1", "CI"].forEach((lab, k) => {
-          const py = y + (k + 0.5) * (C.lutH / 3);
-          g.appendChild(E("circle", { cx: x, cy: py, r: 2.3, fill: GREEN }));
-        });
-        g.appendChild(E("circle", { cx: x + C.lutW, cy: cy(i), r: 2.3, fill: GREEN }));
-        cells.appendChild(g);
-      }
-      // FF
-      if (r.ff) {
-        const x = ffX, y = cy(i) - C.ffH / 2, f = r.ff, g = E("g");
-        g.appendChild(E("rect", { x, y, width: C.ffW, height: C.ffH, rx: 5, fill: "#fff", stroke: AMBER, "stroke-width": 1.4 }));
-        g.appendChild(txt(x + C.ffW / 2, y + C.ffH / 2 - 3, "DFF", { "text-anchor": "middle", "font-size": 11, fill: INK, "font-weight": 600 }));
-        g.appendChild(txt(x + 7, y + 13, "D", { "font-size": 9.5, fill: MUT }));
-        g.appendChild(txt(x + C.ffW - 7, y + 13, "Q", { "font-size": 9.5, fill: MUT, "text-anchor": "end" }));
-        g.appendChild(idLabel(x + 4, y - 5, f.id));
-        g.appendChild(E("path", { d: `M${x} ${y + C.ffH - 12} l8 6 l-8 6 Z`, fill: "none", stroke: AMBER, "stroke-width": 1.1 }));
-        g.appendChild(E("circle", { cx: x, cy: cy(i), r: 2.3, fill: AMBER }));
-        g.appendChild(E("circle", { cx: x + C.ffW, cy: cy(i), r: 2.3, fill: AMBER }));
-        // D-side source with no producing cell: a tied constant, or a primary
-        // input feeding the flip-flop directly (e.g. sw[0] as a shift-register
-        // serial-in). Draw a stub so the input is visible.
-        const dn = f.d_net;
-        if (isConst(dn)) {
-          g.appendChild(E("path", { d: `M${x} ${cy(i)} H${x - 14}`, stroke: MUT, "stroke-width": 1.3, fill: "none" }));
-          g.appendChild(E("path", { d: `M${x - 14} ${cy(i) - 4} V${cy(i) + 4}`, stroke: MUT, "stroke-width": 1.3 }));
-          g.appendChild(txt(x - 18, cy(i) + 3, dn === "const1" ? "1" : "0", { "text-anchor": "end", "font-size": 9, fill: MUT }));
-        } else if (dn && !m.drv[dn]) {
-          g.appendChild(E("path", { d: `M${x} ${cy(i)} H${x - 18}`, stroke: MUT, "stroke-width": 1.3, fill: "none" }));
-          g.appendChild(txt(x - 21, cy(i) + 3, dn, { "text-anchor": "end", "font-size": 8.5, fill: MUT }));
-        }
-        cells.appendChild(g);
-      }
-    });
-
-    // LEDs / IO — IOs that resolve to the SAME slot (e.g. led[i] and hex[i]
-    // share a net via `assign hex = led`) fan out horizontally as one net
-    // feeding several indicators, instead of stacking on top of each other.
-    const slots = new Map();
-    m.ios.forEach(io => {
-      const p = outPos[io.net];
-      let x, y, stub = null, key;
-      if (p) {
-        x = p.x; y = p.y; key = "p:" + Math.round(y) + ":" + Math.round(x);
-      } else {
-        // wire-through: a primary input or constant tied straight to an output
-        // (e.g. `assign led = sw`). Give it a row and an input stub on the left.
-        y = cy(m.rows.length + (wtIndex[io.net] || 0));
-        x = lutX;
-        stub = isConst(io.net) ? (io.net === "const1" ? "1" : "0") : io.net;
-        key = "w:" + io.net;
-      }
-      if (!slots.has(key)) slots.set(key, { x, y, stub, items: [] });
-      slots.get(key).items.push(io);
-    });
-    slots.forEach(slot => {
-      const n = slot.items.length;
-      const lastX = ledX + (n - 1) * STEP;
-      if (slot.stub != null) {
-        wire(`M${slot.x - 18} ${slot.y} H${lastX - C.ledR - 2}`, FWD);   // input → output, no cell
-        cells.appendChild(txt(slot.x - 22, slot.y + 3, slot.stub, { "text-anchor": "end", "font-size": 9, fill: INK2 }));
-      } else {
-        wire(`M${slot.x} ${slot.y} H${lastX - C.ledR - 2}`, FWD);          // shared-net lead behind the LEDs
-        dot(slot.x, slot.y, FWD);
-      }
-      slot.items.forEach((io, j) => {
-        const x = ledX + j * STEP, y = slot.y, col = LEDC(io.color), g = E("g");
-        g.appendChild(E("circle", { cx: x, cy: y, r: C.ledR, fill: col, opacity: .92, filter: "url(#sch-glow)" }));
-        g.appendChild(E("circle", { cx: x - 3.5, cy: y - 3.5, r: 2.6, fill: "#fff", opacity: .55 }));
-        g.appendChild(txt(x, y + C.ledR + 11, io.name, { "text-anchor": "middle", "font-size": 9, fill: INK2 }));
-        cells.appendChild(g);
-      });
-    });
-
-    svg.appendChild(wires); svg.appendChild(dots); svg.appendChild(cells);
-    return svg;
-  }
-
-  // ---- public open/close --------------------------------------------------
-  window.openSchematic = function () {
-    const ov = document.getElementById("sch-overlay");
-    const stage = document.getElementById("sch-stage");
-    const sub = document.getElementById("sch-sub");
-    const exp = document.getElementById("sch-export");
-    const tab = document.getElementById("tab-schematic");
-    stage.innerHTML = "";
-    const nl = (window.__lastNetlist && window.__lastNetlist.luts) ? window.__lastNetlist : null;
-
-    if (!nl) {
-      sub.textContent = "";
-      exp.style.display = "none";
-      stage.innerHTML = `<div class="sch-empty">No synthesized netlist yet.<br>Press <b>⚡ Synthesize</b> first, then reopen this view.</div>`;
-    } else {
-      exp.style.display = "";
-      sub.textContent = `iCE40UP5K · ${(nl.luts || []).length} LUT · ${(nl.ffs || []).length} FF · ${(nl.carries || []).length} CARRY · ${(nl.ports || nl.ios || []).length} IO`;
-      try {
-        const svg = buildSVG(nl);
-        stage.appendChild(svg);
-        exp.onclick = () => {
-          const blob = new Blob([svg.outerHTML], { type: "image/svg+xml" });
-          const a = document.createElement("a");
-          a.href = URL.createObjectURL(blob); a.download = "schematic.svg";
-          document.body.appendChild(a); a.click(); a.remove();
-          setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-        };
-      } catch (e) {
-        stage.innerHTML = `<div class="sch-empty">Render error: ${e.message}</div>`;
-        exp.style.display = "none";
-      }
-    }
-    ov.classList.add("open");
-    if (tab) tab.classList.add("active");
-  };
-
-  window.closeSchematic = function () {
-    document.getElementById("sch-overlay").classList.remove("open");
-    const tab = document.getElementById("tab-schematic");
-    if (tab) tab.classList.remove("active");
-  };
-
-  document.addEventListener("keydown", e => { if (e.key === "Escape") window.closeSchematic(); });
-})();
-</script>
 </body>
 </html>
