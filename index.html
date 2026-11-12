@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <!-- ═══════════════════════════════════════════════════════════════
-     softfpga — iCE40 FPGA emulator 
+     softfpga — iCE40 FPGA emulator
      CHANGELOG (bump the v… in the header on every update):
        v1.38 — synthesized LUTs are now auto-named by function (NOT/XOR/AND/OR/…); shows as comment in the netlist JSON and label in the schematic
        v1.37 — fixed wire-through designs (e.g. switches: assign led = sw): netlist no longer shows empty, and schematic now draws input→LED with no cell
@@ -371,7 +371,7 @@ button.file-tab.active {
 
 <header>
   <div class="logo">soft<span>fpga</span></div>
-  <span class="ver">v2.20</span>
+  <span class="ver">v2.21</span>
   <span style="font-size:11px;color:var(--muted)"><span class="status-dot" id="sdot"></span><span id="stxt">idle</span></span>
 </header>
 
@@ -915,9 +915,10 @@ function yosysJsonToNetlist(yj) {
 // automatically (any module name works), invisible characters pasted from slides are
 // cleaned first, and a failure reports Yosys' own error lines.
 let yosysRun = null, synBusy = false, yosysReady = false;
-// Yosys is pinned to one release, the one softfpga was verified with. The unpinned
+// Yosys is pinned to one release: the one softfpga was verified with, and the same one
+// VeriSim uses, so both tools draw the same circuit for the same design. The unpinned
 // "latest" build changes without notice and has grown to 79 MB.
-const YOSYS_VERSION = '0.50.857';
+const YOSYS_VERSION = '0.66.1164';
 // The same script shape as VeriSim, with the iCE40 mapping in place of `synth`.
 const SYN_SCRIPT = 'synth_ice40 -nocarry -nobram -flatten; delete t:$scopeinfo; write_json out.json';
 
@@ -945,7 +946,7 @@ function progress(msg) {
 // Counts the bytes of the Yosys files as they arrive, so the console can tell a
 // slow download from a stuck one. It only watches requests for the Yosys package
 // and hands every response on unchanged.
-const YOSYS_BYTES = 33.5e6;                 // unpacked size of the files release 0.50.857 fetches
+const YOSYS_BYTES = 52.1e6;                 // unpacked size of the files release 0.66.1164 fetches
 const dl = { bytes: 0, open: 0, seen: false, failed: null };
 function installFetchMeter() {
   if (window.__sfFetchMeter || typeof window.fetch !== 'function' || typeof TransformStream === 'undefined') return;
@@ -1004,27 +1005,28 @@ async function importPackedYosys() {
   const pack = window.__YOSYS_PACK;
   if (!pack || !pack.files) throw new Error(`${YOSYS_PACK_FILE} did not load correctly`);
   const dec = new TextDecoder();
-  const urls = {};
-  let bundle = null, resources = null;
+  const urls = {}, text = {};
   for (const [name, b64] of Object.entries(pack.files)) {
     const bytes = await unpackEntry(b64);
-    if (name === 'bundle.js') bundle = dec.decode(bytes);
-    else if (name === 'resources-yosys.js') resources = dec.decode(bytes);
-    else urls[name] = URL.createObjectURL(new Blob([bytes], { type: name.endsWith('.wasm') ? 'application/wasm' : 'text/plain' }));
+    if (name.endsWith('.js')) text[name] = dec.decode(bytes);            // the YoWASP modules themselves
+    else urls[name] = URL.createObjectURL(new Blob([bytes], { type: name.endsWith('.wasm') ? 'application/wasm' : 'application/octet-stream' }));
   }
   for (const name of (pack.empty || [])) urls[name] = URL.createObjectURL(new Blob([''], { type: 'text/plain' }));
-  if (!bundle || !resources) throw new Error('the Yosys pack is incomplete');
+  if (!text['bundle.js']) throw new Error('the Yosys pack is incomplete');
   // The YoWASP modules look for their data files next to themselves; point them at the unpacked copies.
   let missing = null;
-  resources = resources.replace(/new URL\("\.\/([^"]+)", import\.meta\.url\)/g, (m, f) => {
+  const relink = (code) => code.replace(/new URL\("\.\/([^"]+)", import\.meta\.url\)/g, (m, f) => {
     if (!urls[f]) { missing = f; return m; }
     return `new URL(${JSON.stringify(urls[f])})`;
   });
+  let bundle = relink(text['bundle.js']);
+  if (text['resources-yosys.js']) {                                      // older releases keep the data in a second module
+    const hook = 'import("./resources-yosys.js")';
+    if (!bundle.includes(hook)) throw new Error('unexpected Yosys bundle layout');
+    bundle = bundle.replace(hook, `import(${JSON.stringify(moduleUrl(relink(text['resources-yosys.js'])))})`);
+  }
   if (missing) throw new Error(`the Yosys pack has no ${missing}`);
-  const hook = 'import("./resources-yosys.js")';
-  if (!bundle.includes(hook)) throw new Error('unexpected Yosys bundle layout');
-  bundle = bundle.replace(hook, `import(${JSON.stringify(moduleUrl(resources))})`);
-  window.__YOSYS_PACK = null;                        // free the packed copy (about 11 MB of text)
+  window.__YOSYS_PACK = null;                        // free the packed copy (about 16 MB of text)
   return import(moduleUrl(bundle));
 }
 // </yosys-pack-loader>
@@ -1045,7 +1047,7 @@ async function loadYosys() {
     m = await importPackedYosys();
     yosysFromPack = true;
   } catch (e) {
-    log(`Could not use ${YOSYS_PACK_FILE}: ${e.message}. Downloading Yosys ${YOSYS_VERSION} from the CDN instead (about 8 MB)…`, 'warn');
+    log(`Could not use ${YOSYS_PACK_FILE}: ${e.message}. Downloading Yosys ${YOSYS_VERSION} from the CDN instead (about 12 MB)…`, 'warn');
     m = await importCdnYosys();
   }
   yosysRun = m.runYosys;
@@ -2096,7 +2098,8 @@ function initSplitter() {
 //  Yosys produces the netlist; netlistsvg + ELK lay it out.
 //  scroll = zoom · drag = pan · double-click = fit
 // ══════════════════════════════════════════════════════════════
-// Run as a script file: Yosys 0.50 splits a -p command line at the comma in "AND,OR".
+// The same two scripts as VeriSim, run from a script file (older Yosys builds split a
+// -p command line at the comma in "AND,OR"; a script file works with every release).
 const SYN_VIEW = {
   gates: 'read_verilog design.v\nsynth -auto-top -flatten\ndelete t:$scopeinfo\nabc -g AND,OR\nopt_clean\nwrite_json out.json\n',
   rtl:   'read_verilog design.v\nprep -auto-top\nwrite_json out.json\n',

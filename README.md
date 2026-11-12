@@ -102,7 +102,7 @@ The toolbar follows the order of the work:
 1. Pick a design from **Examples**, or press **New** and write your own. **Open**
    takes a `.v` file, a `.cst` file, or both at once.
 2. Press **⚡ Synthesize**. The first synthesis of a session unpacks Yosys from
-   `yosys-0.50.857.js` and starts it, which takes a few seconds; after that
+   `yosys-0.66.1164.js` and starts it, which takes a few seconds; after that
    synthesis is immediate. The console then lists the ports that need a pin.
 3. Open the `.cst` tab and give every port a pin. (Examples come with theirs.)
 4. Press **📍 Place & Route**. The console prints the pin report or the errors.
@@ -160,7 +160,9 @@ your design, the same way VeriSim does:
 
 Scroll zooms, drag pans, double-click fits the drawing into the panel. The drawing
 is made after each successful Synthesize; the bar shows how many cells of each
-kind the circuit has. The emulator itself still runs the design on iCE40 LUT4s and
+kind the circuit has. softfpga and VeriSim use the same Yosys release, the same
+scripts and the same drawing libraries, so the same design gives the same
+schematic in both. The emulator itself still runs the design on iCE40 LUT4s and
 flip-flops; the schematic is a readable view of the same logic.
 
 ---
@@ -189,7 +191,7 @@ flip-flops; the schematic is a readable view of the same logic.
 ```
 Verilog source
   │
-  ▼  Yosys WASM  (@yowasp/yosys 0.50.857, runs in the browser; same call as VeriSim)
+  ▼  Yosys WASM  (@yowasp/yosys 0.66.1164, runs in the browser; same call as VeriSim)
   │  read_verilog design.v; synth_ice40 -nocarry -nobram -flatten; write_json
   │
   ▼  yosysJsonToNetlist()
@@ -244,7 +246,7 @@ The hand-written JSON netlist mode of v1 is removed.
 ## Verification
 
 The engine was checked against CXXRTL, Yosys' own C++ simulator, running the
-original Verilog: 23 designs, pseudo-random inputs, every output compared after
+original Verilog: 24 designs, pseudo-random inputs, every output compared after
 every clock cycle. The set covers counters, shift registers, state machines, UART
 transmit and receive, memories, arithmetic, asynchronous resets and a small CPU.
 
@@ -255,7 +257,7 @@ transmit and receive, memories, arithmetic, asynchronous resets and a small CPU.
 ```
 softfpga/
 ├── index.html          ← the app: HTML, CSS, JS in one file, no build step
-├── yosys-0.50.857.js   ← Yosys (YoWASP build), packed; loaded when Synthesize is pressed
+├── yosys-0.66.1164.js   ← Yosys (YoWASP build), packed; loaded when Synthesize is pressed
 ├── elk.bundled.js      ← ELK graph layout, used by the Schematic tab
 ├── netlistsvg.bundle.js← netlistsvg, draws the Schematic tab
 ├── README.md
@@ -265,14 +267,14 @@ softfpga/
 ```
 
 Nothing is loaded from the internet. Yosys sits next to `index.html` as one
-11 MB file holding the YoWASP build of Yosys 0.50.857, gzip-compressed. Because
+16 MB file holding the YoWASP build of Yosys 0.66.1164, gzip-compressed. Because
 it is a plain script, softfpga works offline and also when `index.html` is opened
 straight from disk. The release is fixed on purpose: the latest YoWASP build has
-grown to 79 MB and changes without notice, and 0.50.857 is the one the engine was
+grown to 79 MB and changes without notice, and 0.66.1164 is the one the engine was
 verified with.
 
-Keep the four files together (`index.html`, `yosys-0.50.857.js`, `elk.bundled.js`,
-`netlistsvg.bundle.js`). If `yosys-0.50.857.js` is missing, softfpga says so in the
+Keep the four files together (`index.html`, `yosys-0.66.1164.js`, `elk.bundled.js`,
+`netlistsvg.bundle.js`). If `yosys-0.66.1164.js` is missing, softfpga says so in the
 console and downloads the same release from the jsDelivr CDN instead. Without the
 other two, everything works except the Schematic tab.
 
@@ -317,7 +319,7 @@ The board clock is 10 Hz; designs that divide a MHz clock need a smaller divider
   title   = {softfpga: A browser-based iCE40 FPGA emulator},
   year    = {2026},
   url     = {https://github.com/senolgulgonul/softfpga},
-  version = {2.20}
+  version = {2.21}
 }
 ```
 
