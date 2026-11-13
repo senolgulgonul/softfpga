@@ -158,7 +158,11 @@ your design, the same way VeriSim does:
 - **RTL** — word-level blocks (adders, comparators, multiplexers, registers), with
   the module hierarchy kept.
 
-Scroll zooms, drag pans, double-click fits the drawing into the panel. The drawing
+Scroll zooms, drag pans, double-click fits the drawing into the panel. For a larger
+workspace, **⤢ Enlarge** (top right of the bottom panel) makes the panel fill the
+window below the toolbar, for the Console and the Logic analyzer as well; Esc or
+**⤡ Restore** brings the normal layout back. **↗ New window** opens the drawing in
+its own browser tab, with the same zoom and pan, from where it can be saved or printed. The drawing
 is made after each successful Synthesize; the bar shows how many cells of each
 kind the circuit has. softfpga and VeriSim use the same Yosys release, the same
 scripts and the same drawing libraries, so the same design gives the same
@@ -319,7 +323,7 @@ The board clock is 10 Hz; designs that divide a MHz clock need a smaller divider
   title   = {softfpga: A browser-based iCE40 FPGA emulator},
   year    = {2026},
   url     = {https://github.com/senolgulgonul/softfpga},
-  version = {2.21}
+  version = {2.22}
 }
 ```
 

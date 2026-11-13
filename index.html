@@ -286,6 +286,14 @@ path.la-in  { stroke: var(--green); }
 path.la-clk { stroke: #8a909c; stroke-width: 1.2; }
 .la-mark { stroke: #15191f; stroke-width: 1.2; }
 .la-mark-head { fill: #15191f; }
+/* enlarged bottom panel: fills the window below the toolbar */
+.console-box.max { position: fixed; left: 0; right: 0; bottom: 0; z-index: 60; height: auto !important; min-height: 0 !important; border-top: 1px solid var(--frame); }
+body.bottom-max .h-split { display: none; }
+button.bmax {
+  font: inherit; font-size: 10.5px; color: var(--muted); padding: 2px 9px; margin: 0;
+  border: 1px solid var(--frame); border-radius: 3px; background: var(--panel2); box-shadow: none; text-transform: none; letter-spacing: 0;
+}
+button.bmax:hover { color: var(--ink2); border-color: var(--blue); }
 /* schematic tab */
 .syn-seg { display: inline-flex; border: 1px solid var(--frame); border-radius: 5px; overflow: hidden; flex-shrink: 0; }
 .syn-seg button { border: none; border-radius: 0; background: var(--panel2); color: var(--ink2); font-family: var(--mono); font-size: 11px; padding: 2px 11px; min-width: 0; box-shadow: none; }
@@ -371,7 +379,7 @@ button.file-tab.active {
 
 <header>
   <div class="logo">soft<span>fpga</span></div>
-  <span class="ver">v2.21</span>
+  <span class="ver">v2.22</span>
   <span style="font-size:11px;color:var(--muted)"><span class="status-dot" id="sdot"></span><span id="stxt">idle</span></span>
 </header>
 
@@ -415,6 +423,7 @@ button.file-tab.active {
           <button class="btab" id="btab-la" onclick="showBottom('la')">Logic analyzer</button>
           <button class="btab" id="btab-syn" onclick="showBottom('syn')">Schematic</button>
         </span>
+        <button class="bmax" id="bottom-max" onclick="toggleBottomMax()" title="Fill the window with this panel">⤢ Enlarge</button>
       </div>
       <div class="la-pane" id="la-pane" style="display:none">
         <div class="la-bar">
@@ -430,6 +439,7 @@ button.file-tab.active {
       <div class="la-pane" id="syn-pane" style="display:none">
         <div class="la-bar">
           <span class="syn-seg"><button id="syn-gates" class="on" onclick="synSetMode('gates')" title="AND / OR / NOT gates and flip-flops">Gates</button><button id="syn-rtl" onclick="synSetMode('rtl')" title="Word-level blocks: adders, muxes, registers">RTL</button></span>
+          <button onclick="synOpenWindow()" title="Open this drawing in a new browser tab">↗ New window</button>
           <span id="syn-stat" class="la-read"></span>
           <span class="la-hint">scroll = zoom · drag = pan · double-click = fit</span>
         </div>
@@ -2223,6 +2233,54 @@ function synInitMouse() {
   area.addEventListener('dblclick', () => synFit());
 }
 
+// ── A larger workspace ──
+// The bottom panel (Console, Logic analyzer or Schematic) can fill the whole window
+// below the toolbar; the toolbar stays, so Synthesize and Run remain within reach.
+let bottomMax = false;
+window.toggleBottomMax = function(on) {
+  bottomMax = on === undefined ? !bottomMax : !!on;
+  const box = document.getElementById('bottom-box'), btn = document.getElementById('bottom-max');
+  if (!box) return;
+  box.classList.toggle('max', bottomMax);
+  document.body.classList.toggle('bottom-max', bottomMax);
+  const app = document.querySelector('.app');
+  box.style.top = bottomMax && app ? Math.round(app.getBoundingClientRect().top) + 'px' : '';
+  if (btn) { btn.textContent = bottomMax ? '⤡ Restore' : '⤢ Enlarge'; btn.title = bottomMax ? 'Back to the normal layout (Esc)' : 'Fill the window with this panel'; }
+  if (!bottomMax) applyBottomHeight();
+  laRender();
+  if (bottomMode === 'syn') synFit();
+}
+function initBottomMax() {
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && bottomMax) toggleBottomMax(false); });
+}
+
+// The schematic in its own browser tab: a standalone page with the drawing,
+// the same zoom / pan / fit, and nothing else. It can be saved or printed from there.
+window.synOpenWindow = function() {
+  const res = syn.src && syn.cache[syn.mode];
+  if (!res || !res.svg) { log('No schematic to open yet — press ⚡ Synthesize first.', 'warn'); return; }
+  const title = `${fnBuf.verilog} — ${syn.mode === 'gates' ? 'Gates' : 'RTL'} — softfpga`;
+  const page = `<!doctype html><html><head><meta charset="utf-8"><title>${synEsc(title)}</title>
+<style>html,body{margin:0;height:100%;background:#fff;font-family:system-ui,sans-serif}
+#bar{position:fixed;left:0;right:0;top:0;padding:6px 12px;font-size:12px;color:#555;background:#f3f4f6;border-bottom:1px solid #d5d8de;z-index:2}
+#bar b{color:#111}#area{position:absolute;inset:30px 0 0 0;overflow:hidden;cursor:grab}#area.d{cursor:grabbing}svg{display:block;transform-origin:0 0;user-select:none}</style></head>
+<body><div id="bar"><b>${synEsc(title)}</b> &nbsp;·&nbsp; ${synEsc(res.stat)} &nbsp;·&nbsp; scroll = zoom · drag = pan · double-click = fit</div>
+<div id="area">${res.svg}</div>
+<scr${''}ipt>(function(){var a=document.getElementById('area'),s=a.querySelector('svg'),z=1,x=0,y=0,d=null;
+function ap(){s.style.transform='translate('+x+'px,'+y+'px) scale('+z+')';}
+function fit(){var w=parseFloat(s.getAttribute('width'))||a.clientWidth,h=parseFloat(s.getAttribute('height'))||a.clientHeight;
+z=Math.min((a.clientWidth-40)/w,(a.clientHeight-40)/h,4)||1;x=Math.max(20,(a.clientWidth-w*z)/2);y=20;ap();}
+a.addEventListener('wheel',function(e){e.preventDefault();var r=a.getBoundingClientRect(),mx=e.clientX-r.left,my=e.clientY-r.top,f=e.deltaY<0?1.1:1/1.1;x=mx-(mx-x)*f;y=my-(my-y)*f;z*=f;ap();},{passive:false});
+a.addEventListener('mousedown',function(e){d={x:e.clientX-x,y:e.clientY-y};a.className='d';e.preventDefault();});
+window.addEventListener('mousemove',function(e){if(d){x=e.clientX-d.x;y=e.clientY-d.y;ap();}});
+window.addEventListener('mouseup',function(){d=null;a.className='';});
+a.addEventListener('dblclick',fit);window.addEventListener('resize',fit);fit();})();</scr${''}ipt></body></html>`;
+  const url = URL.createObjectURL(new Blob([page], { type: 'text/html' }));
+  const win = window.open(url, '_blank');
+  if (!win) log('The browser blocked the new tab. Allow pop-ups for this page and try again.', 'warn');
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
+}
+
 function renderNets() {
   if (!emu) return;
   const el=document.getElementById('net-tbl'); if(!el) return; el.innerHTML='';
@@ -2464,6 +2522,7 @@ setNext('synth');
 laInitMouse();
 synInitMouse();
 initSplitter();
+initBottomMax();
 renderLEDs();           // draw the 8 LED slots + the blank 7-segment display immediately
 renderSwitches();       // draw the 8 switch slots (inert until a design is placed on them)
 updateStats();
