@@ -305,11 +305,18 @@ The board clock is 10 Hz; designs that divide a MHz clock need a smaller divider
 - [x] Virtual board: 8 switches, 8 LEDs, 7-segment digit, clock
 - [x] Schematic of the synthesized circuit, as gates or RTL
 - [x] Two-file designs (`.v` + `.cst`): new, open, save
+- [x] Logic analyzer on the board pins
 - [ ] UART terminal on two board pins
 - [ ] Waveform (VCD) export
-- [x] Logic analyzer on the board pins
 - [ ] Real-time clock (MHz range)
 - [ ] Block RAM emulation
+- [ ] A model of a real board (Tang Nano 9K)
+
+**Out of scope: bitstream generation.** softfpga is for people who do not have a
+board. If you have one, use the vendor's free tools to build and load the
+bitstream (Gowin EDA for Tang Nano boards, Lattice Radiant or the open-source
+Yosys / nextpnr flow for iCE40). What you practised here carries over: the Verilog,
+the pin constraints, and the habit of checking the design with a logic analyzer.
 
 ---
 
