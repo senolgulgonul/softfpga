@@ -284,6 +284,7 @@ button.la-chip:hover { filter: brightness(.96); }
 path.la-out { stroke: var(--blue); }
 path.la-in  { stroke: var(--green); }
 path.la-clk { stroke: #8a909c; stroke-width: 1.2; }
+.la-clkband { fill: #c9cdd4; }
 .la-mark { stroke: #15191f; stroke-width: 1.2; }
 .la-mark-head { fill: #15191f; }
 /* enlarged bottom panel: fills the window below the toolbar */
@@ -294,27 +295,55 @@ button.bmax {
   border: 1px solid var(--frame); border-radius: 3px; background: var(--panel2); box-shadow: none; text-transform: none; letter-spacing: 0;
 }
 button.bmax:hover { color: var(--ink2); border-color: var(--blue); }
-/* switches drawn as one DIP switch block: slider up = ON = 1 */
-#sw-grid {
+/* switches drawn as one DIP switch block (both boards): slider up = ON = 1 */
+.dip {
   display: flex; justify-content: center; gap: 0; width: fit-content; margin: 0 auto; position: relative;
   padding: 15px 9px 5px; border-radius: 4px; background: linear-gradient(#d2413a, #b02a25);
   box-shadow: inset 0 1px 0 rgba(255,255,255,.25), inset 0 -2px 0 rgba(0,0,0,.25), 0 2px 5px rgba(0,0,0,.35);
 }
-#sw-grid::before { content: 'ON'; position: absolute; top: 2px; left: 9px; font: 700 8px var(--mono); letter-spacing: .08em; color: rgba(255,255,255,.9); }
-#sw-grid::after  { content: '↑'; position: absolute; top: 1px; left: 27px; font: 700 8px var(--mono); color: rgba(255,255,255,.75); }
-#sw-grid .sw-cell { flex: none; width: 27px; gap: 2px; }
-#sw-grid .sw-btn {
+.dip::before { content: 'ON'; position: absolute; top: 2px; left: 9px; font: 700 8px var(--mono); letter-spacing: .08em; color: rgba(255,255,255,.9); }
+.dip::after  { content: '↑'; position: absolute; top: 1px; left: 27px; font: 700 8px var(--mono); color: rgba(255,255,255,.75); }
+.dip .sw-cell { flex: none; width: 27px; gap: 2px; }
+.dip .sw-btn {
   width: 14px; height: 32px; padding: 0; border: 1px solid #1a0a09; border-radius: 2px; background: #2a1110;
   box-shadow: inset 0 1px 3px rgba(0,0,0,.7); position: relative; cursor: pointer; transition: none;
 }
-#sw-grid .sw-btn::after {
+.dip .sw-btn::after {
   content: ''; position: absolute; left: 1px; right: 1px; top: auto; bottom: 1px; width: auto; height: 13px; border-radius: 1px;
   background: linear-gradient(#ffffff, #d9d9d9); box-shadow: inset 0 -2px 0 #a9a9a9, 0 1px 1px rgba(0,0,0,.5); transition: bottom .08s;
 }
-#sw-grid .sw-btn.on { background: #2a1110; }
-#sw-grid .sw-btn.on::after { left: 1px; bottom: 16px; }
-#sw-grid .sw-lbl { color: rgba(255,255,255,.92); font-size: 7.5px; }
-#sw-grid .pin-lbl { color: rgba(255,255,255,.65); }
+.dip .sw-btn.on { background: #2a1110; }
+.dip .sw-btn.on::after { left: 1px; bottom: 16px; }
+.dip .sw-lbl { color: rgba(255,255,255,.92); font-size: 7.5px; }
+.dip .pin-lbl { color: rgba(255,255,255,.65); }
+/* group headings in the examples menu */
+.ex-group { padding: 7px 12px 3px; font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); background: var(--panel); border-bottom: 1px solid var(--frame2); cursor: default; }
+.ex-list button { padding-left: 20px; }
+/* board chooser and the iCEBreaker board */
+#board-sel { font: inherit; font-size: 11px; text-transform: none; letter-spacing: 0; padding: 1px 4px; margin-left: 8px; border: 1px solid var(--frame); border-radius: 4px; background: var(--panel2); color: var(--ink); }
+.ex-board { padding: 6px 12px; font-size: 11px; font-weight: 700; color: var(--blue-deep); background: var(--blue-dim); border-bottom: 1px solid var(--frame); cursor: default; }
+.pcb-ice { background: linear-gradient(160deg, #1d2f6b, #141f4a); }
+.ice-digits { display: flex; justify-content: center; gap: 8px; }
+.ice-low { display: flex; gap: 8px; margin-top: 14px; align-items: stretch; }
+.ice-box { flex: 1; border: 1px dashed rgba(255,255,255,.28); border-radius: 7px; padding: 7px 8px 6px; display: flex; flex-direction: column; }
+.ice-name { margin-top: auto; padding-top: 10px; text-align: center; font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: .06em; color: rgba(255,255,255,.88); }
+.ice-name i { display: block; font-style: normal; font-weight: 400; font-size: 8px; letter-spacing: .12em; color: rgba(255,255,255,.5); margin-top: 1px; }
+.ice-cross .led { position: relative; }
+.ice-cross .led::after { content: attr(data-n); position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font: 700 8px var(--mono); color: rgba(255,255,255,.85); text-shadow: 0 0 2px rgba(0,0,0,.9); }
+.ice-box .board-row-title { margin-top: 0; }
+.ice-main, .ice-snap { display: flex; justify-content: center; align-items: center; gap: 12px; }
+.ice-ledcol, .ice-btns { display: flex; flex-direction: column; gap: 6px; align-items: center; }
+.ice-led-cell, .ice-btn-cell { display: flex; flex-direction: column; align-items: center; gap: 1px; font-family: var(--mono); font-size: 7.5px; color: rgba(255,255,255,.75); }
+.ice-led-cell i, .ice-btn-cell i { font-style: normal; font-size: 7px; color: rgba(255,255,255,.45); }
+.ice-cross { display: grid; grid-template-columns: repeat(3, 22px); grid-template-rows: repeat(3, 22px); gap: 3px; place-items: center; }
+.ice-cap { text-align: center; font-family: var(--mono); font-size: 7px; color: rgba(255,255,255,.5); margin-top: 5px; }
+.led.g { background: radial-gradient(circle at 38% 32%, #1f6a2a, #0f3214); border-color: #0b2a10; }
+.led.g.on { background: radial-gradient(circle at 38% 32%, #b9ffb4, #2fd43a); box-shadow: 0 0 9px 1px rgba(60,230,70,.85), inset 0 1px 2px rgba(255,255,255,.4); }
+button.ice-btn {
+  width: 24px; height: 24px; padding: 0; border-radius: 50%; border: 3px solid #c9ccd2; cursor: pointer;
+  background: radial-gradient(circle at 40% 35%, #6c6f76, #1d1f23); box-shadow: 0 2px 0 #0a0c10, 0 3px 4px rgba(0,0,0,.4);
+}
+button.ice-btn.down { transform: translateY(2px); background: radial-gradient(circle at 40% 35%, #ffe08a, #c99400); border-color: #fff3c4; box-shadow: 0 0 6px 1px rgba(255,210,74,.7); }
 /* schematic tab */
 .syn-seg { display: inline-flex; border: 1px solid var(--frame); border-radius: 5px; overflow: hidden; flex-shrink: 0; }
 .syn-seg button { border: none; border-radius: 0; background: var(--panel2); color: var(--ink2); font-family: var(--mono); font-size: 11px; padding: 2px 11px; min-width: 0; box-shadow: none; }
@@ -400,7 +429,7 @@ button.file-tab.active {
 
 <header>
   <div class="logo">soft<span>fpga</span></div>
-  <span class="ver">v2.23</span>
+  <span class="ver">v2.28</span>
   <span style="font-size:11px;color:var(--muted)"><span class="status-dot" id="sdot"></span><span id="stxt">idle</span></span>
 </header>
 
@@ -450,7 +479,7 @@ button.file-tab.active {
         <div class="la-bar">
           <button onclick="laZoom(2)" title="Zoom out: show twice as many cycles">−</button>
           <button onclick="laZoom(0.5)" title="Zoom in: show half as many cycles">+</button>
-          <span id="la-span" class="la-span">3.20 s shown</span>
+          <span id="la-span" class="la-span">1.000 s shown</span>
           <span id="la-read" class="la-read"></span>
           <span class="la-hint">scroll = zoom · drag = pan · click = marker · double-click = reset</span>
         </div>
@@ -474,9 +503,9 @@ button.file-tab.active {
 
   <!-- MIDDLE: the virtual FPGA board (always present) -->
   <div class="col col-board">
-    <div class="phead"><span>FPGA Board</span><span id="io-count" style="font-weight:400;text-transform:none;color:var(--muted)"></span></div>
+    <div class="phead"><span>FPGA Board</span><select id="board-sel" onchange="setBoard(this.value)" title="Which board to use"><option value="softfpga">softfpga board</option><option value="icebreaker">iCEBreaker</option></select><span id="io-count" style="font-weight:400;text-transform:none;color:var(--muted)"></span></div>
     <div class="board-stage">
-      <div class="pcb">
+      <div class="pcb" id="pcb-softfpga">
         <div class="board-row-title">LEDs · pins 15 … 8</div>
         <div class="led-row" id="leds-display"></div>
 
@@ -496,9 +525,11 @@ button.file-tab.active {
         </div>
 
         <div class="board-row-title">Switches · pins 7 … 0</div>
-        <div class="sw-row" id="sw-grid"></div>
+        <div class="sw-row dip" id="sw-grid"></div>
 
-        <div class="pcb-stencil">iCE40UP5K · softfpga board<br><span class="pcb-clk">clock = pin 16 · 10 Hz</span></div>
+        <div class="pcb-stencil">iCE40UP5K · softfpga board<br><span class="pcb-clk">clock = pin 16 · 1 kHz</span></div>
+      </div>
+      <div class="pcb pcb-ice" id="pcb-icebreaker" style="display:none">
       </div>
     </div>
   </div>
@@ -515,11 +546,7 @@ button.file-tab.active {
       </div>
       <div class="info-card">
         <h4>Board pins</h4>
-        <div class="info-row"><span class="k">Switches sw0–sw7</span><span class="v">0 – 7</span></div>
-        <div class="info-row"><span class="k">LEDs led0–led7</span><span class="v">8 – 15</span></div>
-        <div class="info-row"><span class="k">7-segment a–g, dp</span><span class="v">8 – 15</span></div>
-        <div class="info-row"><span class="k">Clock, 10 Hz</span><span class="v">16</span></div>
-        <div class="info-note">In the .cst file, one line per port bit:<br><code>IO_LOC "led[0]" 8;</code></div>
+        <div id="pins-card-body"></div>
       </div>
       <div class="info-card">
         <h4>Resource Usage</h4>
@@ -545,7 +572,9 @@ button.file-tab.active {
 //    pin  16    clock                    (input)
 // ══════════════════════════════════════════════════════════════
 const BOARD = {
+  id: 'softfpga',
   name: 'softfpga board',
+  cstExt: '.cst',
   clkPin: 16,
   pinInfo(pin) {
     if (pin >= 0 && pin <= 7)  return { kind: 'sw',  bit: pin,     dir: 'input',  label: 'switch sw' + pin };
@@ -555,6 +584,103 @@ const BOARD = {
   },
   pinHelp: 'pins 0-7 = switches, 8-15 = LEDs + hex display, 16 = clock',
 };
+
+// ══════════════════════════════════════════════════════════════
+//  iCEBreaker  (1BitSquared, iCE40UP5K-SG48)
+//  The real board with its real pin numbers, in the configuration of the
+//  beginners' workshops: the 7-segment Pmod on PMOD 1A, the DIP switch Pmod
+//  on PMOD 1B, and the snap-off section with 5 LEDs and 3 buttons on PMOD 2.
+//  Pin numbers and polarities are those of icebreaker.pcf and of the
+//  icebreaker-verilog-examples and WTFpga designs.
+// ══════════════════════════════════════════════════════════════
+const ICE_PIN = {};
+ICE_PIN[35] = { kind: 'clk', bit: 0, dir: 'input', label: 'clock CLK' };
+ICE_PIN[10] = { kind: 'btn', bit: 0, dir: 'input', low: true, label: 'user button BTN_N (0 when pressed)' };
+[20, 19, 18].forEach((p, i) => { ICE_PIN[p] = { kind: 'btn', bit: i + 1, dir: 'input', label: 'button BTN' + (i + 1) }; });
+[26, 27, 25, 23, 21].forEach((p, i) => { ICE_PIN[p] = { kind: 'led', bit: i, dir: 'output', label: 'LED' + (i + 1) }; });
+ICE_PIN[11] = { kind: 'led', bit: 5, dir: 'output', low: true, label: 'red LED LEDR_N (lit at 0)' };
+ICE_PIN[37] = { kind: 'led', bit: 6, dir: 'output', low: true, label: 'green LED LEDG_N (lit at 0)' };
+[4, 2, 47, 45, 3, 48, 46].forEach((p, i) => { ICE_PIN[p] = { kind: 'seg', bit: i, dir: 'output', low: true, label: '7-segment ' + 'abcdefg'[i] + ' (lit at 0)' }; });
+ICE_PIN[44] = { kind: 'segsel', bit: 0, dir: 'output', label: '7-segment digit select (1 = right digit)' };
+[43, 38, 34, 31, 42, 36, 32, 28].forEach((p, i) => { ICE_PIN[p] = { kind: 'sw', bit: i, dir: 'input', label: 'DIP switch ' + (i + 1) }; });
+// pins of the board that softfpga does not draw; a design may still use them (watch them in the logic analyzer)
+Object.entries({ 6: 'UART RX', 9: 'UART TX', 39: 'RGB LED red', 40: 'RGB LED green', 41: 'RGB LED blue',
+  15: 'flash SCK', 16: 'flash SS', 14: 'flash IO0', 17: 'flash IO1', 12: 'flash IO2', 13: 'flash IO3' })
+  .forEach(([p, label]) => { ICE_PIN[p] = { kind: 'pin', bit: 0, label: label + ' (not drawn)' }; });
+
+const ICEBREAKER = {
+  id: 'icebreaker',
+  name: 'iCEBreaker',
+  cstExt: '.pcf',
+  cstName: 'icebreaker.pcf',
+  clkPin: 35,
+  pinInfo(pin) { return ICE_PIN[pin] || null; },
+  pinHelp: 'CLK 35 · BTN_N 10 · BTN1-3 20 19 18 · LED1-5 26 27 25 23 21 · LEDR_N 11 · LEDG_N 37 · 7-segment a-g 4 2 47 45 3 48 46, select 44 · DIP 43 38 34 31 42 36 32 28',
+  // The board's own constraint file. Every pin has a name; -nowarn means "skip this line
+  // if the design has no port of that name", so one file serves every design.
+  cstDefault: `# iCEBreaker pin file. softfpga runs the clock at 1 kHz; the real board has 12 MHz.
+set_io -nowarn CLK        35
+
+# button and LEDs on the main board (active low)
+set_io -nowarn BTN_N      10
+set_io -nowarn LEDR_N     11
+set_io -nowarn LEDG_N     37
+
+# snap-off section on PMOD 2: five LEDs and three buttons (active high)
+set_io -nowarn LED1       26
+set_io -nowarn LED2       27
+set_io -nowarn LED3       25
+set_io -nowarn LED4       23
+set_io -nowarn LED5       21
+set_io -nowarn BTN1       20
+set_io -nowarn BTN2       19
+set_io -nowarn BTN3       18
+
+# 7-segment Pmod on PMOD 1A: segments a..g (lit at 0) and the digit select
+set_io -nowarn P1A1        4
+set_io -nowarn P1A2        2
+set_io -nowarn P1A3       47
+set_io -nowarn P1A4       45
+set_io -nowarn P1A7        3
+set_io -nowarn P1A8       48
+set_io -nowarn P1A9       46
+set_io -nowarn P1A10      44
+set_io -nowarn seg[0]      4
+set_io -nowarn seg[1]      2
+set_io -nowarn seg[2]     47
+set_io -nowarn seg[3]     45
+set_io -nowarn seg[4]      3
+set_io -nowarn seg[5]     48
+set_io -nowarn seg[6]     46
+set_io -nowarn ca         44
+
+# DIP switch Pmod on PMOD 1B
+set_io -nowarn P1B1       43
+set_io -nowarn P1B2       38
+set_io -nowarn P1B3       34
+set_io -nowarn P1B4       31
+set_io -nowarn P1B7       42
+set_io -nowarn P1B8       36
+set_io -nowarn P1B9       32
+set_io -nowarn P1B10      28
+set_io -nowarn sw[0]      43
+set_io -nowarn sw[1]      38
+set_io -nowarn sw[2]      34
+set_io -nowarn sw[3]      31
+set_io -nowarn sw[4]      42
+set_io -nowarn sw[5]      36
+set_io -nowarn sw[6]      32
+set_io -nowarn sw[7]      28
+
+# on the board but not drawn here
+set_io -nowarn RX          6
+set_io -nowarn TX          9
+set_io -nowarn LED_RED_N  39
+set_io -nowarn LED_GRN_N  40
+set_io -nowarn LED_BLU_N  41
+`,
+};
+const BOARDS = { softfpga: BOARD, icebreaker: ICEBREAKER };
 
 // ══════════════════════════════════════════════════════════════
 //  CONSTRAINTS  (the .cst file)
@@ -570,19 +696,20 @@ function parseConstraints(text) {
     for (const stmt of line.split(';')) {
       const s = stmt.trim();
       if (!s) continue;
-      let name = null, pinTok = null, m;
+      let name = null, pinTok = null, nowarn = false, m;
       if ((m = s.match(/^set_io\s+(.*)$/i))) {
         // options (-nowarn, -pullup yes, -pullup_resistor 10k) are accepted and ignored
+        nowarn = /-nowarn/i.test(m[1]);              // "skip this line if the design has no such port"
         const tok = m[1].replace(/-pullup_resistor\s+\S+/gi, '').replace(/-pullup\s+\S+/gi, '').replace(/-nowarn/gi, '').trim().split(/\s+/);
         if (tok.length === 2) { name = tok[0].replace(/^"|"$/g, ''); pinTok = tok[1]; }
       } else if ((m = s.match(/^IO_LOC\s+"?([^"\s]+)"?\s+(\S+)$/i))) {
         name = m[1]; pinTok = m[2].split(',')[0];
-      } else if (/^IO_PORT\s+/i.test(s)) {
-        continue;                                   // electrical attributes: accepted, not modeled
+      } else if (/^IO_PORT\s+/i.test(s) || /^set_frequency\s+/i.test(s)) {
+        continue;                                   // electrical attributes, clock frequency: accepted, not modeled
       }
       if (name === null) { errors.push(`line ${i + 1}: cannot read "${s}". Write: IO_LOC "port" pin;`); continue; }
       if (!/^\d+$/.test(pinTok)) { errors.push(`line ${i + 1}: "${pinTok}" is not a pin number`); continue; }
-      locs.push({ name, pin: Number(pinTok), line: i + 1 });
+      locs.push({ name, pin: Number(pinTok), line: i + 1, nowarn });
     }
   });
   return { locs, errors };
@@ -604,6 +731,7 @@ function placeAndRoute(netlist, constraintText, board) {
   const pinOf = {}, usedBy = {};
   for (const l of cst.locs) {
     const p = byName[l.name];
+    if (!p && l.nowarn) continue;                    // a board file lists every pin; unused names are skipped
     if (!p) {
       const bus = ports.filter(q => q.port === l.name);
       errors.push(bus.length > 1
@@ -616,13 +744,13 @@ function placeAndRoute(netlist, constraintText, board) {
     if (pinOf[p.name] !== undefined) { errors.push(`constraints line ${l.line}: port "${p.name}" is already on pin ${pinOf[p.name]}`); continue; }
     if (usedBy[l.pin] !== undefined) { errors.push(`constraints line ${l.line}: pin ${l.pin} is already used by "${usedBy[l.pin]}"`); continue; }
     if (info.dir && info.dir !== p.dir) {
-      errors.push(`constraints line ${l.line}: "${p.name}" is an ${p.dir}, but pin ${l.pin} is the ${info.label} (${info.dir} only)`);
+      errors.push(`constraints line ${l.line}: "${p.name}" is an ${p.dir}, but pin ${l.pin} is the ${info.label.replace(/ \(.*\)$/, '')} (${info.dir} only)`);
       continue;
     }
     pinOf[p.name] = l.pin; usedBy[l.pin] = p.name;
   }
   for (const p of ports) {
-    if (pinOf[p.name] === undefined) errors.push(`${p.dir} port "${p.name}" has no pin. Add a line: IO_LOC "${p.name}" <pin>;`);
+    if (pinOf[p.name] === undefined) errors.push(`${p.dir} port "${p.name}" has no pin. Add a line: ${board.cstExt === '.pcf' ? `set_io ${p.name} <pin>` : `IO_LOC "${p.name}" <pin>;`}`);
   }
   if (errors.length) return { ok: false, errors, warnings, report };
 
@@ -632,9 +760,9 @@ function placeAndRoute(netlist, constraintText, board) {
   for (const p of ports) {
     const pin = pinOf[p.name], info = board.pinInfo(pin);
     report.push(`${p.name.padEnd(14)} ${p.dir.padEnd(7)} pin ${String(pin).padStart(2)}  ${info.label || ''}`);
-    if (p.dir === 'output') ios.push({ name: p.name, net: p.net, pin, kind: info.kind === 'led' ? 'led' : 'pin', bit: info.bit, color: colors[info.bit % colors.length] });
+    if (p.dir === 'output') ios.push({ name: p.name, net: p.net, pin, kind: info.kind, bit: info.bit, low: !!info.low, color: colors[info.bit % colors.length] });
     else {
-      inputs.push({ name: p.name, net: p.net, pin, kind: info.kind, bit: info.bit });
+      inputs.push({ name: p.name, net: p.net, pin, kind: info.kind, bit: info.bit, low: !!info.low });
       if (pin === board.clkPin) clkNet = p.net;
     }
   }
@@ -1151,10 +1279,12 @@ async function compileVerilog(src) {
 //  EXAMPLE DESIGNS
 // ══════════════════════════════════════════════════════════════
 // Each example is two files: the design (name.v) and its pin assignment (name.cst).
-// Board pins: 0-7 = switches, 8-15 = LEDs and 7-segment (a b c d e f g dp), 16 = clock (10 Hz).
+// Board pins: 0-7 = switches, 8-15 = LEDs and 7-segment (a b c d e f g dp), 16 = clock (1 kHz).
+// Examples are listed in the menu under their `group`, in the order written here.
 const pinsOf = (name, first, n) => Array.from({ length: n }, (_, i) => `IO_LOC "${name}[${i}]" ${first + i};`).join('\n');
+const EXAMPLE_GROUP_ORDER = ['Gates and wires', 'Clock and counters', '7-segment display', 'Buttons and LEDs', '7-segment and DIP switch'];
 const VERILOG_EXAMPLES = {
-  switches: { v: `// Switch passthrough — the switches drive the LEDs directly.
+  switches: { group: 'Gates and wires', v: `// Switch passthrough — the switches drive the LEDs directly.
 // Flip a switch and its LED follows.
 module top (
   input  [7:0] sw,
@@ -1168,7 +1298,7 @@ ${pinsOf('sw', 0, 8)}
 ${pinsOf('led', 8, 8)}
 ` },
 
-  gates: { v: `// 1. PRIMITIVES — a half adder built from gate primitives
+  gates: { group: 'Gates and wires', v: `// 1. PRIMITIVES — a half adder built from gate primitives
 // a, b on two switches.  sum = a xor b,  carry = a and b.
 module top (
   input  a, b,
@@ -1182,7 +1312,7 @@ IO_LOC "sum" 8;
 IO_LOC "carry" 9;
 ` },
 
-  fulladder: { v: `// 2. HIERARCHICAL MODELING — a full adder built from two half adders
+  fulladder: { group: 'Gates and wires', v: `// 2. HIERARCHICAL MODELING — a full adder built from two half adders
 module halfadder (output S, C, input A, B);
   xor G0 (S, A, B);
   and G1 (C, A, B);
@@ -1203,7 +1333,7 @@ IO_LOC "sum" 8;
 IO_LOC "cout" 9;
 ` },
 
-  dataflow: { v: `// 3. DATAFLOW MODELING — continuous assignment, bitwise operators
+  dataflow: { group: 'Gates and wires', v: `// 3. DATAFLOW MODELING — continuous assignment, bitwise operators
 // Two 4-bit numbers on the switches; AND on the low LEDs, XOR on the high LEDs.
 module top (
   input  [3:0] a,
@@ -1219,7 +1349,7 @@ ${pinsOf('y_and', 8, 4)}
 ${pinsOf('y_xor', 12, 4)}
 ` },
 
-  adder: { v: `// 4-bit adder — a + b, 5-bit result on the LEDs
+  adder: { group: 'Gates and wires', v: `// 4-bit adder — a + b, 5-bit result on the LEDs
 module top (
   input  [3:0] a,
   input  [3:0] b,
@@ -1231,7 +1361,7 @@ ${pinsOf('b', 4, 4)}
 ${pinsOf('sum', 8, 5)}
 ` },
 
-  sevenseg: { v: `// Hex to 7-segment decoder.
+  sevenseg: { group: '7-segment display', v: `// Hex to 7-segment decoder.
 // sw[3:0] selects a digit 0-F; the display shows it.
 // The 7-segment display shares pins 8-15 with the LEDs:
 //   seg[0]=a  seg[1]=b  seg[2]=c  seg[3]=d  seg[4]=e  seg[5]=f  seg[6]=g,  dp = decimal point
@@ -1269,52 +1399,72 @@ ${pinsOf('seg', 8, 7)}
 IO_LOC "dp" 15;
 ` },
 
-  blink: { v: `// LED blink — one LED toggles every clock.
-// The board clock is 10 Hz, so the LED is on for 0.1 s and off for 0.1 s.
+  blink: { group: 'Clock and counters', v: `// LED blink — on for half a second, off for half a second.
+// The board clock is 1 kHz, far too fast to see, so a counter divides it:
+// every 500 clocks the LED changes.
 module top (
   input  clk,
   output led
 );
+  localparam CLK_HZ = 1000;            // clock of the softfpga board
+  reg [9:0] count = 0;
   reg state = 0;
-  always @(posedge clk)
-    state <= ~state;
+  always @(posedge clk) begin
+    if (count == CLK_HZ / 2 - 1) begin
+      count <= 0;
+      state <= ~state;
+    end else
+      count <= count + 1;
+  end
   assign led = state;
 endmodule`, cst: `IO_LOC "clk" 16;
 IO_LOC "led" 8;
 ` },
 
-  counter: { v: `// 8-bit binary counter on the LEDs, one count per clock (10 per second)
+  counter: { group: 'Clock and counters', v: `// 8-bit binary counter on the LEDs, 10 counts per second.
+// tick is 1 for one clock in every 100: the counter only moves on a tick.
 module top (
   input  clk,
   output [7:0] led
 );
+  localparam CLK_HZ = 1000;
+  reg [6:0] div = 0;
+  wire tick = (div == CLK_HZ / 10 - 1);
   reg [7:0] count = 0;
-  always @(posedge clk)
-    count <= count + 1;
+  always @(posedge clk) begin
+    div <= tick ? 7'd0 : div + 1;
+    if (tick) count <= count + 1;
+  end
   assign led = count;
 endmodule`, cst: `IO_LOC "clk" 16;
 ${pinsOf('led', 8, 8)}
 ` },
 
-  shift: { v: `// 8-bit shift register
-// din (switch 0) feeds the serial input; the LEDs show the state
+  shift: { group: 'Clock and counters', v: `// 8-bit shift register, 4 shifts per second.
+// din (switch 0) feeds the serial input; the LEDs show the state.
 module top (
   input  clk,
   input  din,
   output [7:0] led
 );
+  localparam CLK_HZ = 1000;
+  reg [7:0] div = 0;
+  wire tick = (div == CLK_HZ / 4 - 1);
   reg [7:0] sr = 0;
-  always @(posedge clk)
-    sr <= {sr[6:0], din};
+  always @(posedge clk) begin
+    div <= tick ? 8'd0 : div + 1;
+    if (tick) sr <= {sr[6:0], din};
+  end
   assign led = sr;
 endmodule`, cst: `IO_LOC "clk" 16;
 IO_LOC "din" 0;
 ${pinsOf('led', 8, 8)}
 ` },
 
-  pwm: { v: `// PWM — the period is 4 clock cycles; the duty switch sets how many of them the LED is on.
+  pwm: { group: 'Clock and counters', v: `// PWM — the period is 4 clock cycles (4 ms); the duty switch sets how many of them the LED is on.
 //   duty = 0 (switch 0 off): 25 % duty — 1 cycle on, 3 cycles off
 //   duty = 1 (switch 0 on):  50 % duty — 2 cycles on, 2 cycles off
+// At 250 Hz the eye sees a dimmer or a brighter LED; the logic analyzer shows the pulses.
 // step shows the cycle counter 0-3 on the two upper LEDs.
 module top (
   input  clk,
@@ -1334,7 +1484,7 @@ IO_LOC "pwm" 8;
 ${pinsOf('step', 14, 2)}
 ` },
 
-  fsm: { v: `// 4. BEHAVIORAL MODELING — an up/down counter with enable and reset
+  fsm: { group: 'Clock and counters', v: `// Up/down counter with enable and reset, 10 steps per second.
 // en (switch 0) = count, down (switch 1) = direction, rst (switch 7) = clear
 module top (
   input  clk,
@@ -1343,11 +1493,15 @@ module top (
   input  rst,
   output [7:0] led
 );
+  localparam CLK_HZ = 1000;
+  reg [6:0] div = 0;
+  wire tick = (div == CLK_HZ / 10 - 1);
   reg [7:0] count = 0;
   always @(posedge clk) begin
+    div <= tick ? 7'd0 : div + 1;
     if (rst)
       count <= 0;
-    else if (en) begin
+    else if (tick && en) begin
       if (down)
         count <= count - 1;          // count down
       else
@@ -1362,8 +1516,8 @@ IO_LOC "rst" 7;
 ${pinsOf('led', 8, 8)}
 ` },
 
-  digits: { v: `// A counter shown as a digit: counts 0-F on the 7-segment display, one digit per second.
-// The board clock is 10 Hz, so a divider counts 10 clocks for each step.
+  digits: { group: '7-segment display', v: `// A counter shown as a digit: counts 0-F on the 7-segment display, one digit per second.
+// The board clock is 1 kHz, so a divider counts 1000 clocks for each step.
 // hold (switch 0) freezes the count.
 module top (
   input  clk,
@@ -1371,11 +1525,12 @@ module top (
   output reg [6:0] seg,
   output dp
 );
-  reg [3:0] div = 0;                 // clock divider: 0..9
+  localparam CLK_HZ = 1000;
+  reg [9:0] div = 0;                 // clock divider: 0..999
   reg [3:0] n = 0;                   // the digit
-  wire tick = (div == 4'd9);         // true once every 10 clocks
+  wire tick = (div == CLK_HZ - 1);   // true once every 1000 clocks
   always @(posedge clk) begin
-    div <= tick ? 4'd0 : div + 1;
+    div <= tick ? 10'd0 : div + 1;
     if (tick && !hold) n <= n + 1;
   end
 
@@ -1407,22 +1562,42 @@ IO_LOC "dp" 15;
 ` },
 };
 
+// iCEBreaker examples: they use the board's pin file (icebreaker.pcf), so they have no cst of their own.
+VERILOG_EXAMPLES["buttons"] = { board: 'icebreaker', group: "Buttons and LEDs", v: "// Buttons to LEDs, straight wires.\n// The three buttons of the snap-off section read 1 while pressed; its LEDs light at 1.\n// On the main board everything is active low: BTN_N reads 0 while pressed, and the\n// red and green LEDs light when their pin is 0.\n// Click a button to hold it down, click again to release it.\nmodule top (\n  input  BTN_N, BTN1, BTN2, BTN3,\n  output LED1, LED2, LED3,\n  output LEDR_N, LEDG_N\n);\n  assign LED2 = BTN1;\n  assign LED1 = BTN2;\n  assign LED3 = BTN3;\n  assign LEDR_N = BTN_N;     // pressed: BTN_N = 0, so the red LED lights\n  assign LEDG_N = ~BTN_N;    // released: the green LED lights\nendmodule" };
+VERILOG_EXAMPLES["full_adder_1bit"] = { board: 'icebreaker', group: "Buttons and LEDs", v: "// From icebreaker-verilog-examples (https://codeberg.org/icebreaker-fpga/icebreaker-verilog-examples), unchanged.\n/*\n *  icebreaker examples - 1-bit full adder\n *\n *  Copyright (C) 2019 Albin Söderqvist <albin@fripost.org>\n *\n *  Permission to use, copy, modify, and/or distribute this software for any\n *  purpose with or without fee is hereby granted, provided that the above\n *  copyright notice and this permission notice appear in all copies.\n *\n *  THE SOFTWARE IS PROVIDED \"AS IS\" AND THE AUTHOR DISCLAIMS ALL WARRANTIES\n *  WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF\n *  MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR\n *  ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES\n *  WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN\n *  ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF\n *  OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.\n *\n */\n\n// Pressing the buttons 1-3 (or not) in various combinations\n// will represent the two-bit binary numbers 00, 01, 10 and 11\n// by enabling some of the built-in LEDs.\n\nmodule top(BTN1, BTN2, BTN3, LED1, LED2);\n   input BTN1, BTN2, BTN3;\n   output LED1, LED2;\n   wire [1:0] Sum;\n   wire   A, B, Cin;\n   assign   BTN1 = A, BTN2 = B, BTN3 = Cin;\n   assign {LED1, LED2} = Sum;\n   assign Sum = A + B + Cin;\nendmodule" };
+VERILOG_EXAMPLES["cmp_1bit"] = { board: 'icebreaker', group: "Buttons and LEDs", v: "// From icebreaker-verilog-examples (https://codeberg.org/icebreaker-fpga/icebreaker-verilog-examples), unchanged.\n/*\n *  icebreaker examples - 1-bit comparator\n *\n *  Copyright (C) 2019 Albin Söderqvist <albin@fripost.org>\n *\n *  Permission to use, copy, modify, and/or distribute this software for any\n *  purpose with or without fee is hereby granted, provided that the above\n *  copyright notice and this permission notice appear in all copies.\n *\n *  THE SOFTWARE IS PROVIDED \"AS IS\" AND THE AUTHOR DISCLAIMS ALL WARRANTIES\n *  WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF\n *  MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR\n *  ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES\n *  WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN\n *  ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF\n *  OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.\n *\n */\n\n// Pressing button 1 (A) and/or 2 (B) will compare the two signals\n// and enable one of the built-in LEDs:\n//      A < B: L2\n//      A = B: L1\n//      A > B: L3\n\nmodule top(BTN1, BTN2, CLK, LED1, LED2, LED3);\n   input BTN1, BTN2, CLK;\n   output LED1, LED2, LED3;\n   wire   A, B;\n   reg [2:0] out;\n   assign {LED2, LED1, LED3} = out;\n   assign BTN1 = A;\n   assign BTN2 = B;\n\n   always @ (posedge CLK)\n     if (A < B)\n       out <= 3'b100;\n     else if (A == B)\n       out <= 3'b010;\n     else\n       out <= 3'b001;\nendmodule" };
+VERILOG_EXAMPLES["led_counter"] = { board: 'icebreaker', group: "Buttons and LEDs", v: "// A 5-bit counter on the five LEDs, 4 steps per second, and a button counter:\n// the red and green LED show in binary how many buttons are down.\n// softfpga's clock is 1 kHz. On the real board CLK is 12 MHz: set CLK_HZ to 12_000_000\n// and widen the divider.\nmodule top (\n  input  CLK,\n  input  BTN_N, BTN1, BTN2, BTN3,\n  output LED1, LED2, LED3, LED4, LED5,\n  output LEDR_N, LEDG_N\n);\n  localparam CLK_HZ = 1000;\n  reg [7:0] div = 0;\n  wire tick = (div == CLK_HZ / 4 - 1);\n  reg [4:0] count = 0;\n  always @(posedge CLK) begin\n    div <= tick ? 8'd0 : div + 1;\n    if (tick) count <= count + 1;\n  end\n  assign {LED5, LED4, LED3, LED2, LED1} = count;\n\n  wire [2:0] down = !BTN_N + BTN1 + BTN2 + BTN3;   // how many buttons are pressed\n  assign {LEDR_N, LEDG_N} = ~down[1:0];             // active low\nendmodule" };
+VERILOG_EXAMPLES["two_digits"] = { board: 'icebreaker', group: "7-segment and DIP switch", v: "// Seconds 00-99 on the 7-segment Pmod (PMOD 1A).\n// The two digits share the seven segment pins. P1A10 selects which digit is lit:\n// 1 = right digit, 0 = left digit. The design shows them in turn, 125 times a second\n// each, and the eye sees both. Segments light when their pin is 0.\nmodule top (\n  input  CLK,\n  output P1A1, P1A2, P1A3, P1A4, P1A7, P1A8, P1A9,   // segments a b c d e f g\n  output P1A10                                        // digit select\n);\n  localparam CLK_HZ = 1000;            // 12_000_000 on the real board\n  reg [9:0] div = 0;\n  wire tick = (div == CLK_HZ - 1);     // once per second\n  reg [3:0] ones = 0, tens = 0;\n  always @(posedge CLK) begin\n    div <= tick ? 10'd0 : div + 1;\n    if (tick) begin\n      if (ones == 9) begin\n        ones <= 0;\n        tens <= (tens == 9) ? 4'd0 : tens + 1;\n      end else\n        ones <= ones + 1;\n    end\n  end\n\n  // show the digits in turn: 4 clocks each\n  reg [2:0] phase = 0;\n  always @(posedge CLK) phase <= phase + 1;\n  wire right = phase[2];\n  wire [3:0] digit = right ? ones : tens;\n\n  reg [6:0] s;                         // segments g f e d c b a, 1 = lit\n  always @(*) begin\n    case (digit)\n      4'h0: s = 7'b0111111;   4'h1: s = 7'b0000110;   4'h2: s = 7'b1011011;   4'h3: s = 7'b1001111;\n      4'h4: s = 7'b1100110;   4'h5: s = 7'b1101101;   4'h6: s = 7'b1111101;   4'h7: s = 7'b0000111;\n      4'h8: s = 7'b1111111;   4'h9: s = 7'b1101111;   4'hA: s = 7'b1110111;   4'hB: s = 7'b1111100;\n      4'hC: s = 7'b0111001;   4'hD: s = 7'b1011110;   4'hE: s = 7'b1111001;   4'hF: s = 7'b1110001;\n    endcase\n  end\n  assign {P1A9, P1A8, P1A7, P1A4, P1A3, P1A2, P1A1} = ~s;   // active low\n  assign P1A10 = right;\nendmodule" };
+VERILOG_EXAMPLES["dip_hex"] = { board: 'icebreaker', group: "7-segment and DIP switch", v: "// The DIP switch (PMOD 1B) as a two-digit hex number on the 7-segment Pmod (PMOD 1A).\n// Switches 8-5 are the left digit, switches 4-1 the right digit. LED1-LED5 repeat\n// the lowest five switches.\nmodule top (\n  input  CLK,\n  input  [7:0] sw,\n  output [6:0] seg,                    // segments a..g, lit at 0\n  output ca,                           // digit select: 1 = right digit\n  output LED1, LED2, LED3, LED4, LED5\n);\n  assign {LED5, LED4, LED3, LED2, LED1} = sw[4:0];\n\n  reg [2:0] phase = 0;                 // show the digits in turn: 4 clocks each\n  always @(posedge CLK) phase <= phase + 1;\n  wire right = phase[2];\n  wire [3:0] digit = right ? sw[3:0] : sw[7:4];\n\n  reg [6:0] s;                         // segments g f e d c b a, 1 = lit\n  always @(*) begin\n    case (digit)\n      4'h0: s = 7'b0111111;   4'h1: s = 7'b0000110;   4'h2: s = 7'b1011011;   4'h3: s = 7'b1001111;\n      4'h4: s = 7'b1100110;   4'h5: s = 7'b1101101;   4'h6: s = 7'b1111101;   4'h7: s = 7'b0000111;\n      4'h8: s = 7'b1111111;   4'h9: s = 7'b1101111;   4'hA: s = 7'b1110111;   4'hB: s = 7'b1111100;\n      4'hC: s = 7'b0111001;   4'hD: s = 7'b1011110;   4'hE: s = 7'b1111001;   4'hF: s = 7'b1110001;\n    endcase\n  end\n  assign seg = ~s;\n  assign ca  = right;\nendmodule" };
+
 
 
 // ══════════════════════════════════════════════════════════════
 //  STATE
 // ══════════════════════════════════════════════════════════════
 // The board clock on pin 16. Fixed, like the oscillator soldered on a real board.
-const CLOCK_HZ = 10;
+const CLOCK_HZ = 1000;
 let emu = null, running = false, timer = null;
 let swState = {}, inspLUT = 0;
 // A design is two files, shown as tabs above the editor:
 //   verilog → <name>.v    the design
 //   cst     → <name>.cst  the constraints (which port goes to which board pin)
 let mode = 'verilog';                      // the tab that is open in the editor
-const CST_HINT = `// Board pins:  0-7 switches,  8-15 LEDs + 7-segment (a b c d e f g dp),  16 clock
+const CST_HINT = `// Board pins:  0-7 switches,  8-15 LEDs + 7-segment (a b c d e f g dp),  16 clock (1 kHz)
 // One line per port bit:  IO_LOC "port" pin;
 `;
+BOARD.cstDefault = CST_HINT; BOARD.cstName = 'untitled.cst';
+// The board on screen: softfpga's own teaching board, or a real one (iCEBreaker).
+let board = BOARD;
+// iCEBreaker push buttons: BTN_N, BTN1, BTN2, BTN3. 1 = held down (a click holds, the next click releases,
+// so that several buttons can be down together).
+const btnDown = [0, 0, 0, 0];
+// What an input pin reads, from the state of the board.
+function inputValue(inp) {
+  if (inp.kind === 'sw')  return swPos[inp.bit] ? 1 : 0;
+  if (inp.kind === 'btn') return (btnDown[inp.bit] ? 1 : 0) ^ (inp.low ? 1 : 0);     // BTN_N reads 0 when pressed
+  return 0;
+}
 let buf   = { verilog: '', cst: CST_HINT };
 let fnBuf = { verilog: 'untitled.v', cst: 'untitled.cst' };
 // The synthesized netlist (set by Synthesize). Place & Route connects it to the
@@ -1497,7 +1672,7 @@ window.setMode = function(m) {
 
 // Double-click a tab to rename its file. The extension is kept.
 window.renameFile = function(m) {
-  const ext = m === 'cst' ? '.cst' : '.v';
+  const ext = m === 'cst' ? board.cstExt : '.v';
   let n = window.prompt('File name', fnBuf[m]);
   if (n == null) return;
   n = n.trim().replace(/[\\/:*?"<>|]/g, '');
@@ -1583,12 +1758,16 @@ function lutComment(tt, inputs) {
 // ══════════════════════════════════════════════════════════════
 //  COMPILE
 // ══════════════════════════════════════════════════════════════
+// After a "synthesized" / "placed" flash the header goes back to what is true now:
+// running if Run was pressed in the meantime, idle otherwise.
+function statusAtRest() { if (running) setStatus('running', 'running'); else setStatus('', 'idle'); }
+
 // Bring a freshly created emulator onto the board.
 function attachEmu(netlist) {
   emu = new ICE40Emu(netlist);
   window.__lastNetlist = netlist;
   swState = {};
-  for (const inp of emu.inputs) if (inp.kind === 'sw') swState[inp.net] = swPos[inp.bit] || 0;
+  for (const inp of emu.inputs) if (inp.kind === 'sw' || inp.kind === 'btn') swState[inp.net] = inputValue(inp);
   emu.reset(swState);
   setCycle(0);
   updateStats(); renderSwitches(); renderLEDs(); renderNets();
@@ -1629,7 +1808,7 @@ window.doCompile = async function() {
     synSetSource(src);                       // the Schematic tab draws this design
     window.__lastNetlist = netlist;
     setStatus('done', 'synthesized');
-    setTimeout(()=>setStatus('','idle'), 1500);
+    setTimeout(statusAtRest, 1500);
     updateStats(); renderLEDs();
     log(`Utilisation: ${(netlist.luts.length/5280*100).toFixed(1)}% of iCE40UP5K (${netlist.luts.length}/5280 LUTs, ${netlist.ffs.length} FFs)`, 'inf');
     if (!netlist.luts.length && !netlist.ffs.length) log('The design needs no logic cells: its outputs are wired straight to inputs or constants.', 'dim');
@@ -1660,15 +1839,15 @@ window.doPnR = function() {
   log('── Place & Route ──', 'inf');
   log(`reading ${fnBuf.cst}`, 'dim');
   if (!buf.cst.replace(/\/\/.*$/gm, '').replace(/#.*$/gm, '').trim()) {
-    log(`✗ ${fnBuf.cst} has no constraints. Give every port a pin, one per line:  IO_LOC "port" pin;`, 'err');
-    log('  ' + BOARD.pinHelp, 'dim');
+    log(`✗ ${fnBuf.cst} has no constraints. Give every port a pin, one per line:  ${board.cstExt === '.pcf' ? 'set_io port pin' : 'IO_LOC "port" pin;'}`, 'err');
+    log('  ' + board.pinHelp, 'dim');
     setStatus('error', 'P&R failed');
     return;
   }
-  const r = placeAndRoute(synthNl, buf.cst);
+  const r = placeAndRoute(synthNl, buf.cst, board);
   if (!r.ok) {
     for (const e of r.errors) log('✗ ' + e, 'err');
-    log(`Place & Route failed with ${r.errors.length} error${r.errors.length===1?'':'s'}. Board: ${BOARD.pinHelp}.`, 'err');
+    log(`Place & Route failed with ${r.errors.length} error${r.errors.length===1?'':'s'}. Board: ${board.pinHelp}.`, 'err');
     setStatus('error', 'P&R failed');
     return;
   }
@@ -1680,7 +1859,7 @@ window.doPnR = function() {
     log('✗ ' + e.message, 'err'); setStatus('error', 'error'); return;
   }
   setStatus('done', 'placed');
-  setTimeout(()=>setStatus('','idle'), 1500);
+  setTimeout(statusAtRest, 1500);
   setNext('run');
   log('Place & Route done — the design is on the board. Press ▶ Run. In the Logic analyzer tab, pick the pins to watch.', 'ok');
 }
@@ -1696,6 +1875,30 @@ window.stepSim = function() {
   setCycle(c);
   renderLEDs(); renderNets(); inspectLUT(inspLUT);
   laRender();
+}
+
+// While running: the 1 kHz clock is far faster than the screen, so every screen frame
+// runs the clock cycles that are due (about 16 of them) and then draws once. An LED is
+// drawn as bright as the share of those cycles its pin was 1.
+let lastFrame = 0, laDrawnAt = 0;
+const MAX_CYCLES_PER_FRAME = 250;          // a slow machine or a hidden tab falls behind instead of freezing
+function runFrame() {
+  if (!emu) { stopRun(); return; }
+  const now = performance.now();
+  let due = Math.floor((now - lastFrame) * CLOCK_HZ / 1000);
+  if (due < 1) return;
+  if (due > MAX_CYCLES_PER_FRAME) { due = MAX_CYCLES_PER_FRAME; lastFrame = now; }
+  else lastFrame += due * 1000 / CLOCK_HZ;
+  const frame = frameStart();
+  for (let i = 0; i < due; i++) {
+    emu.tick();
+    laSample();
+    frameTick(frame);
+  }
+  setCycle(emu.cycle);
+  renderLEDs(frameEnd(frame));
+  renderNets(); inspectLUT(inspLUT);
+  if (now - laDrawnAt > 90) { laDrawnAt = now; laRender(); }     // the waveforms are redrawn 10 times a second
 }
 
 function stopRun() {
@@ -1715,8 +1918,8 @@ window.toggleRun = function() {
   btn.classList.toggle('active', running);
   document.getElementById('sdot').classList.toggle('running', running);
   document.getElementById('stxt').textContent = running ? 'running' : 'paused';
-  if (running) timer = setInterval(stepSim, 1000 / CLOCK_HZ);
-  else clearInterval(timer);
+  if (running) { lastFrame = performance.now(); timer = setInterval(runFrame, 16); }
+  else { clearInterval(timer); renderLEDs(); laRender(); }   // paused: show the pins exactly as they are
 }
 
 window.resetSim = function() {
@@ -1735,7 +1938,10 @@ window.resetSim = function() {
 // Board pins 8-15: each drives one LED and one segment of the 7-segment display.
 const SEG_NAMES = ['seg-a','seg-b','seg-c','seg-d','seg-e','seg-f','seg-g','seg-dp'];
 
-function renderLEDs() {
+// duty (optional): for each LED bit, the share of the last frame its pin was 1 (0..1).
+// Without it the pins are shown as they are right now.
+function renderLEDs(duty) {
+  if (board.id === 'icebreaker') return renderIce(duty);
   const el = document.getElementById('leds-display'); if(!el) return;
   // The board always shows 8 LED slots (led7 left → led0 right), fixed.
   if (el.children.length !== 8) {
@@ -1758,16 +1964,21 @@ function renderLEDs() {
   const sd = document.getElementById('sd0');
   for (let bit = 0; bit < 8; bit++) {
     const l=document.getElementById('led_bit'+bit);
-    if (l) { l.className = 'led' + (litByBit[bit] ? ' on' : ''); l.title = nameByBit[bit] ? `pin ${8+bit} ← ${nameByBit[bit]}` : `pin ${8+bit} — not connected`; }
+    const d = nameByBit[bit] === undefined ? 0 : duty ? duty[bit] : (litByBit[bit] ? 1 : 0);
+    const on = d > 0.02;
+    // a pin that is 1 only part of the time looks dimmer, as a fast-switching LED does to the eye
+    const dim = on && d < 0.98 ? (0.12 + 0.88 * d).toFixed(2) : '';      // 25 % duty is clearly dimmer than 50 %
+    if (l) { l.className = 'led' + (on ? ' on' : ''); l.style.opacity = dim; l.title = nameByBit[bit] ? `pin ${8+bit} ← ${nameByBit[bit]}` : `pin ${8+bit} — not connected`; }
     // The same pin lights one segment: a b c d e f g dp = pins 8..15.
     const s = sd && sd.querySelector('.'+SEG_NAMES[bit]);
-    if (s) s.classList.toggle('on', !!litByBit[bit]);
+    if (s) { s.classList.toggle('on', on); s.style.opacity = dim; }
   }
   const cnt = document.getElementById('io-count');
   if (cnt) cnt.textContent = emu ? `${emu.inputs.length} in · ${emu.ios.length} out placed` : (synthNl ? 'synthesized, not placed' : '');
 }
 
 function renderSwitches() {
+  if (board.id === 'icebreaker') return renderIceInputs();
   const el=document.getElementById('sw-grid'); if(!el) return;
   // Which net is each switch wired to (by Place & Route)?
   const netForBit = {}, nameForBit = {};
@@ -1797,6 +2008,191 @@ function renderSwitches() {
   }
 }
 
+
+// ── What the board showed during one screen frame ──
+// While running, a frame covers several clock cycles. For every LED (and every segment of
+// every digit) the cycles it was lit are counted; the share becomes its brightness.
+function frameStart() {
+  const ios = emu.ios;
+  return {
+    n: 0, leds: ios.filter(io => io.kind === 'led'), segs: ios.filter(io => io.kind === 'seg'), sel: ios.find(io => io.kind === 'segsel'),
+    led: [0,0,0,0,0,0,0,0], dig: [[0,0,0,0,0,0,0], [0,0,0,0,0,0,0]],
+  };
+}
+function frameTick(f) {
+  f.n++;
+  for (const io of f.leds) { const v = emu.rd(io.net); if (io.low ? !v : v) f.led[io.bit]++; }
+  if (f.segs.length) {
+    const d = f.sel ? (emu.rd(f.sel.net) ? 0 : 1) : 0;                  // digit select: 1 = right digit (index 0)
+    for (const io of f.segs) if (!emu.rd(io.net)) f.dig[d][io.bit]++;   // segments are lit at 0
+  }
+}
+function frameEnd(f) {
+  const led = f.led.map(x => x / f.n);
+  return board.id === 'icebreaker' ? { led, dig: f.dig.map(d => d.map(x => x / f.n)) } : led;
+}
+
+// ══════════════════════════════════════════════════════════════
+//  iCEBreaker board
+//  PMOD 1A: 7-segment Pmod, two digits that share the segment pins (multiplexed)
+//  PMOD 1B: DIP switch Pmod
+//  PMOD 2:  the snap-off section, five LEDs and three buttons
+//  main board: user button BTN_N, red and green LED (all three active low)
+// ══════════════════════════════════════════════════════════════
+const ICE_DIP_PINS = [43, 38, 34, 31, 42, 36, 32, 28];
+const ICE_LED = [                      // bit → where it is and what it is called
+  { id: 0, name: 'LED1', pin: 26 }, { id: 1, name: 'LED2', pin: 27 }, { id: 2, name: 'LED3', pin: 25 },
+  { id: 3, name: 'LED4', pin: 23 }, { id: 4, name: 'LED5', pin: 21 }, { id: 5, name: 'LEDR_N', pin: 11 }, { id: 6, name: 'LEDG_N', pin: 37 },
+];
+const ICE_BTN = [{ name: 'BTN_N', pin: 10 }, { name: 'BTN1', pin: 20 }, { name: 'BTN2', pin: 19 }, { name: 'BTN3', pin: 18 }];
+const ICE_SEG = ['seg-a','seg-b','seg-c','seg-d','seg-e','seg-f','seg-g'];
+
+function iceBuild() {
+  const el = document.getElementById('pcb-icebreaker');
+  if (!el || el.dataset.built) return;
+  el.dataset.built = '1';
+  const digit = (id) => `<div class="seg-digit ice-digit" id="${id}">${ICE_SEG.map(c => `<div class="seg ${c}"></div>`).join('')}</div>`;
+  const led = (b, cls) => `<div class="led${cls || ''}" id="ice_led${b}" title=""${b < 5 ? ` data-n="${b + 1}"` : ''}></div>`;
+  const btn = (b) => `<div class="ice-btn-cell"><button class="ice-btn" id="ice_btn${b}"></button><span>${ICE_BTN[b].name}</span><i>pin ${ICE_BTN[b].pin}</i></div>`;
+  el.innerHTML = `
+    <div class="board-row-title">PMOD 1A · 7-segment</div>
+    <div class="ice-digits">${digit('ice-d1')}${digit('ice-d0')}</div>
+    <div class="board-row-title">PMOD 1B · DIP switch</div>
+    <div class="sw-row dip" id="ice-dip"></div>
+    <div class="ice-low">
+      <div class="ice-box">
+        <div class="board-row-title">Main board</div>
+        <div class="ice-main">
+          ${btn(0)}
+          <div class="ice-ledcol">
+            <div class="ice-led-cell">${led(6, ' g')}<span>LEDG_N</span><i>pin 37</i></div>
+            <div class="ice-led-cell">${led(5)}<span>LEDR_N</span><i>pin 11</i></div>
+          </div>
+        </div>
+        <div class="ice-name">iCEBreaker<i>iCE40UP5K</i></div>
+      </div>
+      <div class="ice-box">
+        <div class="board-row-title">PMOD 2 · LEDs and buttons</div>
+        <div class="ice-snap">
+          <div class="ice-cross">
+            <span></span>${led(3, ' g')}<span></span>
+            ${led(1, ' g')}${led(0)}${led(2, ' g')}
+            <span></span>${led(4, ' g')}<span></span>
+          </div>
+          <div class="ice-btns">${btn(1)}${btn(2)}${btn(3)}</div>
+        </div>
+      </div>
+    </div>`;
+  for (let b = 0; b < 4; b++) {
+    document.getElementById('ice_btn' + b).addEventListener('click', () => {
+      btnDown[b] ^= 1;
+      const inp = emu && emu.inputs.find(i => i.kind === 'btn' && i.bit === b);
+      if (inp) { swState[inp.net] = inputValue(inp); emu.setNet(inp.net, swState[inp.net]); }
+      renderIceInputs(); renderLEDs(); renderNets(); inspectLUT(inspLUT);
+    });
+  }
+}
+
+// LEDs and the two digits. frame (optional): { led: [...], dig: [[7], [7]] } shares of the last frame.
+function renderIce(frame) {
+  iceBuild();
+  const ios = emu ? emu.getIO() : [];
+  const led = [0,0,0,0,0,0,0], named = {}, dig = [[0,0,0,0,0,0,0], [0,0,0,0,0,0,0]];
+  let sel = 1, anySeg = false; const segLit = [0,0,0,0,0,0,0];
+  for (const io of ios) {
+    if (io.kind === 'led') { named[io.bit] = io.name; led[io.bit] = (io.low ? !io.value : io.value) ? 1 : 0; }
+    else if (io.kind === 'seg') { anySeg = true; segLit[io.bit] = io.value ? 0 : 1; }
+    else if (io.kind === 'segsel') sel = io.value;
+  }
+  if (anySeg) dig[sel ? 0 : 1] = segLit;                    // right now only the selected digit is lit
+  const L = frame ? frame.led : led, D = frame ? frame.dig : dig;
+  for (const d of ICE_LED) {
+    const e = document.getElementById('ice_led' + d.id); if (!e) continue;
+    const v = named[d.id] === undefined ? 0 : L[d.id], on = v > 0.02;
+    e.classList.toggle('on', on);
+    e.style.opacity = on && v < 0.98 ? (0.12 + 0.88 * v).toFixed(2) : '';
+    e.title = named[d.id] ? `pin ${d.pin} ← ${named[d.id]}` : `${d.name}, pin ${d.pin} — not connected`;
+  }
+  // a digit that is lit only part of the time (multiplexing) is still drawn clearly
+  [document.getElementById('ice-d0'), document.getElementById('ice-d1')].forEach((el, di) => {
+    if (!el) return;
+    ICE_SEG.forEach((cls, s) => {
+      const v = D[di][s], on = v > 0.02, seg = el.querySelector('.' + cls);
+      seg.classList.toggle('on', on);
+      seg.style.opacity = on && v < 0.3 ? Math.min(1, 0.3 + 2.4 * v).toFixed(2) : '';
+    });
+  });
+  const cnt = document.getElementById('io-count');
+  if (cnt) cnt.textContent = emu ? `${emu.inputs.length} in · ${emu.ios.length} out placed` : (synthNl ? 'synthesized, not placed' : '');
+}
+
+// The DIP switch and the four buttons.
+function renderIceInputs() {
+  iceBuild();
+  const dip = document.getElementById('ice-dip'); if (!dip) return;
+  const netForBit = {}, nameForBit = {}, btnNet = {};
+  if (emu) for (const inp of emu.inputs) {
+    if (inp.kind === 'sw') { netForBit[inp.bit] = inp.net; nameForBit[inp.bit] = inp.name; }
+    if (inp.kind === 'btn') btnNet[inp.bit] = inp.name;
+  }
+  dip.innerHTML = '';
+  for (let bit = 7; bit >= 0; bit--) {                     // switch 8 on the left, switch 1 on the right
+    const net = netForBit[bit];
+    const c = document.createElement('div'); c.className = 'sw-cell';
+    const b = document.createElement('button'); b.className = 'sw-btn' + (swPos[bit] ? ' on' : '');
+    const lb = document.createElement('div'); lb.className = 'sw-lbl'; lb.textContent = 'sw' + bit;
+    const pn = document.createElement('div'); pn.className = 'pin-lbl'; pn.textContent = 'pin ' + ICE_DIP_PINS[bit];
+    b.title = net ? `pin ${ICE_DIP_PINS[bit]} → ${nameForBit[bit]}` : `DIP switch ${bit + 1}, pin ${ICE_DIP_PINS[bit]} — not connected`;
+    if (!net) b.style.opacity = '.45';
+    b.addEventListener('click', () => {
+      swPos[bit] ^= 1;
+      b.classList.toggle('on', !!swPos[bit]);
+      if (net && emu) { swState[net] = swPos[bit]; emu.setNet(net, swPos[bit]); renderLEDs(); renderNets(); inspectLUT(inspLUT); }
+    });
+    c.appendChild(b); c.appendChild(lb); c.appendChild(pn); dip.appendChild(c);
+  }
+  for (let b = 0; b < 4; b++) {
+    const e = document.getElementById('ice_btn' + b); if (!e) continue;
+    e.classList.toggle('down', !!btnDown[b]);
+    e.style.opacity = emu && !btnNet[b] ? '.45' : '';
+    e.title = btnNet[b] ? `pin ${ICE_BTN[b].pin} → ${btnNet[b]} · click to hold, click again to release` : `${ICE_BTN[b].name}, pin ${ICE_BTN[b].pin} — not connected`;
+  }
+}
+
+// ── Choosing the board ──
+function renderPinsCard() {
+  const el = document.getElementById('pins-card-body'); if (!el) return;
+  const row = (k, v) => `<div class="info-row"><span class="k">${k}</span><span class="v">${v}</span></div>`;
+  el.innerHTML = board.id === 'icebreaker'
+    ? row('Clock CLK, 1 kHz', '35') + row('Button BTN_N', '10') + row('LEDR_N · LEDG_N', '11 · 37')
+      + row('LED1 – LED5', '26 27 25 23 21') + row('BTN1 – BTN3', '20 19 18')
+      + row('7-segment a – g', '4 2 47 45 3 48 46') + row('7-segment digit select', '44') + row('DIP switch 1 – 8', '43 38 34 31 42 36 32 28')
+      + '<div class="info-note">The pin file <code>icebreaker.pcf</code> names every pin. Use those names for your ports, or add your own line:<br><code>set_io myport 26</code></div>'
+    : row('Switches sw0–sw7', '0 – 7') + row('LEDs led0–led7', '8 – 15') + row('7-segment a–g, dp', '8 – 15') + row('Clock, 1 kHz', '16')
+      + '<div class="info-note">In the .cst file, one line per port bit:<br><code>IO_LOC "led[0]" 8;</code></div>';
+}
+
+window.setBoard = function(id) {
+  const next = BOARDS[id];
+  const sel = document.getElementById('board-sel');
+  if (!next) return;
+  if (next !== board) {
+    syncBuf();
+    detachEmu();
+    // the pin file belongs to the board: a new board starts with its own, the design is kept
+    const keepPins = buf.cst.trim() && buf.cst !== board.cstDefault && board.cstExt === next.cstExt;
+    board = next;
+    if (!keepPins) { buf.cst = board.cstDefault; fnBuf.cst = board.cstName; }
+    const ed = document.getElementById('editor'); if (ed && mode === 'cst') ed.value = buf.cst;
+    log(`Board: ${board.name}. The pin file is ${fnBuf.cst}. ${synthNl ? 'Press 📍 Place & Route to put the design on it.' : ''}`, 'inf');
+  }
+  if (sel) sel.value = board.id;
+  for (const b of Object.keys(BOARDS)) { const p = document.getElementById('pcb-' + b); if (p) p.style.display = b === board.id ? '' : 'none'; }
+  buildExTabs(); renderTabs(); updateLineNums(); renderPinsCard();
+  renderLEDs(); renderSwitches();
+  setNext(synthNl ? 'pnr' : 'synth');
+}
+
 // ══════════════════════════════════════════════════════════════
 //  LOGIC ANALYZER
 //  Records every placed pin once per clock cycle and draws the
@@ -1808,12 +2204,12 @@ function renderSwitches() {
 const la = {
   chans: [],        // { name, net, pin, kind: 'clk' | 'in' | 'out' }
   shown: new Set(), // names of the pins switched on in the pin row (every pin is recorded, shown or not)
-  samples: [],      // one Uint8Array per sample, one value per channel
+  samples: [],      // one number per sample: bit i is the value of channel i (small: a minute is about 0.5 MB)
   base: 0,          // cycle number of samples[0] (grows when old samples are dropped)
-  max: 4096,        // samples kept
-  span: 32,         // cycles shown
+  max: 60000,       // samples kept: one minute at 1 kHz
+  span: 1000,       // cycles shown: one second
   pos: null,        // first sample shown; null = follow the newest
-  mark: null,       // the time marker, in tenths of a cycle since power-up (10 ms steps at 10 Hz); null = none
+  mark: null,       // the time marker, in tenths of a cycle since power-up (0.1 ms steps at 1 kHz); null = none
   view: null,       // geometry of the last drawing (for the mouse)
 };
 let bottomMode = 'console';
@@ -1863,16 +2259,17 @@ function laForgetPins() { la.shown.clear(); }
 // Take one sample of every channel (called after each clock cycle).
 function laSample() {
   if (!emu || !la.chans.length) return;
-  const row = new Uint8Array(la.chans.length);
-  la.chans.forEach((c, i) => { row[i] = emu.rd(c.net); });
+  let row = 0;
+  for (let i = 0; i < la.chans.length; i++) if (emu.rd(la.chans[i].net)) row |= 1 << i;
   la.samples.push(row);
-  if (la.samples.length > la.max) {
-    la.samples.shift(); la.base++;
-    if (la.pos !== null) la.pos = Math.max(0, la.pos - 1);
+  if (la.samples.length > la.max + 2000) {              // drop the oldest in one go, not one per cycle
+    const k = la.samples.length - la.max;
+    la.samples.splice(0, k); la.base += k;
+    if (la.pos !== null) la.pos = Math.max(0, la.pos - k);
   }
 }
 
-const LA_SPAN0 = 32, LA_SPAN_MIN = 2, LA_SPAN_MAX = 1024;
+const LA_SPAN0 = 1000, LA_SPAN_MIN = 2, LA_SPAN_MAX = 30000;
 
 // Zoom: show `factor` times as many cycles. While the view follows the newest cycle it
 // keeps following; when scrolled back, the cycle at `anchor` (0 = left edge, 1 = right
@@ -1906,15 +2303,15 @@ window.laResetView = function() {
 }
 
 // ── time ──
-// One clock cycle lasts 1 / CLOCK_HZ seconds (0.1 s at 10 Hz). The marker is placed in
-// tenths of a cycle, so a time is read with a resolution of 10 ms.
+// One clock cycle lasts 1 / CLOCK_HZ seconds (1 ms at 1 kHz). The marker is placed in
+// tenths of a cycle, so a time is read with a resolution of 0.1 ms.
 const LA_SUB = 10;
 const laSec = (tenths) => tenths / LA_SUB / CLOCK_HZ;
 function laFmt(sec) {
   const a = Math.abs(sec);
   if (a === 0) return '0 s';
-  if (a < 1) return Math.round(sec * 1000) + ' ms';
-  return sec.toFixed(2) + ' s';
+  if (a < 1) return +(sec * 1000).toFixed(1) + ' ms';
+  return sec.toFixed(3) + ' s';
 }
 
 // Click: put the time marker (one vertical line, as in VeriSim) at the mouse.
@@ -1936,7 +2333,7 @@ function laValueAt(ci, tenths) {
   const cyc = Math.floor(tenths / LA_SUB);
   const i = Math.max(0, Math.min(n - 1, cyc - la.base));
   if (la.chans[ci].kind === 'clk') return cyc >= 1 && cyc - la.base < n && tenths % LA_SUB < LA_SUB / 2 ? 1 : 0;
-  return la.samples[i][ci];
+  return (la.samples[i] >> ci) & 1;
 }
 
 // Values of the multi-bit ports at one sample, as hex: "led=0x2a  step=0x3"
@@ -1945,7 +2342,7 @@ function laBuses(row) {
   la.chans.forEach((c, i) => {
     const m = c.name.match(/^(.*)\[(\d+)\]$/);
     if (!m) return;
-    (groups[m[1]] = groups[m[1]] || []).push({ bit: +m[2], v: row[i] });
+    (groups[m[1]] = groups[m[1]] || []).push({ bit: +m[2], v: (row >> i) & 1 });
   });
   const out = [];
   for (const [name, bits] of Object.entries(groups)) {
@@ -1991,8 +2388,8 @@ function laRender() {
 
   let g = '';
   // time axis: seconds since power-up; one faint line per cycle, 10 ms ticks when zoomed in
-  const step = [1, 2, 5, 10, 20, 50, 100, 200, 500].find(k => k * cw >= 38) || 1000;
-  const dec = step % CLOCK_HZ === 0 ? 0 : Math.ceil(Math.log10(CLOCK_HZ));
+  const step = [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000].find(k => k * cw >= 52) || 20000;
+  const stepSec = step / CLOCK_HZ, dec = stepSec >= 1 ? 0 : stepSec >= 0.1 ? 1 : stepSec >= 0.01 ? 2 : 3;
   for (let i = start; i <= start + span; i++) {
     const abs = la.base + i, major = abs % step === 0;
     if (major || cw >= 6) g += `<line x1="${X(i)}" y1="${TOP - 4}" x2="${X(i)}" y2="${H - 3}" class="${major ? 'la-grid major' : 'la-grid'}"/>`;
@@ -2015,19 +2412,27 @@ function laRender() {
     g += `<text x="4" y="${yL - 1}" class="la-name la-${c.kind}">${c.name}<tspan class="la-pin" dx="5">${c.pin}</tspan></text>`;
     g += `<text x="${NAMEW - 9}" y="${yL - 1}" class="la-val" text-anchor="end">${laValueAt(ci, valT)}</text>`;
     let d = '', prev = null;
-    for (let i = start; i < end; i++) {
-      const v = la.samples[i][ci];
-      if (c.kind === 'clk' && la.base + i >= 1) {
-        // the clock itself: high for the first half of every cycle
-        d += (d ? `L${X(i)} ${yL}` : `M${X(i)} ${yL}`) + `V${yH}H${+(X(i) + cw / 2).toFixed(1)}V${yL}H${X(i + 1)}`;
-      } else {
-        const y = v ? yH : yL;
-        d += d ? (prev !== v ? `V${y}` : '') : `M${X(i)} ${y}`;
-        d += `H${X(i + 1)}`;
+    if (c.kind === 'clk' && cw < 4) {
+      // zoomed out, the clock edges are closer than a pixel: draw it as a band
+      const first = Math.max(start, 1 - la.base);
+      if (start < first) d = `M${X(start)} ${yL}H${X(Math.min(first, end))}`;
+      if (end > first) g += `<rect x="${X(first)}" y="${yH}" width="${(X(end) - X(first)).toFixed(1)}" height="${yL - yH}" class="la-clkband"/>`;
+    } else {
+      for (let i = start; i < end; i++) {
+        const v = (la.samples[i] >> ci) & 1;
+        if (c.kind === 'clk' && la.base + i >= 1) {
+          // the clock itself: high for the first half of every cycle
+          d += (d ? `L${X(i)} ${yL}` : `M${X(i)} ${yL}`) + `V${yH}H${+(X(i) + cw / 2).toFixed(1)}V${yL}H${X(i + 1)}`;
+        } else {
+          // one line segment per stretch of equal values, however many cycles it spans
+          const y = v ? yH : yL;
+          if (!d) d = `M${X(i)} ${y}`; else if (prev !== v) d += `H${X(i)}V${y}`;
+        }
+        prev = v;
       }
-      prev = v;
+      if (d && c.kind !== 'clk') d += `H${X(end)}`; else if (d && la.base + start < 1) d += '';
     }
-    g += `<path d="${d}" class="la-trace la-${c.kind}" data-ch="${c.name}"/>`;
+    g += `<path d="${d || `M${X(start)} ${yL}`}" class="la-trace la-${c.kind}" data-ch="${c.name}"/>`;
   });
   pane.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${g}</svg>`;
   if (read) {
@@ -2369,12 +2774,24 @@ function buildExTabs() {
   // Examples are design sources, so always list the full Verilog library
   // regardless of the active tab. Picking one returns the app to Verilog mode
   // (the Netlist JSON tab is an output view, not an example picker).
-  Object.keys(VERILOG_EXAMPLES).forEach((k)=>{
-    const b=document.createElement('button');
-    b.textContent=k;
-    b.onclick=()=>{ loadExample(k); el.classList.remove('open'); };
-    el.appendChild(b);
-  });
+  // only the examples written for the board on screen
+  const mine = Object.keys(VERILOG_EXAMPLES).filter(k => (VERILOG_EXAMPLES[k].board || 'softfpga') === board.id);
+  const groups = [];
+  for (const k of mine) {
+    const g = VERILOG_EXAMPLES[k].group || 'Examples';
+    if (!groups.includes(g)) groups.push(g);
+  }
+  { const t=document.createElement('div'); t.className='ex-board'; t.textContent='Examples for ' + board.name; el.appendChild(t); }
+  for (const g of EXAMPLE_GROUP_ORDER.filter(x => groups.includes(x)).concat(groups.filter(x => !EXAMPLE_GROUP_ORDER.includes(x)))) {
+    const h=document.createElement('div'); h.className='ex-group'; h.textContent=g; el.appendChild(h);
+    for (const k of mine) {
+      if ((VERILOG_EXAMPLES[k].group || 'Examples') !== g) continue;
+      const b=document.createElement('button');
+      b.textContent=k;
+      b.onclick=()=>{ loadExample(k); el.classList.remove('open'); };
+      el.appendChild(b);
+    }
+  }
 }
 
 window.toggleExMenu = function(e) {
@@ -2404,14 +2821,15 @@ function loadExample(name) {
   synSetSource(null);
   synthNl = null;
   window.__lastNetlist = null;
-  buf   = { verilog: ex.v, cst: ex.cst };
-  fnBuf = { verilog: name + '.v', cst: name + '.cst' };
+  // softfpga-board examples bring their own pin file; iCEBreaker examples use the board's pin file
+  buf   = { verilog: ex.v, cst: ex.cst || board.cstDefault };
+  fnBuf = { verilog: name + '.v', cst: ex.cst ? name + '.cst' : board.cstName };
   mode = 'verilog';
   const ed = document.getElementById('editor'); if (ed) ed.value = ex.v;
   renderTabs();
   updateLineNums();
   setNext('synth');
-  log(`Loaded ${name}.v and ${name}.cst. Press ⚡ Synthesize, then 📍 Place & Route, then ▶ Run.`, 'dim');
+  log(`Loaded ${fnBuf.verilog} and ${fnBuf.cst}. Press ⚡ Synthesize, then 📍 Place & Route, then ▶ Run.`, 'dim');
 }
 
 window.onEdit = function() {
@@ -2432,18 +2850,18 @@ function updateLineNums() {
 // New: an empty design — two blank files.
 window.newFile = function() {
   syncBuf();
-  const dirty = buf.verilog.trim() || (buf.cst.trim() && buf.cst !== CST_HINT);
+  const dirty = buf.verilog.trim() || (buf.cst.trim() && buf.cst !== board.cstDefault);
   if (dirty && !window.confirm('Start a new design? Text that is not saved will be lost.')) return;
   detachEmu();
   laForgetPins();
   synSetSource(null);
   synthNl = null; window.__lastNetlist = null;
-  buf   = { verilog: '', cst: CST_HINT };
-  fnBuf = { verilog: 'untitled.v', cst: 'untitled.cst' };
+  buf   = { verilog: '', cst: board.cstDefault };
+  fnBuf = { verilog: 'untitled.v', cst: board.cstName };
   mode = 'verilog';
   const ed = document.getElementById('editor'); if (ed) ed.value = '';
   renderTabs(); updateLineNums(); setNext('synth');
-  log('New design: untitled.v and untitled.cst', 'dim');
+  log(`New design: untitled.v and ${board.cstName}`, 'dim');
 }
 
 // Open: pick a .v file, a .cst file, or both at once. Each goes to its own tab.
@@ -2467,7 +2885,7 @@ window.openFile = function() {
       r.onload = () => {
         const m = /\.(cst|pcf)$/i.test(f.name) ? 'cst' : 'verilog';
         buf[m] = String(r.result);
-        fnBuf[m] = m === 'cst' ? f.name.replace(/\.pcf$/i, '.cst') : f.name;
+        fnBuf[m] = f.name;
         if (m === 'verilog') { synthNl = null; window.__lastNetlist = null; detachEmu(); laForgetPins(); synSetSource(null); }  // a new design
         else if (emu) { detachEmu(); }                                                     // new pins: place again
         last = m;
@@ -2485,7 +2903,7 @@ window.openFile = function() {
 window.saveFile = async function() {
   syncBuf();
   const text = buf[mode];
-  const wantExt = mode === 'cst' ? '.cst' : '.v';
+  const wantExt = mode === 'cst' ? board.cstExt : '.v';
   let name = (fnBuf[mode] || '').trim() || 'untitled';
   if (!new RegExp(wantExt.replace('.','\\.')+'$','i').test(name)) {
     name = name.replace(/\.[^.]*$/, '') + wantExt;
@@ -2544,6 +2962,7 @@ laInitMouse();
 synInitMouse();
 initSplitter();
 initBottomMax();
+setBoard(board.id);
 renderLEDs();           // draw the 8 LED slots + the blank 7-segment display immediately
 renderSwitches();       // draw the 8 switch slots (inert until a design is placed on them)
 updateStats();

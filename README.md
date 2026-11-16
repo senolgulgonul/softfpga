@@ -30,7 +30,7 @@ Every peripheral sits on a numbered pin.
 | ------ | ------------------------------------------- | --------- |
 | 0 – 7  | switches `sw0` … `sw7`                      | input     |
 | 8 – 15 | LEDs `led0` … `led7` **and** the 7-segment display | output |
-| 16     | clock, 10 Hz                                | input     |
+| 16     | clock, 1 kHz                                | input     |
 
 Pins 8–15 each drive one LED and one segment of the single 7-segment digit:
 
@@ -39,11 +39,58 @@ Pins 8–15 each drive one LED and one segment of the single 7-segment digit:
 | LED     | led0 | led1 | led2 | led3 | led4 | led5 | led6 | led7 |
 | Segment | a | b | c | d | e | f | g | dp |
 
-The clock is fixed at 10 Hz, like the oscillator soldered on a real board; there is
-no speed selector. A design that needs a slower rate divides it (see `digits`).
+The clock is fixed at 1 kHz, like the oscillator soldered on a real board; there is
+no speed selector. That is far too fast to see, so a design that should be visible
+divides it with a counter, exactly as on a real board, only with smaller numbers:
+1000 clocks are one second. The examples do this with one constant, `CLK_HZ`.
+
+While the design runs, an LED whose pin switches faster than the eye can follow is
+drawn dimmer, according to the share of the time the pin is 1.
 
 A pin at 1 lights its LED and its segment. The display is not decoded for you:
 to show a digit, write a hex-to-7-segment decoder (see the `sevenseg` example).
+
+---
+
+## A real board: iCEBreaker
+
+The board menu above the board switches between softfpga's own teaching board and
+the [iCEBreaker](https://1bitsquared.com/products/icebreaker) from 1BitSquared, with
+its real pin numbers. The iCE40UP5K on it is the chip softfpga emulates anyway.
+
+The virtual iCEBreaker is the board as used in the beginners' workshops:
+
+| Where | What | Pins |
+| ----- | ---- | ---- |
+| main board | clock `CLK` | 35 |
+| main board | user button `BTN_N` (0 while pressed) | 10 |
+| main board | red LED `LEDR_N`, green LED `LEDG_N` (lit at 0) | 11, 37 |
+| PMOD 2, the snap-off section | `LED1` … `LED5` (lit at 1) | 26 27 25 23 21 |
+| PMOD 2, the snap-off section | `BTN1` … `BTN3` (1 while pressed) | 20 19 18 |
+| PMOD 1A, 7-segment Pmod | segments a … g (lit at 0) | 4 2 47 45 3 48 46 |
+| PMOD 1A, 7-segment Pmod | digit select (1 = right digit) | 44 |
+| PMOD 1B, DIP switch Pmod | switches 1 … 8 | 43 38 34 31 42 36 32 28 |
+
+- **Pin file.** The board comes with its pin file, `icebreaker.pcf`, already in the
+  second tab. It names every pin (`CLK`, `LED1`, `BTN1`, `P1A1` …); a design that
+  uses those names for its ports needs nothing else. `-nowarn` on a line means
+  "skip this line if the design has no such port", which is why one file serves
+  every design. For a name of your own, add a line: `set_io myport 26`.
+- **Buttons.** A click holds a button down and the next click releases it, so that
+  several buttons can be down together.
+- **Two digits.** The two digits of the 7-segment Pmod share the segment pins; the
+  design shows them in turn and selects the digit with pin 44. While the design runs
+  both digits are visible, as on the real display.
+- **Clock.** softfpga runs `CLK` at 1 kHz; the real board has 12 MHz. The clocked
+  examples use one constant, `CLK_HZ`, so that only that number changes.
+- **Same files on the real board.** The Verilog and the pin file are what the real
+  board's tools read. To build a bitstream and load it, use the open-source iCE40
+  flow (Yosys, nextpnr, IceStorm) or Lattice Radiant.
+
+Not drawn, but named in the pin file and visible in the logic analyzer: the UART
+pins and the RGB LED. Pin numbers and polarities are taken from the board's
+`icebreaker.pcf` and from the iCEBreaker and WTFpga example designs; softfpga was
+not checked against a physical board.
 
 ---
 
@@ -106,7 +153,7 @@ The toolbar follows the order of the work:
    synthesis is immediate. The console then lists the ports that need a pin.
 3. Open the `.cst` tab and give every port a pin. (Examples come with theirs.)
 4. Press **📍 Place & Route**. The console prints the pin report or the errors.
-5. Press **▶ Run** to start the 10 Hz clock; press it again to pause.
+5. Press **▶ Run** to start the 1 kHz clock; press it again to pause.
    Place & Route again to start from power-up.
 6. Click the switches on the board. Combinational logic reacts at once, without a clock.
 
@@ -129,22 +176,24 @@ waveforms against time.
   want to watch, click again to hide one. Every pin is recorded whether shown or
   not, so a pin picked later shows its whole history. To watch an internal signal,
   make it an output and give it a pin.
-- **Time.** The axis is in seconds since power-up: one cycle of the 10 Hz clock is
-  0.1 s. The clock is drawn as a square wave, high for the first half of each cycle.
+- **Time.** The axis is in seconds since power-up: one cycle of the 1 kHz clock is
+  1 ms. The view shows one second by default. Zoomed in, the clock is drawn as a
+  square wave, high for the first half of each cycle; zoomed out, as a band.
 - **Marker.** Click in the plot to place the marker, a vertical line. Its time is
-  shown in the bar (`Marker: 1.60 s`) and the value of every pin at that moment is
-  printed beside its name, as in a waveform viewer. Time is read in 10 ms steps
+  shown in the bar (`Marker: 12.5 ms`) and the value of every pin at that moment is
+  printed beside its name, as in a waveform viewer. Time is read in 0.1 ms steps
   (a tenth of a cycle); near a clock edge the marker snaps onto the edge. Without a
   marker the values are those of now. Multi-bit ports are also shown as one hex
   number, for example `step=0x3`.
-- **Mouse.** Scroll zooms (0.2 s to 102 s shown; the **−** and **+** buttons do the
-  same), drag pans back through the last 4096 cycles, double-click resets the view
+- **Mouse.** Scroll zooms (2 ms to 30 s shown; the **−** and **+** buttons do the
+  same), drag pans back through the last minute, double-click resets the view
   and removes the marker. While the view shows the newest cycle it follows the
   clock; scrolled back, it stays put.
 - **Size.** Drag the bar between the editor and the bottom panel up or down to
   give the waveforms more room; each tab keeps its own height, and a double-click
   on the bar restores the default. With more pins than fit, the plot scrolls.
-- Place & Route starts a new recording. If an error is reported while the analyzer
+- The recording is bounded: it keeps the last minute (60,000 cycles, about 0.5 MB)
+  and drops older samples. Place & Route starts a new recording. If an error is reported while the analyzer
   is open, the panel switches back to the Console.
 
 ---
@@ -173,8 +222,47 @@ flip-flops; the schematic is a readable view of the same logic.
 
 ## Built-in examples
 
+The Examples menu is grouped, and each example is two files (`name.v`, `name.cst`).
+
+**Gates and wires** (no clock)
+
 | Example   | Demonstrates                                                     |
 | --------- | ---------------------------------------------------------------- |
+| switches  | Switch passthrough: the switches drive the LEDs                  |
+| gates     | Primitives — a half adder from `xor` / `and` gates               |
+| fulladder | Hierarchical modeling — a full adder from two half adders        |
+| dataflow  | Dataflow modeling — continuous assignment, bitwise operators     |
+| adder     | A 4-bit adder, 5-bit result on the LEDs                          |
+
+**Clock and counters**
+
+| Example   | Demonstrates                                                     |
+| --------- | ---------------------------------------------------------------- |
+| blink     | Clock divider: the LED is on for half a second, off for half     |
+| counter   | An 8-bit counter on the LEDs, 10 counts per second               |
+| shift     | An 8-bit shift register with a serial input, 4 shifts per second |
+| pwm       | PWM with a 4-cycle period: 25 % or 50 % duty, set by a switch    |
+| fsm       | Up/down counter with enable and reset                            |
+
+**7-segment display**
+
+| Example   | Demonstrates                                                     |
+| --------- | ---------------------------------------------------------------- |
+| sevenseg  | Hex to 7-segment decoder: switches select the digit              |
+| digits    | Clock divider + counter: one digit per second                    |
+
+With the iCEBreaker selected, the menu lists its examples instead:
+
+| Example         | Demonstrates                                                |
+| --------------- | ----------------------------------------------------------- |
+| buttons         | Buttons to LEDs; active-high and active-low pins            |
+| full_adder_1bit | 1-bit full adder on three buttons (original iCEBreaker example) |
+| cmp_1bit        | 1-bit comparator on two buttons (original iCEBreaker example)   |
+| led_counter     | Clock divider, a 5-bit counter on the LEDs, a button counter |
+| two_digits      | Seconds 00–99 on the two multiplexed digits                 |
+| dip_hex         | The DIP switch as a two-digit hex number                    |
+
+--------- | ---------------------------------------------------------------- |
 | switches  | Switch passthrough: the switches drive the LEDs                  |
 | gates     | Primitives — a half adder from `xor` / `and` gates               |
 | fulladder | Hierarchical modeling — a full adder from two half adders        |
@@ -234,7 +322,7 @@ made by other flip-flops (dividers, ripple counters) work.
   `hex`) are gone. Ports get their pins from a `.cst` file.
 - **Two file tabs** (`name.v`, `name.cst`) with New, Open and Save. The Verilog /
   Netlist JSON mode buttons, Step, Reset and the clock speed selector are removed.
-- **Fixed 10 Hz board clock** on pin 16.
+- **Fixed 1 kHz board clock** on pin 16 (10 Hz until v2.23); the clocked examples divide it.
 - **One 7-segment digit** on pins 8–15, shared with the LEDs, driven segment by
   segment. The separate decoded `hex` port no longer exists.
 - **Flip-flop enable, set and reset are simulated.** v1 read only `D` and `Q`, so
@@ -287,13 +375,13 @@ other two, everything works except the Schematic tab.
 ## Limitations
 
 softfpga models the **chip's logic fabric** (real LUT4s, real flip-flops, real
-Yosys synthesis). The board is a teaching board, not a commercial one, and its
-pin numbers are not the pins of an iCE40 package.
+Yosys synthesis). Its own teaching board is not a commercial one, and its pin
+numbers are not the pins of an iCE40 package; the iCEBreaker board uses the real ones.
 
 Not modeled: signal timing and propagation delay, physical placement and routing,
 block RAM, DSP blocks, PLLs, tri-state and bidirectional pins, latches, and
 bitstream generation. Memories are built from flip-flops, so keep them small.
-The board clock is 10 Hz; designs that divide a MHz clock need a smaller divider here.
+The board clock is 1 kHz; designs that divide a MHz clock need a smaller divider here.
 
 ---
 
@@ -310,7 +398,8 @@ The board clock is 10 Hz; designs that divide a MHz clock need a smaller divider
 - [ ] Waveform (VCD) export
 - [ ] Real-time clock (MHz range)
 - [ ] Block RAM emulation
-- [ ] A model of a real board (Tang Nano 9K)
+- [x] A real board: iCEBreaker, with its pin file and examples
+- [ ] A second real board: Tang Nano 9K
 
 **Out of scope: bitstream generation.** softfpga is for people who do not have a
 board. If you have one, use the vendor's free tools to build and load the
@@ -330,7 +419,7 @@ the pin constraints, and the habit of checking the design with a logic analyzer.
   title   = {softfpga: A browser-based iCE40 FPGA emulator},
   year    = {2026},
   url     = {https://github.com/senolgulgonul/softfpga},
-  version = {2.22}
+  version = {2.28}
 }
 ```
 
@@ -341,6 +430,11 @@ the pin constraints, and the habit of checking the design with a logic analyzer.
 softfpga uses [Yosys](https://yosyshq.net/yosys/) for synthesis, via the
 [YoWASP](https://yowasp.org/) WebAssembly build. Yosys is developed by
 Claire Xenia Wolf and the YosysHQ team (ISC license).
+
+The iCEBreaker is an open-hardware board by [1BitSquared](https://1bitsquared.com/).
+The `full_adder_1bit` and `cmp_1bit` examples are from
+[icebreaker-verilog-examples](https://codeberg.org/icebreaker-fpga/icebreaker-verilog-examples)
+by Albin Söderqvist (ISC license), included unchanged with their license text.
 
 The Schematic tab is drawn by [netlistsvg](https://github.com/nturley/netlistsvg)
 by Neil Turley (MIT license) with the [ELK](https://github.com/kieler/elkjs) layout
