@@ -302,25 +302,6 @@ made by other flip-flops (dividers, ripple counters) work.
 
 ---
 
-## Changes in v2
-
-- **Constraints and Place & Route.** The reserved port names (`clk`, `sw`, `led`,
-  `hex`) are gone. Ports get their pins from a `.cst` file.
-- **Two file tabs** (`name.v`, `name.cst`) with New, Open and Save. The Verilog /
-  Netlist JSON mode buttons, Step, Reset and the clock speed selector are removed.
-- **Fixed 1 kHz board clock** on pin 16 (10 Hz until v2.23); the clocked examples divide it.
-- **One 7-segment digit** on pins 8–15, shared with the LEDs, driven segment by
-  segment. The separate decoded `hex` port no longer exists.
-- **Flip-flop enable, set and reset are simulated.** v1 read only `D` and `Q`, so
-  a design such as `if (en) q <= d;` behaved as if `en` were always 1.
-- **Any top module name**, and the synthesis call is the one VeriSim uses.
-- **Switches act immediately**; combinational designs no longer need the clock.
-- **Derived and falling-edge clocks** are simulated.
-
-The hand-written JSON netlist mode of v1 is removed.
-
----
-
 ## Verification
 
 The engine was checked against CXXRTL, Yosys' own C++ simulator, running the
