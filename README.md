@@ -262,20 +262,6 @@ With the iCEBreaker selected, the menu lists its examples instead:
 | two_digits      | Seconds 00–99 on the two multiplexed digits                 |
 | dip_hex         | The DIP switch as a two-digit hex number                    |
 
---------- | ---------------------------------------------------------------- |
-| switches  | Switch passthrough: the switches drive the LEDs                  |
-| gates     | Primitives — a half adder from `xor` / `and` gates               |
-| fulladder | Hierarchical modeling — a full adder from two half adders        |
-| dataflow  | Dataflow modeling — continuous assignment, bitwise operators     |
-| adder     | A 4-bit adder, 5-bit result on the LEDs                          |
-| sevenseg  | Hex to 7-segment decoder: switches select the digit              |
-| blink     | A single flip-flop toggling every clock                          |
-| counter   | An 8-bit synchronous counter on the LEDs                         |
-| shift     | An 8-bit shift register with a serial input                      |
-| pwm       | PWM with a 4-cycle period: 25 % or 50 % duty, set by a switch    |
-| fsm       | Behavioral modeling — up/down counter with enable and reset      |
-| digits    | Clock divider + counter: one digit per second on the 7-segment   |
-
 ---
 
 ## How it works
