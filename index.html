@@ -429,7 +429,7 @@ button.file-tab.active {
 
 <header>
   <div class="logo">soft<span>fpga</span></div>
-  <span class="ver">v2.28</span>
+  <span class="ver">v2.29</span>
   <span style="font-size:11px;color:var(--muted)"><span class="status-dot" id="sdot"></span><span id="stxt">idle</span></span>
 </header>
 
@@ -481,7 +481,7 @@ button.file-tab.active {
           <button onclick="laZoom(0.5)" title="Zoom in: show half as many cycles">+</button>
           <span id="la-span" class="la-span">1.000 s shown</span>
           <span id="la-read" class="la-read"></span>
-          <span class="la-hint">scroll = zoom · drag = pan · click = marker · double-click = reset</span>
+          <span class="la-hint">scroll = zoom · drag = pan · click = marker · double-click = fit</span>
         </div>
         <div class="la-pins" id="la-pins"></div>
         <div class="la-plot" id="la-plot"></div>
@@ -2269,7 +2269,7 @@ function laSample() {
   }
 }
 
-const LA_SPAN0 = 1000, LA_SPAN_MIN = 2, LA_SPAN_MAX = 30000;
+const LA_SPAN0 = 1000, LA_SPAN_MIN = 2, LA_SPAN_MAX = 62000;   // up to the whole recording
 
 // Zoom: show `factor` times as many cycles. While the view follows the newest cycle it
 // keeps following; when scrolled back, the cycle at `anchor` (0 = left edge, 1 = right
@@ -2297,6 +2297,14 @@ function laPanTo(start, span) {
 }
 
 // Double-click: back to the default zoom, following the newest cycle, marker removed.
+// Double-click: fit. The whole recording is shown, from power-up to now; the marker stays.
+// While the design runs, the view then keeps showing that much time, ending at now.
+window.laFit = function() {
+  la.span = Math.max(LA_SPAN_MIN, Math.min(LA_SPAN_MAX, la.samples.length));
+  la.pos = null;
+  laRender();
+}
+
 window.laResetView = function() {
   la.span = LA_SPAN0; la.pos = null; la.mark = null;
   laRender();
@@ -2457,7 +2465,7 @@ window.showBottom = function(which) {
   synRender();
 }
 
-// Mouse on the plot:  click = marker · wheel = zoom · drag = pan · double-click = reset
+// Mouse on the plot:  click = marker · wheel = zoom · drag = pan · double-click = fit
 function laInitMouse() {
   const pane = document.getElementById('la-plot'); if (!pane) return;
   let drag = null, dragged = false;
@@ -2486,7 +2494,7 @@ function laInitMouse() {
     e.preventDefault();                                    // zoom the plot, do not scroll the page
     laZoom(e.deltaY > 0 ? 1.25 : 0.8, plotX(e) / la.view.PW);
   }, { passive: false });
-  pane.addEventListener('dblclick', () => laResetView());
+  pane.addEventListener('dblclick', () => laFit());
   window.addEventListener('resize', () => laRender());
 }
 

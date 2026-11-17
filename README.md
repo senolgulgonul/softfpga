@@ -185,9 +185,9 @@ waveforms against time.
   (a tenth of a cycle); near a clock edge the marker snaps onto the edge. Without a
   marker the values are those of now. Multi-bit ports are also shown as one hex
   number, for example `step=0x3`.
-- **Mouse.** Scroll zooms (2 ms to 30 s shown; the **−** and **+** buttons do the
-  same), drag pans back through the last minute, double-click resets the view
-  and removes the marker. While the view shows the newest cycle it follows the
+- **Mouse.** Scroll zooms (2 ms to a minute shown; the **−** and **+** buttons do
+  the same), drag pans back through the recording, and double-click fits the whole
+  recording into the view. While the view shows the newest cycle it follows the
   clock; scrolled back, it stays put.
 - **Size.** Drag the bar between the editor and the bottom panel up or down to
   give the waveforms more room; each tab keeps its own height, and a double-click
@@ -386,7 +386,7 @@ the pin constraints, and the habit of checking the design with a logic analyzer.
   title   = {softfpga: A browser-based iCE40 FPGA emulator},
   year    = {2026},
   url     = {https://github.com/senolgulgonul/softfpga},
-  version = {2.28}
+  version = {2.29}
 }
 ```
 
