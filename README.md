@@ -1,6 +1,6 @@
-# softfpga — iCE40 FPGA Emulator
+# softfpga — iCE40 and Gowin FPGA Emulator
 
-> A browser-based emulator for iCE40 FPGAs. Write Verilog, synthesize with Yosys,
+> A browser-based emulator for iCE40 and Gowin FPGAs. Write Verilog, synthesize with Yosys,
 > assign pins, and watch it run on a virtual board — no install, no server, no toolchain.
 
 **Live demo:** <https://senolgulgonul.github.io/softfpga/>
@@ -91,6 +91,42 @@ Not drawn, but named in the pin file and visible in the logic analyzer: the UART
 pins and the RGB LED. Pin numbers and polarities are taken from the board's
 `icebreaker.pcf` and from the iCEBreaker and WTFpga example designs; softfpga was
 not checked against a physical board.
+
+---
+
+## A real board: Tang Nano 9K
+
+The [Tang Nano 9K](https://wiki.sipeed.com/hardware/en/tang/Tang-Nano-9K/Nano-9K.html)
+from Sipeed carries a Gowin GW1NR-9C (8640 LUTs, 6480 flip-flops). With it selected,
+softfpga synthesizes for that chip: Yosys' `synth_gowin` maps the design onto Gowin's
+own cells, the same LUTs, ALU carry chains and flip-flops that Gowin's synthesis
+uses, and the emulator runs that netlist.
+
+| What | Pins |
+| ---- | ---- |
+| clock (27 MHz crystal on the board, 1 kHz here) | 52 |
+| `LED0` … `LED5` (lit at 0) | 10 11 13 14 15 16 |
+| button `S1` (0 while pressed) | 4 |
+| button `S2` (0 while pressed) | 3 |
+| USB serial TX, RX (not drawn) | 17, 18 |
+
+- **Pin file as in Gowin IDE.** Constraints are written the Gowin way,
+  `IO_LOC "led[0]" 10;`, and `IO_PORT` lines are accepted. A new design starts
+  from `tangnano9k.cst`, which lists every pin commented out; the examples bring
+  their own `.cst`. The same `.v` and `.cst` open in Gowin IDE.
+- **Active low.** Both the LEDs and the buttons are active low, as on the board:
+  an LED lights at 0, a button reads 0 while pressed.
+- **Clock.** softfpga runs the clock at 1 kHz; the board has 27 MHz. The clocked
+  examples use one constant, `CLK_HZ`, so that only that number changes.
+- **Uninitialized registers.** Gowin flip-flops with a set or preset start at 1
+  unless the Verilog gives an initial value; softfpga follows the cell library.
+
+Pin numbers come from Sipeed's schematic and from the constraint files of Sipeed's
+`TangNano-9K-example` repository. S1 is pin 4 and S2 is pin 3: these are the switches
+S1 and S2 in Sipeed's schematic since revision 6202 ("Fixed the silkscreen of S1 and
+S2"). The schematic's net names, `PIN3_IOT2A_BUTTON_S1` and `PIN4_IOL5A_JTAG_SEL_S2`,
+still carry the old labels, and boards made before that revision may print S1 and S2
+the other way round; the pin numbers are what count in the `.cst`.
 
 ---
 
@@ -262,6 +298,15 @@ With the iCEBreaker selected, the menu lists its examples instead:
 | two_digits      | Seconds 00–99 on the two multiplexed digits                 |
 | dip_hex         | The DIP switch as a two-digit hex number                    |
 
+With the Tang Nano 9K selected:
+
+| Example      | Demonstrates                                                     |
+| ------------ | ---------------------------------------------------------------- |
+| two_buttons  | S1 and S2 on the LEDs; active-low inputs and outputs, gates      |
+| blink_1s     | Clock divider with `CLK_HZ`: LED0 on for half a second, off for half |
+| running_led  | A lit LED runs along the six; S2 is an asynchronous reset        |
+| binary_count | A 6-bit counter, four steps a second; S1 stops it, S2 clears it  |
+
 ---
 
 ## How it works
@@ -272,8 +317,12 @@ Verilog source
   ▼  Yosys WASM  (@yowasp/yosys 0.66.1164, runs in the browser; same call as VeriSim)
   │  read_verilog design.v; synth_ice40 -nocarry -nobram -flatten; write_json
   │
+  │  (Tang Nano 9K: synth_gowin -nobram -nolutram -nodsp -noiopads)
+  │
   ▼  yosysJsonToNetlist()
   │  maps SB_LUT4, SB_CARRY and the SB_DFF family; lists the top-level ports
+  │  Gowin: LUT1-LUT4, MUX2_LUT5-8 and ALU become truth tables; the DFF family
+  │  becomes flip-flops
   │
   ▼  placeAndRoute()
   │  reads the .cst file, checks it, connects each port to its board pin
@@ -300,6 +349,12 @@ synchronous set/reset (`SB_DFFSR`, `SB_DFFSS`), asynchronous set/reset
 (`SB_DFFN*`). Each flip-flop samples on an edge of its own clock net, so clocks
 made by other flip-flops (dividers, ripple counters) work.
 
+Gowin cells follow Yosys' Gowin library (`techlibs/gowin/cells_sim.v`). An `ALU` is
+two 4-input tables, `SUM` and `COUT`, built from its `ALU_MODE`; a `MUX2_LUT5` …
+`MUX2_LUT8` is a 3-input table. They are counted as ALUs and muxes, not as LUTs.
+Two details differ from iCE40: in `DFFRE` / `DFFSE` the synchronous reset or set acts
+whether or not the clock enable is on, and set or preset flip-flops start at 1.
+
 ---
 
 ## Verification
@@ -308,6 +363,13 @@ The engine was checked against CXXRTL, Yosys' own C++ simulator, running the
 original Verilog: 24 designs, pseudo-random inputs, every output compared after
 every clock cycle. The set covers counters, shift registers, state machines, UART
 transmit and receive, memories, arithmetic, asynchronous resets and a small CPU.
+
+The Gowin path was checked against the iCE40 path: each design synthesized both with
+`synth_gowin` and with `synth_ice40`, both netlists run with the same pseudo-random
+inputs, every output compared every cycle. 17 designs: synchronous and asynchronous
+set and reset with and without enable, falling-edge clocks, initial values, adders,
+subtractors and comparators (ALU modes), wide multiplexers, a multiplier, a state
+machine, and the Tang Nano 9K examples. No difference.
 
 ---
 
@@ -343,12 +405,14 @@ other two, everything works except the Schematic tab.
 
 softfpga models the **chip's logic fabric** (real LUT4s, real flip-flops, real
 Yosys synthesis). Its own teaching board is not a commercial one, and its pin
-numbers are not the pins of an iCE40 package; the iCEBreaker board uses the real ones.
+numbers are not the pins of an iCE40 package; the iCEBreaker and Tang Nano 9K
+boards use the real ones.
 
 Not modeled: signal timing and propagation delay, physical placement and routing,
 block RAM, DSP blocks, PLLs, tri-state and bidirectional pins, latches, and
 bitstream generation. Memories are built from flip-flops, so keep them small.
 The board clock is 1 kHz; designs that divide a MHz clock need a smaller divider here.
+On the Tang Nano 9K, multipliers are built from LUTs and ALUs instead of DSP blocks.
 
 ---
 
@@ -366,7 +430,8 @@ The board clock is 1 kHz; designs that divide a MHz clock need a smaller divider
 - [ ] Real-time clock (MHz range)
 - [ ] Block RAM emulation
 - [x] A real board: iCEBreaker, with its pin file and examples
-- [ ] A second real board: Tang Nano 9K
+- [x] A second real board: Tang Nano 9K (Gowin GW1NR-9C), with Gowin synthesis
+- [ ] Open a netlist from Gowin IDE (`.vg`) and run it on the Tang Nano 9K
 
 **Out of scope: bitstream generation.** softfpga is for people who do not have a
 board. If you have one, use the vendor's free tools to build and load the

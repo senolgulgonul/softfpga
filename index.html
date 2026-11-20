@@ -16,7 +16,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>softfpga — iCE40 FPGA Emulator</title>
+<title>softfpga — iCE40 and Gowin FPGA Emulator</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Syne:wght@400;500;700;800&display=swap" rel="stylesheet">
 <style>
@@ -323,6 +323,12 @@ button.bmax:hover { color: var(--ink2); border-color: var(--blue); }
 #board-sel { font: inherit; font-size: 11px; text-transform: none; letter-spacing: 0; padding: 1px 4px; margin-left: 8px; border: 1px solid var(--frame); border-radius: 4px; background: var(--panel2); color: var(--ink); }
 .ex-board { padding: 6px 12px; font-size: 11px; font-weight: 700; color: var(--blue-deep); background: var(--blue-dim); border-bottom: 1px solid var(--frame); cursor: default; }
 .pcb-ice { background: linear-gradient(160deg, #1d2f6b, #141f4a); }
+.pcb-tang { background: linear-gradient(160deg, #1c1d20, #0d0e10); border-color: #000; }
+.tang-leds { justify-content: center; gap: 9px; }
+.tang-leds .led-cell { flex: 0 0 auto; }
+.led.a { background: radial-gradient(circle at 38% 32%, #6e4a12, #2e1d05); border-color: #241603; }
+.led.a.on { background: radial-gradient(circle at 38% 32%, #ffe0a0, #ff9d1a); box-shadow: 0 0 9px 1px rgba(255,160,40,.85), inset 0 1px 2px rgba(255,255,255,.4); }
+.tang-btns { display: flex; justify-content: center; gap: 40px; margin: 4px 0 2px; }
 .ice-digits { display: flex; justify-content: center; gap: 8px; }
 .ice-low { display: flex; gap: 8px; margin-top: 14px; align-items: stretch; }
 .ice-box { flex: 1; border: 1px dashed rgba(255,255,255,.28); border-radius: 7px; padding: 7px 8px 6px; display: flex; flex-direction: column; }
@@ -429,7 +435,7 @@ button.file-tab.active {
 
 <header>
   <div class="logo">soft<span>fpga</span></div>
-  <span class="ver">v2.29</span>
+  <span class="ver">v2.30</span>
   <span style="font-size:11px;color:var(--muted)"><span class="status-dot" id="sdot"></span><span id="stxt">idle</span></span>
 </header>
 
@@ -503,7 +509,7 @@ button.file-tab.active {
 
   <!-- MIDDLE: the virtual FPGA board (always present) -->
   <div class="col col-board">
-    <div class="phead"><span>FPGA Board</span><select id="board-sel" onchange="setBoard(this.value)" title="Which board to use"><option value="softfpga">softfpga board</option><option value="icebreaker">iCEBreaker</option></select><span id="io-count" style="font-weight:400;text-transform:none;color:var(--muted)"></span></div>
+    <div class="phead"><span>FPGA Board</span><select id="board-sel" onchange="setBoard(this.value)" title="Which board to use"><option value="softfpga">softfpga board</option><option value="icebreaker">iCEBreaker</option><option value="tangnano9k">Tang Nano 9K</option></select><span id="io-count" style="font-weight:400;text-transform:none;color:var(--muted)"></span></div>
     <div class="board-stage">
       <div class="pcb" id="pcb-softfpga">
         <div class="board-row-title">LEDs · pins 15 … 8</div>
@@ -531,6 +537,8 @@ button.file-tab.active {
       </div>
       <div class="pcb pcb-ice" id="pcb-icebreaker" style="display:none">
       </div>
+      <div class="pcb pcb-tang" id="pcb-tangnano9k" style="display:none">
+      </div>
     </div>
   </div>
 
@@ -540,9 +548,9 @@ button.file-tab.active {
     <div class="info-body">
       <div class="info-card">
         <h4>Device</h4>
-        <div class="info-row"><span class="k">Chip</span><span class="v">iCE40UP5K</span></div>
-        <div class="info-row"><span class="k">Logic cells</span><span class="v">5280 LUTs</span></div>
-        <div class="info-row"><span class="k">Flip-flops</span><span class="v">5280 FFs</span></div>
+        <div class="info-row"><span class="k">Chip</span><span class="v" id="dev-chip">iCE40UP5K</span></div>
+        <div class="info-row"><span class="k">Logic cells</span><span class="v" id="dev-luts">5280 LUTs</span></div>
+        <div class="info-row"><span class="k">Flip-flops</span><span class="v" id="dev-ffs">5280 FFs</span></div>
       </div>
       <div class="info-card">
         <h4>Board pins</h4>
@@ -574,6 +582,7 @@ button.file-tab.active {
 const BOARD = {
   id: 'softfpga',
   name: 'softfpga board',
+  family: 'ice40', chip: 'iCE40UP5K', lutMax: 5280, ffMax: 5280,
   cstExt: '.cst',
   clkPin: 16,
   pinInfo(pin) {
@@ -611,6 +620,7 @@ Object.entries({ 6: 'UART RX', 9: 'UART TX', 39: 'RGB LED red', 40: 'RGB LED gre
 const ICEBREAKER = {
   id: 'icebreaker',
   name: 'iCEBreaker',
+  family: 'ice40', chip: 'iCE40UP5K', lutMax: 5280, ffMax: 5280,
   cstExt: '.pcf',
   cstName: 'icebreaker.pcf',
   clkPin: 35,
@@ -680,7 +690,63 @@ set_io -nowarn LED_GRN_N  40
 set_io -nowarn LED_BLU_N  41
 `,
 };
-const BOARDS = { softfpga: BOARD, icebreaker: ICEBREAKER };
+
+// ══════════════════════════════════════════════════════════════
+//  Tang Nano 9K  (Sipeed, Gowin GW1NR-9C, QN88P)
+//  Six LEDs and two buttons, all active low, and the 27 MHz crystal on
+//  pin 52 (1 kHz here). Pin numbers are those of Sipeed's schematic and of
+//  the constraint files in Sipeed's TangNano-9K-example repository.
+//  Synthesis uses Yosys' Gowin library, the same cells Gowin's own tools use.
+// ══════════════════════════════════════════════════════════════
+const TANG_PIN = {};
+TANG_PIN[52] = { kind: 'clk', bit: 0, dir: 'input', label: 'clock (27 MHz crystal on the real board)' };
+[10, 11, 13, 14, 15, 16].forEach((p, i) => { TANG_PIN[p] = { kind: 'led', bit: i, dir: 'output', low: true, label: `LED${i} (lit at 0)` }; });
+// S1 is pin 4 and S2 pin 3: the switches S1 and S2 in Sipeed's schematic (revision 6202,
+// "Fixed the silkscreen of S1 and S2"). The schematic's net names, PIN3_..._BUTTON_S1 and
+// PIN4_..._JTAG_SEL_S2, still carry the old labels.
+TANG_PIN[4] = { kind: 'btn', bit: 0, dir: 'input', low: true, label: 'button S1 (0 when pressed)' };
+TANG_PIN[3] = { kind: 'btn', bit: 1, dir: 'input', low: true, label: 'button S2 (0 when pressed)' };
+// pins of the board that softfpga does not draw; a design may still use them (watch them in the logic analyzer)
+Object.entries({ 17: 'UART TX (USB serial)', 18: 'UART RX (USB serial)',
+  33: 'LCD_DEN', 34: 'LCD_SYNC', 35: 'LCD_CLK', 40: 'LCD_HSYNC', 41: 'LCD_B4', 42: 'LCD_B3', 51: 'LCD_B2', 53: 'LCD_B1', 54: 'LCD_B0',
+  55: 'LCD_G5', 56: 'LCD_G4', 57: 'LCD_G3', 68: 'LCD_G2', 69: 'LCD_G1', 70: 'LCD_G0',
+  71: 'LCD_R4', 72: 'LCD_R3', 73: 'LCD_R2', 74: 'LCD_R1', 75: 'LCD_R0',
+  47: 'SPI LCD reset', 48: 'SPI LCD CS', 49: 'SPI LCD RS', 76: 'SPI LCD clock', 77: 'SPI LCD data',
+  59: 'SPI flash clock', 60: 'SPI flash CS', 61: 'SPI flash MOSI', 62: 'SPI flash MISO' })
+  .forEach(([p, label]) => { TANG_PIN[p] = { kind: 'pin', bit: 0, label: label + ' (not drawn)' }; });
+
+const TANGNANO9K = {
+  id: 'tangnano9k',
+  name: 'Tang Nano 9K',
+  family: 'gowin', chip: 'GW1NR-9C', lutMax: 8640, ffMax: 6480,
+  cstExt: '.cst',
+  cstName: 'tangnano9k.cst',
+  clkPin: 52,
+  pinInfo(pin) { return TANG_PIN[pin] || null; },
+  pinHelp: 'clock 52 · LED0-LED5 10 11 13 14 15 16 · S1 4 · S2 3 · UART TX 17, RX 18',
+  // A new design starts from this file: every pin of the board, commented out, as in Gowin IDE
+  // one line per port bit. Remove the // in front of the lines the design needs.
+  cstDefault: `// Tang Nano 9K pins. softfpga runs the clock at 1 kHz; the real board has a 27 MHz crystal.
+// Remove the // in front of the lines your design needs, and use your own port names.
+// The same file works in Gowin IDE.
+//
+// IO_LOC "clk"    52;   // clock
+//
+// IO_LOC "led[0]" 10;   // LED0, lit at 0
+// IO_LOC "led[1]" 11;   // LED1
+// IO_LOC "led[2]" 13;   // LED2
+// IO_LOC "led[3]" 14;   // LED3
+// IO_LOC "led[4]" 15;   // LED4
+// IO_LOC "led[5]" 16;   // LED5
+//
+// IO_LOC "btn1"    4;   // button S1, 0 while pressed
+// IO_LOC "btn2"    3;   // button S2, 0 while pressed
+//
+// IO_LOC "uart_tx" 17;  // USB serial, not drawn here
+// IO_LOC "uart_rx" 18;
+`,
+};
+const BOARDS = { softfpga: BOARD, icebreaker: ICEBREAKER, tangnano9k: TANGNANO9K };
 
 // ══════════════════════════════════════════════════════════════
 //  CONSTRAINTS  (the .cst file)
@@ -783,9 +849,14 @@ function placeAndRoute(netlist, constraintText, board) {
 //  Flip-flops are edge-driven: each one samples when ITS clock net
 //  has an edge, so derived clocks and buttons-as-clocks work too.
 // ══════════════════════════════════════════════════════════════
+// LUTs of a netlist, without the tables that stand for a Gowin ALU or wide-LUT mux
+// (those are counted as the cells they are).
+function lutCount(nl) { return (nl.luts || []).filter(l => !l.cell).length; }
+
 class ICE40Emu {
   constructor(nl) {
-    if ((nl.luts||[]).length > 5280) throw new Error(`LUT count ${nl.luts.length} > 5280 (iCE40UP5K)`);
+    this.lutMax = nl.lutMax || 5280;
+    if (lutCount(nl) > this.lutMax) throw new Error(`LUT count ${lutCount(nl)} > ${this.lutMax} (${nl.chip || 'iCE40UP5K'})`);
     this.luts    = nl.luts    || [];
     this.ffs     = nl.ffs     || [];
     this.ios     = nl.ios     || [];
@@ -872,7 +943,8 @@ class ICE40Emu {
         const sr = ff.sr_net ? this.rd(ff.sr_net) : 0;
         const d  = this.rd(ff.d_net);
         if (ff.sr_async)          return sr ? ff.sr_val : (en ? d : q);
-        if (ff.e_net && ff.sr_net) return en ? (sr ? ff.sr_val : d) : q;   // SB_DFFESR/ESS: enable gates the sync reset
+        if (ff.e_net && ff.sr_net && !ff.sr_first) return en ? (sr ? ff.sr_val : d) : q;   // SB_DFFESR/ESS: enable gates the sync reset
+        // Gowin DFFRE/DFFSE (sr_first): the sync reset/set acts whether or not the enable is on
         return sr ? ff.sr_val : (en ? d : q);
       });
       fire.forEach((ff, k) => { const qn = this._q(ff); if (this.rd(qn) !== next[k]) { this.nets[qn] = next[k]; changed = true; } });
@@ -911,7 +983,7 @@ class ICE40Emu {
     this.prevClk = this.ffs.map(ff => this.rd(this._c(ff)));        // no edge at power-up
     this.propagate();
   }
-  util()        { return (this.luts.length/5280*100).toFixed(1); }
+  util()        { return (lutCount(this)/this.lutMax*100).toFixed(1); }
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -920,7 +992,8 @@ class ICE40Emu {
 //  Handles: SB_LUT4 → lut, SB_CARRY → carry, SB_DFF* → ff,
 //           top-level ports → ports (pins are assigned later, by Place & Route)
 // ══════════════════════════════════════════════════════════════
-function yosysJsonToNetlist(yj) {
+function yosysJsonToNetlist(yj, family) {
+  family = family || 'ice40';
   // Find the user's top module: the one Yosys marked as top, else one named
   // 'top', else the module with the most cells.
   const allMods = Object.entries(yj.modules || {});
@@ -974,7 +1047,15 @@ function yosysJsonToNetlist(yj) {
     }
   }
 
+  // Gowin netlists drive constants from GND and VCC cells.
+  const constBit = {};
+  for (const cell of Object.values(cells)) {
+    if (cell.type === 'GND') for (const b of (cell.connections.G || [])) constBit[b] = 'const0';
+    if (cell.type === 'VCC') for (const b of (cell.connections.V || [])) constBit[b] = 'const1';
+  }
+
   function bname(bit) {
+    if (typeof bit === 'number' && constBit[bit]) return constBit[bit];
     if (bit === '0' || bit === 0) return 'const0';
     if (bit === '1' || bit === 1) return 'const1';
     if (bit === 'x' || bit === 'z') return 'const0';
@@ -1007,10 +1088,95 @@ function yosysJsonToNetlist(yj) {
 
   const luts = [], ffs = [], carries = [], unsupported = {};
   const pin = (cell, p) => { const b = (cell.connections[p]||[])[0]; return b==null ? 'const0' : bname(b); };
+  const outNet = (cell, p, cname) => { const b = (cell.connections[p] || [])[0]; return b == null ? null : bname(b); };
+  const gowin = { alu: 0, mux: 0, inv: 0 };
+
+  // A parameter as a number: Yosys writes "1000" (binary digits) or a plain number.
+  const num = (raw, dflt) => {
+    if (raw === undefined || raw === null) return dflt;
+    const t = String(raw);
+    if (/^[01]+$/.test(t) && t.length > 1) return parseInt(t, 2);
+    if (/^[01x]+$/.test(t)) return parseInt(t.replace(/x/g, '0'), 2);
+    return parseLutInit(raw);
+  };
+  // A 4-input table from a function of (I0, I1, I2, I3).
+  const table = (f) => { let tt = 0; for (let a = 0; a < 16; a++) if (f(a & 1, (a >> 1) & 1, (a >> 2) & 1, (a >> 3) & 1)) tt |= 1 << a; return tt; };
+  // Gowin ALU (Yosys techlibs/gowin/cells_sim.v): SUM = S ^ CIN, COUT = S ? CIN : C,
+  // with S and C set by ALU_MODE.
+  const ALU_SC = [
+    (i0, i1, i3) => [i0 ^ i1, i0],                      // 0 ADD
+    (i0, i1, i3) => [i0 ^ (1 - i1), i0],                // 1 SUB
+    (i0, i1, i3) => [i3 ? i0 ^ i1 : i0 ^ (1 - i1), i0], // 2 ADDSUB
+    (i0, i1, i3) => [i0 ^ (1 - i1), 1],                 // 3 NE
+    (i0, i1, i3) => [i0 ^ (1 - i1), i0],                // 4 GE
+    (i0, i1, i3) => [(1 - i0) ^ i1, i1],                // 5 LE
+    (i0, i1, i3) => [i0, 0],                            // 6 CUP
+    (i0, i1, i3) => [1 - i0, 1],                        // 7 CDN
+    (i0, i1, i3) => [i3 ? i0 : 1 - i0, i0],             // 8 CUPCDN
+    (i0, i1, i3) => [(i0 & i1) ^ i3, i0 & i1],          // 9 MULT
+  ];
+
+  // Gowin cells → the emulator's LUTs and flip-flops. Returns false for a cell it does not know.
+  function gowinCell(cname, cell) {
+    const t = cell.type;
+    let m;
+    if (t === 'GND' || t === 'VCC') return true;                       // constants, handled by bname
+    if ((m = t.match(/^LUT([1-4])$/))) {
+      const k = Number(m[1]), ins = ['I0', 'I1', 'I2', 'I3'].map((p, i) => i < k ? pin(cell, p) : 'const0');
+      luts.push({ id: cname, inputs: ins, truth_table: num(cell.parameters?.INIT, 0) & ((1 << (1 << k)) - 1),
+                  out: outNet(cell, 'F') || `lut_out_${cname}` });
+      return true;
+    }
+    if (t === 'INV') {
+      gowin.inv++;
+      luts.push({ id: cname, inputs: [pin(cell, 'I'), 'const0', 'const0', 'const0'], truth_table: 1, out: outNet(cell, 'O') || `inv_out_${cname}`, comment: 'INV' });
+      return true;
+    }
+    if (/^MUX2(_LUT[5-8])?$/.test(t)) {                                  // O = S0 ? I1 : I0
+      gowin.mux++;
+      luts.push({ id: cname, cell: t, comment: `${t}: O = S0 ? I1 : I0`, inputs: [pin(cell, 'I0'), pin(cell, 'I1'), pin(cell, 'S0'), 'const0'],
+                  truth_table: table((i0, i1, s) => s ? i1 : i0), out: outNet(cell, 'O') || `mux_out_${cname}` });
+      return true;
+    }
+    if (t === 'ALU') {
+      const mode = num(cell.parameters?.ALU_MODE, 0), sc = ALU_SC[mode];
+      if (!sc) { unsupported[`ALU (ALU_MODE=${mode})`] = (unsupported[`ALU (ALU_MODE=${mode})`] || 0) + 1; return true; }
+      gowin.alu++;
+      const ins = [pin(cell, 'I0'), pin(cell, 'I1'), pin(cell, 'I3'), pin(cell, 'CIN')];
+      const sum = outNet(cell, 'SUM'), cout = outNet(cell, 'COUT');
+      if (sum)  luts.push({ id: cname + '.SUM',  cell: 'ALU', comment: `ALU mode ${mode}: SUM`,  inputs: ins, out: sum,
+                            truth_table: table((i0, i1, i3, ci) => sc(i0, i1, i3)[0] ^ ci) });
+      if (cout) luts.push({ id: cname + '.COUT', cell: 'ALU', comment: `ALU mode ${mode}: COUT`, inputs: ins, out: cout,
+                            truth_table: table((i0, i1, i3, ci) => { const [S, C] = sc(i0, i1, i3); return S ? ci : C; }) });
+      return true;
+    }
+    // DFF[N][S|R|P|C][E]: N = falling edge; S/R = synchronous set/reset, P/C = asynchronous
+    // preset/clear; E = clock enable. Set and preset types start at 1 unless INIT says otherwise.
+    if ((m = t.match(/^DFF(N?)([SRPC]?)(E?)$/))) {
+      const qn = outNet(cell, 'Q');
+      const ff = { id: cname, type: t, d_net: pin(cell, 'D'), q_net: qn || `ff_q_${cname}`, c_net: pin(cell, 'CLK'),
+                   init: num(cell.parameters?.INIT, m[2] === 'S' || m[2] === 'P' ? 1 : 0) & 1 };
+      if (m[1]) ff.neg = true;
+      if (m[3]) ff.e_net = pin(cell, 'CE');
+      if (m[2]) {
+        ff.sr_net = pin(cell, { S: 'SET', R: 'RESET', P: 'PRESET', C: 'CLEAR' }[m[2]]);
+        ff.sr_val = m[2] === 'S' || m[2] === 'P' ? 1 : 0;
+        if (m[2] === 'P' || m[2] === 'C') ff.sr_async = true;
+        else ff.sr_first = true;
+      }
+      ffs.push(ff);
+      return true;
+    }
+    return false;
+  }
 
   for (const [cname, cell] of Object.entries(cells)) {
     const t = cell.type;
     if (t === '$scopeinfo') continue;               // bookkeeping cell, not hardware
+    if (family === 'gowin') {
+      if (!gowinCell(cname, cell)) unsupported[t] = (unsupported[t] || 0) + 1;
+      continue;
+    }
     if (t === 'SB_LUT4') {
       // LUTs — keyed by OUTPUT NET so downstream cells can read them.
       const raw = cell.parameters?.LUT_INIT ?? cell.parameters?.lut_init ?? '0';
@@ -1062,8 +1228,13 @@ function yosysJsonToNetlist(yj) {
     }
   }
 
-  log(`Converted: ${luts.length} LUTs · ${carries.length} carries · ${ffs.length} FFs · ${plist.length} port bits`, 'ok');
-  return { top: modName, luts, ffs, carries, ports: plist, ios: [], inputs: [] };
+  if (family === 'gowin') {
+    const nLut = luts.filter(l => !l.cell).length;
+    log(`Converted: ${nLut} LUTs${gowin.alu ? ` · ${gowin.alu} ALUs` : ''}${gowin.mux ? ` · ${gowin.mux} MUX2` : ''} · ${ffs.length} FFs · ${plist.length} port bits`, 'ok');
+  } else {
+    log(`Converted: ${luts.length} LUTs · ${carries.length} carries · ${ffs.length} FFs · ${plist.length} port bits`, 'ok');
+  }
+  return { top: modName, family, luts, ffs, carries, alus: gowin.alu, muxes: gowin.mux, ports: plist, ios: [], inputs: [] };
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -1078,8 +1249,13 @@ let yosysRun = null, synBusy = false, yosysReady = false;
 // VeriSim uses, so both tools draw the same circuit for the same design. The unpinned
 // "latest" build changes without notice and has grown to 79 MB.
 const YOSYS_VERSION = '0.66.1164';
-// The same script shape as VeriSim, with the iCE40 mapping in place of `synth`.
-const SYN_SCRIPT = 'synth_ice40 -nocarry -nobram -flatten; delete t:$scopeinfo; write_json out.json';
+// The same script shape as VeriSim, with the chip's mapping in place of `synth`.
+const SYN_SCRIPTS = {
+  ice40: 'synth_ice40 -nocarry -nobram -flatten; delete t:$scopeinfo; write_json out.json',
+  // Tang Nano 9K: LUTs, ALU carry chains, wide-LUT muxes and flip-flops, the cells Gowin's own
+  // synthesis uses too. Block RAM, LUT RAM, DSP multipliers and I/O buffers are left out (not modeled).
+  gowin: 'synth_gowin -nobram -nolutram -nodsp -noiopads; delete t:$scopeinfo; write_json out.json',
+};
 
 function sanitize(s){                                 // fix invisible/smart chars from slides (NBSP, smart quotes, zero-width)
   return s.replace(/[\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]/g,' ')
@@ -1244,7 +1420,7 @@ async function compileVerilog(src) {
       progress(msg);
     }, 500) : null;
     try {
-      out = await run(['-q', '-p', 'read_verilog design.v; ' + SYN_SCRIPT],
+      out = await run(['-q', '-p', 'read_verilog design.v; ' + SYN_SCRIPTS[board.family]],
         { 'design.v': new TextEncoder().encode(sanitize(src)) },
         { stdout: x => { logBuf += synBytesToStr(x); }, stderr: x => { logBuf += synBytesToStr(x); }, fetchProgress });
       yosysReady = true;
@@ -1571,6 +1747,132 @@ VERILOG_EXAMPLES["two_digits"] = { board: 'icebreaker', group: "7-segment and DI
 VERILOG_EXAMPLES["dip_hex"] = { board: 'icebreaker', group: "7-segment and DIP switch", v: "// The DIP switch (PMOD 1B) as a two-digit hex number on the 7-segment Pmod (PMOD 1A).\n// Switches 8-5 are the left digit, switches 4-1 the right digit. LED1-LED5 repeat\n// the lowest five switches.\nmodule top (\n  input  CLK,\n  input  [7:0] sw,\n  output [6:0] seg,                    // segments a..g, lit at 0\n  output ca,                           // digit select: 1 = right digit\n  output LED1, LED2, LED3, LED4, LED5\n);\n  assign {LED5, LED4, LED3, LED2, LED1} = sw[4:0];\n\n  reg [2:0] phase = 0;                 // show the digits in turn: 4 clocks each\n  always @(posedge CLK) phase <= phase + 1;\n  wire right = phase[2];\n  wire [3:0] digit = right ? sw[3:0] : sw[7:4];\n\n  reg [6:0] s;                         // segments g f e d c b a, 1 = lit\n  always @(*) begin\n    case (digit)\n      4'h0: s = 7'b0111111;   4'h1: s = 7'b0000110;   4'h2: s = 7'b1011011;   4'h3: s = 7'b1001111;\n      4'h4: s = 7'b1100110;   4'h5: s = 7'b1101101;   4'h6: s = 7'b1111101;   4'h7: s = 7'b0000111;\n      4'h8: s = 7'b1111111;   4'h9: s = 7'b1101111;   4'hA: s = 7'b1110111;   4'hB: s = 7'b1111100;\n      4'hC: s = 7'b0111001;   4'hD: s = 7'b1011110;   4'hE: s = 7'b1111001;   4'hF: s = 7'b1110001;\n    endcase\n  end\n  assign seg = ~s;\n  assign ca  = right;\nendmodule" };
 
 
+// Tang Nano 9K examples. Each brings its own .cst, written as in Gowin IDE.
+// LEDs light at 0 and buttons read 0 while pressed (active low), as on the real board.
+// CLK_HZ is the only number that changes on the real board: 1000 here, 27_000_000 there.
+VERILOG_EXAMPLES["two_buttons"] = { board: 'tangnano9k', group: 'Buttons and LEDs', v: `// The buttons S1 and S2 on the LEDs, straight wires and a few gates.
+// Both are active low on the Tang Nano 9K: a button reads 0 while pressed,
+// and an LED lights at 0. So a plain wire lights an LED while its button is down.
+module top (
+  input        btn1,    // S1, pin 4
+  input        btn2,    // S2, pin 3
+  output [5:0] led      // LED0-LED5, lit at 0
+);
+  wire s1 = ~btn1;      // 1 while S1 is pressed
+  wire s2 = ~btn2;      // 1 while S2 is pressed
+
+  assign led[0] = ~s1;          // S1
+  assign led[1] = ~s2;          // S2
+  assign led[2] = ~(s1 & s2);   // both pressed
+  assign led[3] = ~(s1 | s2);   // either pressed
+  assign led[4] = ~(s1 ^ s2);   // exactly one pressed
+  assign led[5] = 1'b1;         // off
+endmodule
+`, cst: `// Tang Nano 9K pins
+IO_LOC "btn1" 4;
+IO_LOC "btn2" 3;
+IO_LOC "led[0]" 10;
+IO_LOC "led[1]" 11;
+IO_LOC "led[2]" 13;
+IO_LOC "led[3]" 14;
+IO_LOC "led[4]" 15;
+IO_LOC "led[5]" 16;
+` };
+VERILOG_EXAMPLES["blink_1s"] = { board: 'tangnano9k', group: 'Clock and counters', v: `// LED0 blinks: half a second on, half a second off.
+// CLK_HZ is the clock frequency: 1000 in softfpga, 27_000_000 on the real board.
+module top (
+  input  clk,           // pin 52
+  output led            // LED0, pin 10, lit at 0
+);
+  parameter CLK_HZ = 1000;           // 27_000_000 on the Tang Nano 9K
+
+  reg [24:0] count = 0;
+  reg        on    = 0;
+
+  always @(posedge clk) begin
+    if (count == CLK_HZ / 2 - 1) begin
+      count <= 0;
+      on    <= ~on;
+    end else
+      count <= count + 1;
+  end
+
+  assign led = ~on;                  // lit at 0
+endmodule
+`, cst: `// Tang Nano 9K pins
+IO_LOC "clk" 52;
+IO_LOC "led" 10;
+` };
+VERILOG_EXAMPLES["running_led"] = { board: 'tangnano9k', group: 'Clock and counters', v: `// One lit LED runs along the six LEDs, a step every half second.
+// Hold S2 to start again from LED0 (an asynchronous reset, 0 while pressed).
+module top (
+  input            clk,      // pin 52
+  input            rst_n,    // S2, pin 3
+  output reg [5:0] led       // lit at 0
+);
+  parameter CLK_HZ = 1000;           // 27_000_000 on the Tang Nano 9K
+
+  reg [24:0] count;
+
+  always @(posedge clk or negedge rst_n) begin
+    if (!rst_n) begin
+      count <= 0;
+      led   <= 6'b111110;            // LED0 lit
+    end else if (count == CLK_HZ / 2 - 1) begin
+      count <= 0;
+      led   <= {led[4:0], led[5]};   // rotate left
+    end else
+      count <= count + 1;
+  end
+endmodule
+`, cst: `// Tang Nano 9K pins
+IO_LOC "clk" 52;
+IO_LOC "rst_n" 3;
+IO_LOC "led[0]" 10;
+IO_LOC "led[1]" 11;
+IO_LOC "led[2]" 13;
+IO_LOC "led[3]" 14;
+IO_LOC "led[4]" 15;
+IO_LOC "led[5]" 16;
+` };
+VERILOG_EXAMPLES["binary_count"] = { board: 'tangnano9k', group: 'Clock and counters', v: `// A 6-bit binary counter on the LEDs, four steps a second.
+// Hold S1 to stop it; S2 sets it back to zero.
+module top (
+  input        clk,     // pin 52
+  input        btn1,    // S1, pin 4: 0 while pressed
+  input        btn2,    // S2, pin 3: 0 while pressed
+  output [5:0] led      // lit at 0
+);
+  parameter CLK_HZ = 1000;           // 27_000_000 on the Tang Nano 9K
+
+  reg [24:0] tick = 0;
+  reg [5:0]  n    = 0;
+
+  always @(posedge clk) begin
+    if (!btn2) begin
+      tick <= 0;
+      n    <= 0;
+    end else if (tick == CLK_HZ / 4 - 1) begin
+      tick <= 0;
+      if (btn1) n <= n + 1;          // counts while S1 is not pressed
+    end else
+      tick <= tick + 1;
+  end
+
+  assign led = ~n;                   // a 1 bit lights its LED
+endmodule
+`, cst: `// Tang Nano 9K pins
+IO_LOC "clk" 52;
+IO_LOC "btn1" 4;
+IO_LOC "btn2" 3;
+IO_LOC "led[0]" 10;
+IO_LOC "led[1]" 11;
+IO_LOC "led[2]" 13;
+IO_LOC "led[3]" 14;
+IO_LOC "led[4]" 15;
+IO_LOC "led[5]" 16;
+` };
+
 
 // ══════════════════════════════════════════════════════════════
 //  STATE
@@ -1798,19 +2100,20 @@ window.doCompile = async function() {
   try {
     log(`── Synthesizing ${fnBuf.verilog} with Yosys ──`, 'inf');
     const yj = await compileVerilog(src);
-    const netlist = yosysJsonToNetlist(yj);
+    const netlist = yosysJsonToNetlist(yj, board.family);
+    netlist.lutMax = board.lutMax; netlist.chip = board.chip;
     // Name each LUT by its function (NOT/XOR/AND/…) so the schematic shows what every LUT does.
     for (const l of (netlist.luts || [])) {
       if (!l.comment) { const c = lutComment(l.truth_table, l.inputs); if (c) l.comment = c; }
     }
-    if (netlist.luts.length > 5280) throw new Error(`LUT count ${netlist.luts.length} > 5280 (iCE40UP5K)`);
+    if (lutCount(netlist) > board.lutMax) throw new Error(`LUT count ${lutCount(netlist)} > ${board.lutMax} (${board.chip})`);
     synthNl = netlist;
     synSetSource(src);                       // the Schematic tab draws this design
     window.__lastNetlist = netlist;
     setStatus('done', 'synthesized');
     setTimeout(statusAtRest, 1500);
     updateStats(); renderLEDs();
-    log(`Utilisation: ${(netlist.luts.length/5280*100).toFixed(1)}% of iCE40UP5K (${netlist.luts.length}/5280 LUTs, ${netlist.ffs.length} FFs)`, 'inf');
+    log(`Utilisation: ${(lutCount(netlist)/board.lutMax*100).toFixed(1)}% of ${board.chip} (${lutCount(netlist)}/${board.lutMax} LUTs${netlist.alus ? `, ${netlist.alus} ALUs` : ''}, ${netlist.ffs.length} FFs)`, 'inf');
     if (!netlist.luts.length && !netlist.ffs.length) log('The design needs no logic cells: its outputs are wired straight to inputs or constants.', 'dim');
     // The ports are not connected to anything yet.
     const ins  = netlist.ports.filter(p => p.dir === 'input').map(p => p.name);
@@ -1942,6 +2245,7 @@ const SEG_NAMES = ['seg-a','seg-b','seg-c','seg-d','seg-e','seg-f','seg-g','seg-
 // Without it the pins are shown as they are right now.
 function renderLEDs(duty) {
   if (board.id === 'icebreaker') return renderIce(duty);
+  if (board.id === 'tangnano9k') return renderTang(duty);
   const el = document.getElementById('leds-display'); if(!el) return;
   // The board always shows 8 LED slots (led7 left → led0 right), fixed.
   if (el.children.length !== 8) {
@@ -1979,6 +2283,7 @@ function renderLEDs(duty) {
 
 function renderSwitches() {
   if (board.id === 'icebreaker') return renderIceInputs();
+  if (board.id === 'tangnano9k') return renderTangInputs();
   const el=document.getElementById('sw-grid'); if(!el) return;
   // Which net is each switch wired to (by Place & Route)?
   const netForBit = {}, nameForBit = {};
@@ -2159,10 +2464,82 @@ function renderIceInputs() {
   }
 }
 
+// ══════════════════════════════════════════════════════════════
+//  Tang Nano 9K board
+//  Six LEDs (lit at 0) and the buttons S1 and S2 (0 while pressed).
+//  Drawn as the board lies with its buttons at the bottom (HDMI up): LED0 (pin 10) on the
+//  left through LED5 on the right, S1 on the left, S2 on the right.
+// ══════════════════════════════════════════════════════════════
+const TANG_LED_PINS = [10, 11, 13, 14, 15, 16];
+const TANG_BTN = [{ name: 'S1', pin: 4 }, { name: 'S2', pin: 3 }];
+
+function tangBuild() {
+  const el = document.getElementById('pcb-tangnano9k');
+  if (!el || el.dataset.built) return;
+  el.dataset.built = '1';
+  let leds = '';
+  for (let b = 0; b < 6; b++)
+    leds += `<div class="led-cell"><div class="led a" id="tang_led${b}"></div><div class="led-lbl">LED${b}</div><div class="pin-lbl">pin ${TANG_LED_PINS[b]}</div></div>`;
+  const btn = (b) => `<div class="ice-btn-cell"><button class="ice-btn" id="tang_btn${b}"></button><span>${TANG_BTN[b].name}</span><i>pin ${TANG_BTN[b].pin}</i></div>`;
+  el.innerHTML = `
+    <div class="board-row-title">LEDs · lit at 0</div>
+    <div class="led-row tang-leds">${leds}</div>
+    <div class="board-row-title">Buttons · 0 while pressed</div>
+    <div class="tang-btns">${btn(0)}${btn(1)}</div>
+    <div class="pcb-stencil">Tang Nano 9K · GW1NR-9C<br><span class="pcb-clk">clock = pin 52 · 1 kHz (27 MHz on the board)</span></div>`;
+  for (let b = 0; b < 2; b++) {
+    document.getElementById('tang_btn' + b).addEventListener('click', () => {
+      btnDown[b] ^= 1;
+      const inp = emu && emu.inputs.find(i => i.kind === 'btn' && i.bit === b);
+      if (inp) { swState[inp.net] = inputValue(inp); emu.setNet(inp.net, swState[inp.net]); }
+      renderTangInputs(); renderLEDs(); renderNets(); inspectLUT(inspLUT);
+    });
+  }
+}
+
+// duty (optional): for each LED, the share of the last frame it was lit (0..1).
+function renderTang(duty) {
+  tangBuild();
+  const named = {}, lit = {};
+  if (emu) for (const io of emu.getIO()) if (io.kind === 'led') { named[io.bit] = io.name; lit[io.bit] = (io.low ? !io.value : io.value) ? 1 : 0; }
+  for (let b = 0; b < 6; b++) {
+    const e = document.getElementById('tang_led' + b); if (!e) continue;
+    const v = named[b] === undefined ? 0 : duty ? duty[b] : lit[b], on = v > 0.02;
+    e.classList.toggle('on', on);
+    e.style.opacity = on && v < 0.98 ? (0.12 + 0.88 * v).toFixed(2) : '';
+    e.title = named[b] ? `pin ${TANG_LED_PINS[b]} ← ${named[b]}` : `LED${b}, pin ${TANG_LED_PINS[b]} — not connected`;
+  }
+  const cnt = document.getElementById('io-count');
+  if (cnt) cnt.textContent = emu ? `${emu.inputs.length} in · ${emu.ios.length} out placed` : (synthNl ? 'synthesized, not placed' : '');
+}
+
+function renderTangInputs() {
+  tangBuild();
+  const btnNet = {};
+  if (emu) for (const inp of emu.inputs) if (inp.kind === 'btn') btnNet[inp.bit] = inp.name;
+  for (let b = 0; b < 2; b++) {
+    const e = document.getElementById('tang_btn' + b); if (!e) continue;
+    e.classList.toggle('down', !!btnDown[b]);
+    e.style.opacity = emu && !btnNet[b] ? '.45' : '';
+    e.title = btnNet[b] ? `pin ${TANG_BTN[b].pin} → ${btnNet[b]} · click to hold, click again to release` : `${TANG_BTN[b].name}, pin ${TANG_BTN[b].pin} — not connected`;
+  }
+}
+
 // ── Choosing the board ──
+function renderDeviceCard() {
+  const set = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+  set('dev-chip', board.chip); set('dev-luts', board.lutMax + ' LUTs'); set('dev-ffs', board.ffMax + ' FFs');
+}
+
 function renderPinsCard() {
   const el = document.getElementById('pins-card-body'); if (!el) return;
   const row = (k, v) => `<div class="info-row"><span class="k">${k}</span><span class="v">${v}</span></div>`;
+  if (board.id === 'tangnano9k') {
+    el.innerHTML = row('Clock, 1 kHz (27 MHz on the board)', '52') + row('LED0 – LED5, lit at 0', '10 11 13 14 15 16')
+      + row('Buttons S1 · S2, 0 when pressed', '4 · 3') + row('UART TX · RX (not drawn)', '17 · 18')
+      + '<div class="info-note">In the .cst file, one line per port bit, as in Gowin IDE:<br><code>IO_LOC "led[0]" 10;</code></div>';
+    return;
+  }
   el.innerHTML = board.id === 'icebreaker'
     ? row('Clock CLK, 1 kHz', '35') + row('Button BTN_N', '10') + row('LEDR_N · LEDG_N', '11 · 37')
       + row('LED1 – LED5', '26 27 25 23 21') + row('BTN1 – BTN3', '20 19 18')
@@ -2180,15 +2557,22 @@ window.setBoard = function(id) {
     syncBuf();
     detachEmu();
     // the pin file belongs to the board: a new board starts with its own, the design is kept
-    const keepPins = buf.cst.trim() && buf.cst !== board.cstDefault && board.cstExt === next.cstExt;
+    // pin numbers belong to the board, and a netlist to its chip
+    const keepPins = buf.cst.trim() && buf.cst !== board.cstDefault && board.cstExt === next.cstExt && board.family === next.family;
+    const newChip = next.family !== board.family;
     board = next;
+    btnDown.fill(0);
+    if (newChip && synthNl) {
+      synthNl = null; window.__lastNetlist = null;
+      log(`The ${board.chip} is a different chip from the last synthesis: press ⚡ Synthesize again.`, 'warn');
+    }
     if (!keepPins) { buf.cst = board.cstDefault; fnBuf.cst = board.cstName; }
     const ed = document.getElementById('editor'); if (ed && mode === 'cst') ed.value = buf.cst;
     log(`Board: ${board.name}. The pin file is ${fnBuf.cst}. ${synthNl ? 'Press 📍 Place & Route to put the design on it.' : ''}`, 'inf');
   }
   if (sel) sel.value = board.id;
   for (const b of Object.keys(BOARDS)) { const p = document.getElementById('pcb-' + b); if (p) p.style.display = b === board.id ? '' : 'none'; }
-  buildExTabs(); renderTabs(); updateLineNums(); renderPinsCard();
+  buildExTabs(); renderTabs(); updateLineNums(); renderPinsCard(); renderDeviceCard(); updateStats();
   renderLEDs(); renderSwitches();
   setNext(synthNl ? 'pnr' : 'synth');
 }
@@ -2729,13 +3113,13 @@ function renderNets() {
 
 function updateStats() {
   const nl = emu || synthNl;
-  const nL = nl ? (nl.luts||[]).length : 0, nF = nl ? (nl.ffs||[]).length : 0;
-  const u = nL/5280*100;
+  const nL = nl ? lutCount(nl) : 0, nF = nl ? (nl.ffs||[]).length : 0;
+  const u = nL/board.lutMax*100;
   const set=(id,v)=>{ const e=document.getElementById(id); if(e) e.textContent=v; };
   set('st-luts',nL); set('st-ffs',nF); set('st-util',u.toFixed(1)+'%');
   set('sb-luts',nL); set('sb-ffs',nF); set('sb-util',u.toFixed(1)+'%');
   set('info-luts',nL); set('info-ffs',nF);
-  set('util-pct',`${nL} / 5280`);
+  set('util-pct',`${nL} / ${board.lutMax}`);
   const fill=document.getElementById('util-fill');
   if(fill){ fill.style.width=u+'%'; fill.className='util-fill'+(u>80?' danger':u>50?' warn':''); }
 }
