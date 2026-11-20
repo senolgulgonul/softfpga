@@ -109,6 +109,7 @@ uses, and the emulator runs that netlist.
 | button `S1` (0 while pressed) | 4 |
 | button `S2` (0 while pressed) | 3 |
 | USB serial TX, RX (not drawn) | 17, 18 |
+| the two 24-pin headers (not drawn) | 25–42, 48, 49, 51, 53–57, 63, 68–86 |
 
 - **Pin file as in Gowin IDE.** Constraints are written the Gowin way,
   `IO_LOC "led[0]" 10;`, and `IO_PORT` lines are accepted. A new design starts
@@ -118,6 +119,9 @@ uses, and the emulator runs that netlist.
   an LED lights at 0, a button reads 0 while pressed.
 - **Clock.** softfpga runs the clock at 1 kHz; the board has 27 MHz. The clocked
   examples use one constant, `CLK_HZ`, so that only that number changes.
+- **All the user pins.** Every IO pin of the two headers, of the USB serial and of
+  the SPI flash can be given to a port. They are not drawn on the board; the logic
+  analyzer shows them. An input on such a pin reads 1, as its pull-up would hold it.
 - **Uninitialized registers.** Gowin flip-flops with a set or preset start at 1
   unless the Verilog gives an initial value; softfpga follows the cell library.
 

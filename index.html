@@ -706,13 +706,28 @@ TANG_PIN[52] = { kind: 'clk', bit: 0, dir: 'input', label: 'clock (27 MHz crysta
 // PIN4_..._JTAG_SEL_S2, still carry the old labels.
 TANG_PIN[4] = { kind: 'btn', bit: 0, dir: 'input', low: true, label: 'button S1 (0 when pressed)' };
 TANG_PIN[3] = { kind: 'btn', bit: 1, dir: 'input', low: true, label: 'button S2 (0 when pressed)' };
-// pins of the board that softfpga does not draw; a design may still use them (watch them in the logic analyzer)
-Object.entries({ 17: 'UART TX (USB serial)', 18: 'UART RX (USB serial)',
-  33: 'LCD_DEN', 34: 'LCD_SYNC', 35: 'LCD_CLK', 40: 'LCD_HSYNC', 41: 'LCD_B4', 42: 'LCD_B3', 51: 'LCD_B2', 53: 'LCD_B1', 54: 'LCD_B0',
-  55: 'LCD_G5', 56: 'LCD_G4', 57: 'LCD_G3', 68: 'LCD_G2', 69: 'LCD_G1', 70: 'LCD_G0',
-  71: 'LCD_R4', 72: 'LCD_R3', 73: 'LCD_R2', 74: 'LCD_R1', 75: 'LCD_R0',
-  47: 'SPI LCD reset', 48: 'SPI LCD CS', 49: 'SPI LCD RS', 76: 'SPI LCD clock', 77: 'SPI LCD data',
-  59: 'SPI flash clock', 60: 'SPI flash CS', 61: 'SPI flash MOSI', 62: 'SPI flash MISO' })
+// Every other user pin of the board (Sipeed's pinout and schematic): the two 24-pin
+// headers, the USB serial and the SPI flash. softfpga does not draw them, but a design
+// may use them and the logic analyzer shows them. An input on such a pin reads 1, as
+// the pin's pull-up holds it (PULL_MODE=UP, the Gowin default).
+Object.entries({
+  // left header
+  38: 'IOB31B · TF_CS', 37: 'IOB31A · TF_MOSI', 36: 'IOB29B · TF_SCLK', 39: 'IOB33A · TF_MISO',
+  25: 'IOB8A', 26: 'IOB8B', 27: 'IOB11A', 28: 'IOB11B', 29: 'IOB13A', 30: 'IOB13B',
+  33: 'IOB23A · RGB_DE', 34: 'IOB23B · RGB_VS', 40: 'IOB33B · RGB_HS', 35: 'IOB29A · RGB_CK',
+  41: 'IOB41A · RGB_B7', 42: 'IOB41B · RGB_B6', 51: 'IOR17B · RGB_B5', 53: 'IOR15B · RGB_B4',
+  54: 'IOR15A · RGB_B3', 55: 'IOR14B · RGB_G7', 56: 'IOR14A · RGB_G6', 57: 'IOR13A · RGB_G5',
+  68: 'IOT42B · RGB_G4 · HDMI_CKN', 69: 'IOT42A · RGB_G3 · HDMI_CKP',
+  // right header
+  63: 'IOR5A · RGB_INIT', 86: 'IOT8A · RGB_BL', 85: 'IOT8B', 84: 'IOT10A', 83: 'IOT10B',
+  82: 'IOT11A', 81: 'IOT11B', 80: 'IOT12A', 79: 'IOT12B',
+  77: 'IOT37A · SPILCD_MO', 76: 'IOT37B · SPILCD_CK',
+  75: 'IOT38A · RGB_R3 · HDMI_D2P', 74: 'IOT38B · RGB_R4 · HDMI_D2N', 73: 'IOT39A · RGB_R5 · HDMI_D1P',
+  72: 'IOT39B · RGB_R6 · HDMI_D1N', 71: 'IOT41A · RGB_R7 · HDMI_D0P', 70: 'IOT41B · RGB_G2 · HDMI_D0N',
+  48: 'IOR24B · SPILCD_CS', 49: 'IOR24A · SPILCD_RS', 31: 'IOB15A · RGB_INIT', 32: 'IOB15B · RGB_INIT',
+  // on the board, not on a header
+  17: 'IOB2A · UART TX (USB serial)', 18: 'IOB2B · UART RX (USB serial)', 47: 'IOB43B · SPILCD_EN',
+  59: 'IOR12B · SPI flash clock', 60: 'IOR12A · SPI flash CS', 61: 'IOR11B · SPI flash MOSI', 62: 'IOR11A · SPI flash MISO' })
   .forEach(([p, label]) => { TANG_PIN[p] = { kind: 'pin', bit: 0, label: label + ' (not drawn)' }; });
 
 const TANGNANO9K = {
@@ -723,7 +738,8 @@ const TANGNANO9K = {
   cstName: 'tangnano9k.cst',
   clkPin: 52,
   pinInfo(pin) { return TANG_PIN[pin] || null; },
-  pinHelp: 'clock 52 · LED0-LED5 10 11 13 14 15 16 · S1 4 · S2 3 · UART TX 17, RX 18',
+  pinHelp: 'clock 52 · LED0-LED5 10 11 13 14 15 16 · S1 4 · S2 3 · UART TX 17, RX 18 · header pins 25-42, 48-57, 63, 68-86',
+  pullUp: true,                 // an input on a pin that is not drawn reads 1
   // A new design starts from this file: every pin of the board, commented out, as in Gowin IDE
   // one line per port bit. Remove the // in front of the lines the design needs.
   cstDefault: `// Tang Nano 9K pins. softfpga runs the clock at 1 kHz; the real board has a 27 MHz crystal.
@@ -1898,6 +1914,7 @@ const btnDown = [0, 0, 0, 0];
 function inputValue(inp) {
   if (inp.kind === 'sw')  return swPos[inp.bit] ? 1 : 0;
   if (inp.kind === 'btn') return (btnDown[inp.bit] ? 1 : 0) ^ (inp.low ? 1 : 0);     // BTN_N reads 0 when pressed
+  if (inp.kind === 'pin') return board.pullUp ? 1 : 0;      // a pin nothing drives: its pull-up, if the board has one
   return 0;
 }
 let buf   = { verilog: '', cst: CST_HINT };
@@ -2069,7 +2086,7 @@ function attachEmu(netlist) {
   emu = new ICE40Emu(netlist);
   window.__lastNetlist = netlist;
   swState = {};
-  for (const inp of emu.inputs) if (inp.kind === 'sw' || inp.kind === 'btn') swState[inp.net] = inputValue(inp);
+  for (const inp of emu.inputs) if (inp.kind === 'sw' || inp.kind === 'btn' || inp.kind === 'pin') swState[inp.net] = inputValue(inp);
   emu.reset(swState);
   setCycle(0);
   updateStats(); renderSwitches(); renderLEDs(); renderNets();
@@ -2467,8 +2484,9 @@ function renderIceInputs() {
 // ══════════════════════════════════════════════════════════════
 //  Tang Nano 9K board
 //  Six LEDs (lit at 0) and the buttons S1 and S2 (0 while pressed).
-//  Drawn as the board lies with its buttons at the bottom (HDMI up): LED0 (pin 10) on the
-//  left through LED5 on the right, S1 on the left, S2 on the right.
+//  Drawn as the board lies with its USB connector and buttons at the top: S2 on the left,
+//  S1 on the right, and the LEDs LED5 … LED0 from left to right, so LED0 (the lowest bit)
+//  is on the right, as a binary number is read.
 // ══════════════════════════════════════════════════════════════
 const TANG_LED_PINS = [10, 11, 13, 14, 15, 16];
 const TANG_BTN = [{ name: 'S1', pin: 4 }, { name: 'S2', pin: 3 }];
@@ -2478,14 +2496,14 @@ function tangBuild() {
   if (!el || el.dataset.built) return;
   el.dataset.built = '1';
   let leds = '';
-  for (let b = 0; b < 6; b++)
+  for (let b = 5; b >= 0; b--)
     leds += `<div class="led-cell"><div class="led a" id="tang_led${b}"></div><div class="led-lbl">LED${b}</div><div class="pin-lbl">pin ${TANG_LED_PINS[b]}</div></div>`;
   const btn = (b) => `<div class="ice-btn-cell"><button class="ice-btn" id="tang_btn${b}"></button><span>${TANG_BTN[b].name}</span><i>pin ${TANG_BTN[b].pin}</i></div>`;
   el.innerHTML = `
+    <div class="board-row-title">Buttons · 0 while pressed</div>
+    <div class="tang-btns">${btn(1)}${btn(0)}</div>
     <div class="board-row-title">LEDs · lit at 0</div>
     <div class="led-row tang-leds">${leds}</div>
-    <div class="board-row-title">Buttons · 0 while pressed</div>
-    <div class="tang-btns">${btn(0)}${btn(1)}</div>
     <div class="pcb-stencil">Tang Nano 9K · GW1NR-9C<br><span class="pcb-clk">clock = pin 52 · 1 kHz (27 MHz on the board)</span></div>`;
   for (let b = 0; b < 2; b++) {
     document.getElementById('tang_btn' + b).addEventListener('click', () => {
@@ -2537,6 +2555,8 @@ function renderPinsCard() {
   if (board.id === 'tangnano9k') {
     el.innerHTML = row('Clock, 1 kHz (27 MHz on the board)', '52') + row('LED0 – LED5, lit at 0', '10 11 13 14 15 16')
       + row('Buttons S1 · S2, 0 when pressed', '4 · 3') + row('UART TX · RX (not drawn)', '17 · 18')
+      + row('Header pins (not drawn)', '25–42, 48–57, 63, 68–86')
+      + '<div class="info-note">Header pins are not drawn; watch them in the Logic analyzer. An input on one reads 1 (pull-up).</div>'
       + '<div class="info-note">In the .cst file, one line per port bit, as in Gowin IDE:<br><code>IO_LOC "led[0]" 10;</code></div>';
     return;
   }
