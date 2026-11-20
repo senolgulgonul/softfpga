@@ -145,6 +145,13 @@ A design is two files, shown as tabs above the editor:
 
 Click a tab to edit that file; double-click it to rename the file.
 
+After **Synthesize** a third, read-only tab shows the **netlist**: the synthesized
+circuit as a Verilog file of the chip's cells, one instance per LUT, ALU or
+flip-flop, with their settings as `defparam` lines. On the Tang Nano 9K it is
+`name.vg`, in the form Gowin EDA writes its own netlist, so the two can be put side
+by side; on the iCE40 boards it is `name_netlist.v`. **Save** downloads it. The tab
+goes away when the design changes, until the next Synthesize.
+
 ## Constraints (.cst)
 
 Port names are free. Nothing is connected to the board until the `.cst` file
@@ -246,6 +253,10 @@ your design, the same way VeriSim does:
 - **Gates** — AND, OR and NOT gates and flip-flops.
 - **RTL** — word-level blocks (adders, comparators, multiplexers, registers), with
   the module hierarchy kept.
+- **Chip** — the chip's own cells: the netlist Synthesize made and the board runs.
+  On the iCE40 boards `SB_LUT4`, `SB_CARRY` and `SB_DFF…`; on the Tang Nano 9K
+  `LUT1`–`LUT4`, `ALU` carry chains, `MUX2_LUT5`… and `DFF…`, the cells Gowin EDA
+  uses too. Cells get short names (`ALU_3`, `LUT4_7`) so the drawing stays readable.
 
 Scroll zooms, drag pans, double-click fits the drawing into the panel. For a larger
 workspace, **⤢ Enlarge** (top right of the bottom panel) makes the panel fill the
@@ -255,8 +266,8 @@ its own browser tab, with the same zoom and pan, from where it can be saved or p
 is made after each successful Synthesize; the bar shows how many cells of each
 kind the circuit has. softfpga and VeriSim use the same Yosys release, the same
 scripts and the same drawing libraries, so the same design gives the same
-schematic in both. The emulator itself still runs the design on iCE40 LUT4s and
-flip-flops; the schematic is a readable view of the same logic.
+schematic in both. Gates and RTL are readable views of the same logic; Chip is the
+netlist the emulator runs.
 
 ---
 

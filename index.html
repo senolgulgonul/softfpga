@@ -369,6 +369,7 @@ button.file-tab {
   padding: 5px 13px; margin: 0; border: 1px solid var(--frame); border-bottom: none;
   border-radius: 6px 6px 0 0; background: #e7eaef; box-shadow: none; cursor: pointer;
 }
+button.file-tab.ro { font-style: italic; }
 button.file-tab:hover { background: #f1f3f6; border-color: var(--frame); color: var(--ink2); }
 button.file-tab.active {
   background: var(--panel2); color: var(--ink); font-weight: 600;
@@ -435,7 +436,7 @@ button.file-tab.active {
 
 <header>
   <div class="logo">soft<span>fpga</span></div>
-  <span class="ver">v2.30</span>
+  <span class="ver">v2.31</span>
   <span style="font-size:11px;color:var(--muted)"><span class="status-dot" id="sdot"></span><span id="stxt">idle</span></span>
 </header>
 
@@ -464,6 +465,7 @@ button.file-tab.active {
     <div class="file-tabs">
       <button class="file-tab active" id="tab-verilog" onclick="setMode('verilog')" ondblclick="renameFile('verilog')" title="Design file — double-click to rename">untitled.v</button>
       <button class="file-tab" id="tab-cst" onclick="setMode('cst')" ondblclick="renameFile('cst')" title="Constraints file (pin assignment) — double-click to rename">untitled.cst</button>
+      <button class="file-tab ro" id="tab-netlist" onclick="setMode('netlist')" title="The netlist Synthesize made, as a Verilog file of the chip's cells — read-only" style="display:none">netlist.vg</button>
     </div>
     <div class="editor-wrap">
       <div class="line-nums" id="lnums"></div>
@@ -494,7 +496,7 @@ button.file-tab.active {
       </div>
       <div class="la-pane" id="syn-pane" style="display:none">
         <div class="la-bar">
-          <span class="syn-seg"><button id="syn-gates" class="on" onclick="synSetMode('gates')" title="AND / OR / NOT gates and flip-flops">Gates</button><button id="syn-rtl" onclick="synSetMode('rtl')" title="Word-level blocks: adders, muxes, registers">RTL</button></span>
+          <span class="syn-seg"><button id="syn-gates" class="on" onclick="synSetMode('gates')" title="AND / OR / NOT gates and flip-flops">Gates</button><button id="syn-rtl" onclick="synSetMode('rtl')" title="Word-level blocks: adders, muxes, registers">RTL</button><button id="syn-chip" onclick="synSetMode('chip')" title="The chip's own cells, the netlist the board runs: LUTs, ALUs, flip-flops">Chip</button></span>
           <button onclick="synOpenWindow()" title="Open this drawing in a new browser tab">↗ New window</button>
           <span id="syn-stat" class="la-read"></span>
           <span class="la-hint">scroll = zoom · drag = pan · double-click = fit</span>
@@ -1266,11 +1268,14 @@ let yosysRun = null, synBusy = false, yosysReady = false;
 // "latest" build changes without notice and has grown to 79 MB.
 const YOSYS_VERSION = '0.66.1164';
 // The same script shape as VeriSim, with the chip's mapping in place of `synth`.
+// The same netlist as a Verilog file of the chip's cells, written the way Gowin EDA writes
+// its .vg: one instance per cell, parameters as defparam, generated names as genN.
+const NETLIST_V = 'write_verilog -noattr -simple-lhs -defparam -renameprefix gen netlist.v';
 const SYN_SCRIPTS = {
-  ice40: 'synth_ice40 -nocarry -nobram -flatten; delete t:$scopeinfo; write_json out.json',
+  ice40: 'synth_ice40 -nocarry -nobram -flatten; delete t:$scopeinfo; write_json out.json; ' + NETLIST_V,
   // Tang Nano 9K: LUTs, ALU carry chains, wide-LUT muxes and flip-flops, the cells Gowin's own
   // synthesis uses too. Block RAM, LUT RAM, DSP multipliers and I/O buffers are left out (not modeled).
-  gowin: 'synth_gowin -nobram -nolutram -nodsp -noiopads; delete t:$scopeinfo; write_json out.json',
+  gowin: 'synth_gowin -nobram -nolutram -nodsp -noiopads; delete t:$scopeinfo; write_json out.json; ' + NETLIST_V,
 };
 
 function sanitize(s){                                 // fix invisible/smart chars from slides (NBSP, smart quotes, zero-width)
@@ -1461,6 +1466,7 @@ async function compileVerilog(src) {
     }
     const jsonStr = synBytesToStr(raw);
     window.__lastYosysJSON = jsonStr;
+    window.__lastNetlistV = out['netlist.v'] ? synBytesToStr(out['netlist.v']) : '';
     return JSON.parse(jsonStr);
   } finally {
     synBusy = false;
@@ -1935,7 +1941,22 @@ function setNext(step) {
 // Save what is in the editor into the buffer of the open tab.
 function syncBuf() {
   const ed = document.getElementById('editor');
-  if (ed) buf[mode] = ed.value;
+  if (ed && mode !== 'netlist') buf[mode] = ed.value;     // the netlist tab is read-only
+}
+
+// The netlist tab: filled by Synthesize, gone when the design changes.
+function setNetlist(text) {
+  buf.netlist = text || '';
+  if (buf.netlist) {
+    const base = (fnBuf.verilog || 'untitled.v').replace(/\.[^.]*$/, '');
+    fnBuf.netlist = base + (board.family === 'gowin' ? '.vg' : '_netlist.v');
+  }
+  if (mode === 'netlist') {
+    if (!buf.netlist) mode = 'verilog';
+    const ed = document.getElementById('editor'); if (ed) ed.value = buf[mode] || '';
+    updateLineNums();
+  }
+  renderTabs();
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -1972,19 +1993,24 @@ function setStatus(s, msg) {
 // Apply the tab/label UI for a given editor mode (no content change).
 // Draw the two file tabs (name + which one is open).
 function renderTabs() {
-  for (const m of ['verilog', 'cst']) {
+  for (const m of ['verilog', 'cst', 'netlist']) {
     const t = document.getElementById('tab-' + m); if (!t) continue;
-    t.textContent = fnBuf[m];
+    t.textContent = fnBuf[m] || '';
     t.classList.toggle('active', m === mode);
   }
+  const nt = document.getElementById('tab-netlist');
+  if (nt) nt.style.display = buf.netlist ? '' : 'none';
+  const ed = document.getElementById('editor');
+  if (ed) ed.readOnly = mode === 'netlist';
 }
 
 // Open a file tab in the editor.
 window.setMode = function(m) {
   const ed = document.getElementById('editor');
   syncBuf();                                // keep the outgoing tab's text
+  if (m === 'netlist' && !buf.netlist) m = 'verilog';
   mode = m;
-  if (ed) ed.value = buf[m];
+  if (ed) ed.value = buf[m] || '';
   renderTabs();
   updateLineNums();
 }
@@ -2125,7 +2151,8 @@ window.doCompile = async function() {
     }
     if (lutCount(netlist) > board.lutMax) throw new Error(`LUT count ${lutCount(netlist)} > ${board.lutMax} (${board.chip})`);
     synthNl = netlist;
-    synSetSource(src);                       // the Schematic tab draws this design
+    synSetSource(src, { json: yj, name: board.chip });   // the Schematic tab draws this design
+    setNetlist(window.__lastNetlistV);                       // and the netlist tab shows it as Verilog
     window.__lastNetlist = netlist;
     setStatus('done', 'synthesized');
     setTimeout(statusAtRest, 1500);
@@ -2582,6 +2609,8 @@ window.setBoard = function(id) {
     const newChip = next.family !== board.family;
     board = next;
     btnDown.fill(0);
+    if (newChip && syn.chip) { syn.chip = null; syn.cache.chip = null; if (bottomMode === 'syn') synRender(); }
+    if (newChip && buf.netlist) setNetlist('');
     if (newChip && synthNl) {
       synthNl = null; window.__lastNetlist = null;
       log(`The ${board.chip} is a different chip from the last synthesis: press ⚡ Synthesize again.`, 'warn');
@@ -2943,6 +2972,8 @@ function initSplitter() {
 //  The synthesized circuit, drawn the way VeriSim draws it:
 //    Gates  AND / OR / NOT gates and flip-flops
 //    RTL    word-level blocks (adders, muxes, registers), hierarchy kept
+//    Chip   the chip's own cells, the netlist that Synthesize made and the board runs
+//           (iCE40: SB_LUT4, SB_DFF…; Tang Nano 9K: LUT1-4, ALU, MUX2_LUT5…, DFF…)
 //  Yosys produces the netlist; netlistsvg + ELK lay it out.
 //  scroll = zoom · drag = pan · double-click = fit
 // ══════════════════════════════════════════════════════════════
@@ -2955,19 +2986,22 @@ const SYN_VIEW = {
 const syn = {
   mode: 'gates',
   src: null,                        // the Verilog of the last successful synthesis
-  cache: { gates: null, rtl: null },// drawing per mode: { svg, stat } or { error }
+  cache: { gates: null, rtl: null, chip: null },// drawing per mode: { svg, stat } or { error }
+  chip: null,                       // { json, name }: the netlist of the last synthesis, and its chip
   busy: false,
   svg: null, z: 1, px: 0, py: 0,    // pan / zoom state
 };
 
 // Called by Synthesize: a new source (or null when there is none).
-function synSetSource(src) {
+function synSetSource(src, chip) {
+  if (!src && buf.netlist) setNetlist('');
   syn.src = src || null;
-  syn.cache = { gates: null, rtl: null };
+  syn.chip = src && chip ? chip : null;
+  syn.cache = { gates: null, rtl: null, chip: null };
   if (bottomMode === 'syn') synRender();
 }
 window.synSetMode = function(m) {
-  syn.mode = m === 'rtl' ? 'rtl' : 'gates';
+  syn.mode = m === 'rtl' || m === 'chip' ? m : 'gates';
   synRender();
 }
 
@@ -3000,14 +3034,46 @@ function synShow(res) {
 
 async function synRender() {
   if (bottomMode !== 'syn') return;
-  for (const [id, m] of [['syn-gates', 'gates'], ['syn-rtl', 'rtl']]) { const b = document.getElementById(id); if (b) b.classList.toggle('on', m === syn.mode); }
+  for (const [id, m] of [['syn-gates', 'gates'], ['syn-rtl', 'rtl'], ['syn-chip', 'chip']]) { const b = document.getElementById(id); if (b) b.classList.toggle('on', m === syn.mode); }
   if (!syn.src) {
-    synEmpty('Press <b>⚡ Synthesize</b> to see the circuit of your design here, as gates or as RTL blocks.');
+    synEmpty('Press <b>⚡ Synthesize</b> to see the circuit of your design here: as gates, as RTL blocks, or as the cells of the chip.');
     synStat('');
     return;
   }
   const mode = syn.mode, src = syn.src;
   if (syn.cache[mode]) { synShow(syn.cache[mode]); return; }
+  if (mode === 'chip') {
+    if (!syn.chip) { synEmpty(`Press <b>⚡ Synthesize</b> to see the cells of the ${synEsc(board.chip)} that your design is made of.`); synStat(''); return; }
+    if (syn.busy) return;
+    syn.busy = true;
+    synStat('drawing…');
+    let res;
+    try {
+      if (typeof ELK === 'undefined') await loadScript('elk.bundled.js');
+      if (typeof netlistsvg === 'undefined') await loadScript('netlistsvg.bundle.js');
+      // only the design's own module: the cell library comes along in the JSON as blackboxes
+      const mods = syn.chip.json.modules || {};
+      const isTop = (m) => m.attributes && parseInt(String(m.attributes.top || '0'), 2) === 1;
+      const top = Object.entries(mods).find(([, m]) => isTop(m)) || Object.entries(mods)[0];
+      const mod = JSON.parse(JSON.stringify(top[1]));
+      // short cell names (ALU_3, LUT4_7) in place of Yosys' generated ones, so the labels stay readable
+      const cells = {}, named = {};
+      for (const c of Object.values(mod.cells || {})) {
+        const t = String(c.type || ''); if (/scopeinfo/i.test(t)) continue;
+        cells[t] = (cells[t] || 0) + 1;
+        named[`${t}_${cells[t]}`] = c;
+      }
+      mod.cells = named;
+      const one = { modules: { [top[0]]: mod } };
+      const summary = Object.entries(cells).sort().map(([k, v]) => v + '×' + k).join('  ');
+      const svg = await netlistsvg.render(netlistsvg.digitalSkin, one);
+      res = { svg, stat: `Chip (${syn.chip.name})` + (summary ? '  ·  ' + summary : '  ·  wires only') };
+    } catch (e) { res = { error: (e && e.message) || String(e) }; }
+    syn.busy = false;
+    if (syn.src === src) syn.cache.chip = res;
+    synRender();
+    return;
+  }
   if (syn.busy) return;                                      // the running job re-checks when it ends
   syn.busy = true;
   synStat('drawing…');
@@ -3097,7 +3163,7 @@ function initBottomMax() {
 window.synOpenWindow = function() {
   const res = syn.src && syn.cache[syn.mode];
   if (!res || !res.svg) { log('No schematic to open yet — press ⚡ Synthesize first.', 'warn'); return; }
-  const title = `${fnBuf.verilog} — ${syn.mode === 'gates' ? 'Gates' : 'RTL'} — softfpga`;
+  const title = `${fnBuf.verilog} — ${syn.mode === 'gates' ? 'Gates' : syn.mode === 'rtl' ? 'RTL' : 'Chip'} — softfpga`;
   const page = `<!doctype html><html><head><meta charset="utf-8"><title>${synEsc(title)}</title>
 <style>html,body{margin:0;height:100%;background:#fff;font-family:system-ui,sans-serif}
 #bar{position:fixed;left:0;right:0;top:0;padding:6px 12px;font-size:12px;color:#555;background:#f3f4f6;border-bottom:1px solid #d5d8de;z-index:2}
@@ -3246,6 +3312,7 @@ function loadExample(name) {
 
 window.onEdit = function() {
   updateLineNums();
+  if (mode === 'verilog' && buf.netlist) setNetlist('');    // the netlist no longer matches the design
   if (mode === 'verilog') setNext('synth');
   else if (synthNl) setNext('pnr');
 }
@@ -3315,7 +3382,7 @@ window.openFile = function() {
 window.saveFile = async function() {
   syncBuf();
   const text = buf[mode];
-  const wantExt = mode === 'cst' ? board.cstExt : '.v';
+  const wantExt = mode === 'cst' ? board.cstExt : mode === 'netlist' ? ((fnBuf.netlist || '').match(/\.[^.]+$/) || ['.v'])[0] : '.v';
   let name = (fnBuf[mode] || '').trim() || 'untitled';
   if (!new RegExp(wantExt.replace('.','\\.')+'$','i').test(name)) {
     name = name.replace(/\.[^.]*$/, '') + wantExt;
@@ -3327,7 +3394,7 @@ window.saveFile = async function() {
     try {
       const handle = await window.showSaveFilePicker({
         suggestedName: name,
-        types: [{ description: mode === 'cst' ? 'Constraints file' : 'Verilog source', accept: { 'text/plain': [wantExt] } }]
+        types: [{ description: mode === 'cst' ? 'Constraints file' : mode === 'netlist' ? 'Netlist' : 'Verilog source', accept: { 'text/plain': [wantExt] } }]
       });
       const w = await handle.createWritable();
       await w.write(text);
